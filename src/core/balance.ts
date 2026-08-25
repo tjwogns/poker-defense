@@ -16,7 +16,7 @@ export const BOSS_EVERY = 10;
 
 // ── 적 ────────────────────────────────────────────────
 export const ENEMY_BASE_HP = 18;
-export const ENEMY_HP_GROWTH = 1.15;
+export const ENEMY_HP_GROWTH = 1.14;
 export const ENEMY_BASE_SPEED = 60;   // px/s
 export const BOSS_HP_MULT = 40;
 
@@ -52,7 +52,7 @@ export function exchangeCost(exchangesUsed: number): number {
 
 // ── 전역 공격력 강화 ──────────────────────────────────
 export function upgradeCost(level: number): number {
-  return Math.round(50 * Math.pow(1.25, level));
+  return Math.round(50 * Math.pow(1.2, level));
 }
 export function upgradeMultiplier(level: number): number {
   return Math.pow(1.08, level);

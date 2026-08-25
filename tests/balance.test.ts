@@ -8,10 +8,10 @@ import { ENEMY_KINDS, waveKind } from '../src/core/enemies';
 import { HandRank } from '../src/core/cards/types';
 
 describe('balance formulas', () => {
-  test('적 HP 공식: 18 × 1.15^n (기획안 스팟 체크)', () => {
+  test('적 HP 공식: 18 × 1.14^n (시뮬레이션 튜닝 후 값)', () => {
     expect(Math.round(enemyHp(1))).toBe(21);
-    expect(enemyHp(30)).toBeGreaterThan(1150);
-    expect(enemyHp(30)).toBeLessThan(1250);
+    expect(enemyHp(30)).toBeGreaterThan(880);
+    expect(enemyHp(30)).toBeLessThan(950);
   });
 
   test('교환 비용: 첫 회 무료, 이후 10/25/50/100/200', () => {
@@ -29,9 +29,9 @@ describe('balance formulas', () => {
     expect(interest(7)).toBe(0);
   });
 
-  test('강화 비용 50×1.25^lv, 효과 +8%/lv 곱연산', () => {
+  test('강화 비용 50×1.2^lv, 효과 +8%/lv 곱연산', () => {
     expect(upgradeCost(0)).toBe(50);
-    expect(upgradeCost(1)).toBe(63);
+    expect(upgradeCost(1)).toBe(60);
     expect(upgradeMultiplier(0)).toBe(1);
     expect(upgradeMultiplier(2)).toBeCloseTo(1.1664, 4);
   });
