@@ -81,6 +81,8 @@ export class PlayScene extends Phaser.Scene {
     );
 
     this.refreshUI();
+    // E2E/디버그용 훅
+    (window as unknown as { __game?: Game }).__game = this.core;
   }
 
   update(_time: number, deltaMs: number): void {

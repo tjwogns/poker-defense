@@ -84,7 +84,7 @@ export class SidePanel {
         makeButton(scene, 838 + (n - 1) * 84, 452, 72, 38, `×${n}`, () => cb.onSpeed(n)),
       );
     }
-    this.combatText = makeText(scene, 1110, 442, '', 14, UI.textDim);
+    this.combatText = makeText(scene, PX, 486, '', 13, UI.textDim);
 
     this.helpText = makeText(
       scene, PX, 620,
@@ -149,7 +149,7 @@ export class SidePanel {
       this.speedBtns[i].container.setVisible(!inPrep && g.phase === 'combat');
       this.speedBtns[i].setLabel(speed === i + 1 ? `×${i + 1} ●` : `×${i + 1}`);
     }
-    this.combatText.setText(g.phase === 'combat' ? '적을 처치하거나 시간이 지나면 라운드 종료' : '');
+    this.combatText.setText(g.phase === 'combat' ? '적 전멸 또는 시간 경과 시 라운드 종료 · 생존한 적은 이월' : '');
     this.combatText.setVisible(g.phase === 'combat');
   }
 }
