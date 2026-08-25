@@ -38,17 +38,17 @@ tests/*.test.ts              vitest (core만 테스트)
 
 ## Tasks
 
-- [ ] **T1. 카드 코어 (TDD)** — rng, types, evaluator, deck.
+- [x] **T1. 카드 코어 (TDD)** — rng, types, evaluator, deck.
   테스트 케이스: 10개 족보 각 1+, 백스트레이트(A-2-3-4-5=Straight), 로열 vs 스트레이트플러시 구분,
   플러시+스트레이트 동시=StraightFlush, 트리플 vs 투페어 우선, exchange가 홀드 카드 보존·중복 카드 없음,
   같은 시드=같은 드로우.
-- [ ] **T2. balance.ts + units.ts + enemies.ts + map.ts** — 기획안 수치 그대로. 테스트: HP 공식 spot check(R1=21, R30≈1190), 교환 비용 수열, 이자 상한.
-- [ ] **T3. combat.ts (TDD 핵심만)** — 테스트: first 타깃팅, 슬로우 이속 감소, 방어형 25% 감산+저격수 무시, 스플래시 반경, 처치 골드/분열, 80마리 패배 판정.
-- [ ] **T4. game.ts** — 테스트: prep→combat 전이, 이자 지급 상한 50, 교환 비용 차감, 확정 시 유닛 획득, 배치 상한 30, 60라운드 승리.
-- [ ] **T5. sim/run.ts** — 휴리스틱 전략으로 seed 1..N 자동 플레이 → 클리어율/평균 도달 라운드 출력. 밸런스 1차 패스(목표: 평균 도달 35~55R, 클리어율 5~40% 구간으로 성장률·강화 효율 조정).
-- [ ] **T6. Phaser UI** — PlayScene/FieldRenderer/HandBar/SidePanel. 준비 페이즈(카드 조작·배치·강화) + 전투(배속 ×1/×2/×3) + 승패 오버레이 + 풀하우스 이상 연출.
-- [ ] **T7. 검증·커밋** — vitest 전체 PASS, `npm run build` 성공, sim 결과 기록, git 커밋.
-- [ ] **T8. 단일 파일 빌드(SINGLEFILE=1) → 아티팩트로 플레이 가능 링크 게시.**
+- [x] **T2. balance.ts + units.ts + enemies.ts + map.ts** — 기획안 수치 그대로. 테스트: HP 공식 spot check(R1=21, R30≈1190), 교환 비용 수열, 이자 상한.
+- [x] **T3. combat.ts (TDD 핵심만)** — 테스트: first 타깃팅, 슬로우 이속 감소, 방어형 25% 감산+저격수 무시, 스플래시 반경, 처치 골드/분열, 80마리 패배 판정.
+- [x] **T4. game.ts** — 테스트: prep→combat 전이, 이자 지급 상한 50, 교환 비용 차감, 확정 시 유닛 획득, 배치 상한 30, 60라운드 승리.
+- [x] **T5. sim/run.ts** — 휴리스틱 전략으로 seed 1..N 자동 플레이 → 클리어율/평균 도달 라운드 출력. 밸런스 1차 패스(목표: 평균 도달 35~55R, 클리어율 5~40% 구간으로 성장률·강화 효율 조정).
+- [x] **T6. Phaser UI** — PlayScene/FieldRenderer/HandBar/SidePanel. 준비 페이즈(카드 조작·배치·강화) + 전투(배속 ×1/×2/×3) + 승패 오버레이 + 풀하우스 이상 연출.
+- [x] **T7. 검증·커밋** — vitest 전체 PASS, `npm run build` 성공, sim 결과 기록, git 커밋.
+- [x] **T8. 단일 파일 빌드(SINGLEFILE=1) → 아티팩트로 플레이 가능 링크 게시.**
 
 ## MVP에서 의도적으로 뺀 것 (기획안 12장 컷라인)
 
