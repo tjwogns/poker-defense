@@ -17,6 +17,7 @@ import { SuitPowerBar } from './SuitPowerBar';
 import { BossHud } from './BossHud';
 import { downloadShareCard, shareRun } from './ShareCard';
 import { GuideOverlay } from './GuideOverlay';
+import { ExitConfirmOverlay } from './ExitConfirmOverlay';
 import { Analytics, getAnalytics } from '../meta/analytics';
 import { tileCanReachPath } from '../core/map';
 
@@ -48,6 +49,8 @@ export class PlayScene extends Phaser.Scene {
   private relicOverlay: Phaser.GameObjects.Container | null = null;
   private guideOverlay: GuideOverlay | null = null;
   private guideWasPaused = false;
+  private exitOverlay: ExitConfirmOverlay | null = null;
+  private exitWasPaused = false;
   private analytics!: Analytics;
   private runId = '';
   private runStartedAt = 0;
@@ -81,6 +84,8 @@ export class PlayScene extends Phaser.Scene {
     this.relicOverlay = null;
     this.guideOverlay = null;
     this.guideWasPaused = false;
+    this.exitOverlay = null;
+    this.exitWasPaused = false;
     this.lastTrackedRound = 1;
     this.firstCombatTracked = false;
     this.abandonedTracked = false;
@@ -125,7 +130,7 @@ export class PlayScene extends Phaser.Scene {
       onFuse: () => this.fuseSelected(),
       onPause: () => this.togglePause(),
       onSound: () => this.toggleSound(),
-      onHome: () => this.scene.start('menu'),
+      onHome: () => this.requestExit(),
       onGuide: () => this.openGuide(),
     });
     this.powerBar = new SuitPowerBar(this, this.core, (suit) => this.usePower(suit));
@@ -323,15 +328,15 @@ export class PlayScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     keyboard.on('keydown-E', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.exitOverlay) return;
       if (this.core.doExchange()) this.onHandAction('exchange');
     });
     keyboard.on('keydown-ENTER', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.exitOverlay) return;
       if (this.core.confirmHand() !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.exitOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
         this.trackCombatStarted();
@@ -341,7 +346,7 @@ export class PlayScene extends Phaser.Scene {
     });
     for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
       keyboard.on(`keydown-${key}`, () => {
-        if (this.guideOverlay) return;
+        if (this.guideOverlay || this.exitOverlay) return;
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
@@ -350,23 +355,57 @@ export class PlayScene extends Phaser.Scene {
     }
     const powers: Array<[string, Suit]> = [['Q', 'S'], ['W', 'H'], ['R', 'D'], ['T', 'C']];
     for (const [key, suit] of powers) {
-      keyboard.on(`keydown-${key}`, () => this.usePower(suit));
+      keyboard.on(`keydown-${key}`, () => {
+        if (!this.exitOverlay) this.usePower(suit);
+      });
     }
     keyboard.on('keydown-M', () => {
-      if (!this.guideOverlay) this.toggleSound();
+      if (!this.guideOverlay && !this.exitOverlay) this.toggleSound();
     });
     keyboard.on('keydown-H', () => {
-      if (this.tutorialActive || this.ended || this.relicOverlay) return;
+      if (this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
       if (this.guideOverlay) this.closeGuide();
       else this.openGuide();
     });
     keyboard.on('keydown-ESC', () => {
-      if (this.guideOverlay) this.closeGuide();
+      if (this.exitOverlay) this.closeExitConfirm();
+      else if (this.guideOverlay) this.closeGuide();
     });
   }
 
+  private requestExit(): void {
+    if (this.ended || this.exitOverlay) return;
+    const hasProgress = this.core.phase === 'combat'
+      || this.core.round > 1
+      || this.core.handConfirmed
+      || this.core.field.units.length > 0
+      || this.core.pendingUnits.length > 0;
+    if (!hasProgress) {
+      this.scene.start('menu');
+      return;
+    }
+    this.exitWasPaused = this.paused;
+    if (this.core.phase === 'combat') this.paused = true;
+    this.exitOverlay = new ExitConfirmOverlay(
+      this,
+      () => this.closeExitConfirm(),
+      () => this.scene.start('menu'),
+    );
+    this.audio.play('click');
+    this.refreshUI();
+  }
+
+  private closeExitConfirm(): void {
+    if (!this.exitOverlay) return;
+    this.exitOverlay.destroy();
+    this.exitOverlay = null;
+    if (this.core.phase === 'combat') this.paused = this.exitWasPaused;
+    this.audio.play('click');
+    this.refreshUI();
+  }
+
   private openGuide(): void {
-    if (this.guideOverlay || this.tutorialActive || this.ended || this.relicOverlay) return;
+    if (this.guideOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
     this.guideWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
     this.guideOverlay = new GuideOverlay(this, () => this.closeGuide());
