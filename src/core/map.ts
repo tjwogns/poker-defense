@@ -59,3 +59,20 @@ export function isPlaceable(x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return false;
   return !isPathTile(x, y);
 }
+
+/** 해당 타일의 유닛 사거리가 사각 경로에 한 지점이라도 닿는지 판정한다. */
+export function tileCanReachPath(x: number, y: number, rangeTiles: number): boolean {
+  if (!isPlaceable(x, y) || rangeTiles < 0) return false;
+  const point = tileCenter(x, y);
+  const rangePx = rangeTiles * TILE;
+  return SEGMENTS.some((segment) => distanceToSegment(point, segment.a, segment.b) <= rangePx);
+}
+
+function distanceToSegment(point: Pt, a: Pt, b: Pt): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared));
+  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}

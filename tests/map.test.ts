@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   GRID_W, GRID_H, TILE, PATH_LENGTH,
-  pointAt, tileCenter, isPathTile, isPlaceable,
+  pointAt, tileCenter, isPathTile, isPlaceable, tileCanReachPath,
 } from '../src/core/map';
 
 describe('map & path', () => {
@@ -35,5 +35,19 @@ describe('map & path', () => {
     expect(isPlaceable(-1, 0)).toBe(false); // 그리드 밖
     expect(isPlaceable(GRID_W, 0)).toBe(false);
     expect(isPlaceable(0, GRID_H)).toBe(false);
+  });
+});
+
+describe('unit path reachability', () => {
+  test('경로에 가까운 타일은 짧은 사거리로도 공격할 수 있다', () => {
+    expect(tileCanReachPath(6, 2, 1.5)).toBe(true);
+  });
+
+  test('필드 중앙은 사거리 3 유닛에게 무효 위치다', () => {
+    expect(tileCanReachPath(6, 6, 3)).toBe(false);
+  });
+
+  test('장거리 유닛은 중앙에서도 경로에 닿는다', () => {
+    expect(tileCanReachPath(6, 6, 6)).toBe(true);
   });
 });

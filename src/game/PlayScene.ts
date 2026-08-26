@@ -18,6 +18,7 @@ import { BossHud } from './BossHud';
 import { downloadShareCard, shareRun } from './ShareCard';
 import { GuideOverlay } from './GuideOverlay';
 import { Analytics, getAnalytics } from '../meta/analytics';
+import { tileCanReachPath } from '../core/map';
 
 const DT = 1 / TICK_RATE;
 
@@ -165,7 +166,7 @@ export class PlayScene extends Phaser.Scene {
     this.damageLabelShownThisFrame = false;
     this.cameraShakenThisFrame = false;
     if (this.core.phase === 'combat' && !this.paused) this.stepCombat(dt);
-    this.fieldView.update(this.core, this.selectedUnitId, this.isPlacing(), this.fx, dt);
+    this.fieldView.update(this.core, this.selectedUnitId, this.placementTier(), this.fx, dt);
     this.bossHud.refresh(this.core);
     this.syncRelicPicker();
   }
@@ -191,8 +192,12 @@ export class PlayScene extends Phaser.Scene {
 
   // ── 입력 ──────────────────────────────────────────
 
-  private isPlacing(): boolean {
-    return (this.core.phase === 'prep' && this.core.pendingUnits.length > 0) || this.moving;
+  private placementTier(): HandRank | null {
+    if (this.core.phase !== 'prep') return null;
+    if (this.moving && this.selectedUnitId !== null) {
+      return this.core.field.units.find((unit) => unit.id === this.selectedUnitId)?.tier ?? null;
+    }
+    return this.core.pendingUnits[0] ?? null;
   }
 
   private onFieldClick(px: number, py: number): void {
@@ -202,6 +207,16 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     if (this.core.phase === 'prep' && this.moving && this.selectedUnitId !== null) {
+      const movingUnit = this.core.field.units.find((unit) => unit.id === this.selectedUnitId);
+      if (movingUnit && !tileCanReachPath(t.tx, t.ty, UNIT_DEFS[movingUnit.tier].range)) {
+        this.analytics.track('placement_blocked', {
+          round: this.core.round,
+          tier: movingUnit.tier,
+          action: 'move',
+        }, this.runId);
+        this.flashCenter('경로가 사거리 밖입니다', UI.danger);
+        return;
+      }
       if (this.core.moveUnit(this.selectedUnitId, t.tx, t.ty)) {
         this.audio.play('click');
         this.moving = false;
@@ -215,6 +230,16 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     if (this.core.phase === 'prep' && this.core.pendingUnits.length > 0) {
+      const pendingTier = this.core.pendingUnits[0];
+      if (!tileCanReachPath(t.tx, t.ty, UNIT_DEFS[pendingTier].range)) {
+        this.analytics.track('placement_blocked', {
+          round: this.core.round,
+          tier: pendingTier,
+          action: 'place',
+        }, this.runId);
+        this.flashCenter('붉은 타일은 공격할 수 없습니다', UI.danger);
+        return;
+      }
       if (this.core.placeUnit(t.tx, t.ty)) {
         this.audio.play('click');
         this.refreshUI();

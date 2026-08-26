@@ -79,7 +79,7 @@ describe('Game relic flow', () => {
     game.relics.push('war_chest');
     game.pendingUnits.push(HandRank.RoyalFlush);
     game.placeUnit(2, 2);
-    game.confirmHand();
+    game.handConfirmed = true;
     game.startCombat();
 
     const result = game.tickCombat(1 / 30)!;
@@ -92,6 +92,7 @@ describe('Game relic flow', () => {
     const game = new Game(91);
     game.round = 10;
     game.confirmHand();
+    game.pendingUnits = [];
     expect(game.startCombat()).toBe(true);
 
     for (let i = 0; i < 5000 && game.phase === 'combat'; i++) {
@@ -103,6 +104,7 @@ describe('Game relic flow', () => {
     expect(game.relicChoices).toHaveLength(3);
     game.confirmHand();
     expect(game.startCombat()).toBe(false);
+    game.pendingUnits = [];
 
     const selected = game.relicChoices[0];
     expect(game.chooseRelic(selected)).toBe(true);

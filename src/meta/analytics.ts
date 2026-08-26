@@ -12,6 +12,7 @@ export type AnalyticsEventName =
   | 'hand_confirmed'
   | 'combat_started'
   | 'round_reached'
+  | 'placement_blocked'
   | 'unit_fused'
   | 'relic_selected'
   | 'run_finished'

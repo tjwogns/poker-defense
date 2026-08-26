@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { Game } from '../core/game';
+import { HandRank } from '../core/cards/types';
 import { enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
-import { GRID_W, GRID_H, TILE, isPathTile, isPlaceable, tileCenter } from '../core/map';
+import { GRID_W, GRID_H, TILE, isPathTile, isPlaceable, tileCanReachPath, tileCenter } from '../core/map';
 import { UI, FONT } from './ui';
 
 export const FIELD_X = 16;
@@ -86,6 +87,7 @@ export class FieldRenderer {
   private highlightG: Phaser.GameObjects.Graphics;
   private rangeG: Phaser.GameObjects.Graphics;
   private fxG: Phaser.GameObjects.Graphics;
+  private placementHint: Phaser.GameObjects.Text;
   private enemyViews = new Map<number, EnemyView>();
   private unitViews = new Map<number, UnitView>();
 
@@ -95,6 +97,14 @@ export class FieldRenderer {
     this.highlightG = scene.add.graphics().setDepth(1);
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
+    this.placementHint = scene.add.text(390, 29, '초록: 공격 가능  ·  붉은색: 경로가 사거리 밖', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#e6ebe5',
+      backgroundColor: '#07130cdd',
+      padding: { x: 10, y: 5 },
+    }).setOrigin(0.5).setDepth(6).setVisible(false);
   }
 
   private drawStatic(): void {
@@ -144,11 +154,11 @@ export class FieldRenderer {
   }
 
   /** 매 프레임 호출: core 상태를 화면에 반영 */
-  update(game: Game, selectedUnitId: number | null, placing: boolean, fx: Fx[], dt: number): void {
+  update(game: Game, selectedUnitId: number | null, placingTier: HandRank | null, fx: Fx[], dt: number): void {
     this.updateUnits(game, selectedUnitId);
     this.updateEnemies(game);
-    this.updateHighlight(game, placing);
-    this.updateRange(game, selectedUnitId);
+    this.updateHighlight(game, placingTier);
+    this.updateRange(game, selectedUnitId, placingTier);
     this.updateFx(fx, dt);
   }
 
@@ -231,21 +241,39 @@ export class FieldRenderer {
     }
   }
 
-  private updateHighlight(game: Game, placing: boolean): void {
+  private updateHighlight(game: Game, placingTier: HandRank | null): void {
     this.highlightG.clear();
-    if (!placing) return;
-    this.highlightG.fillStyle(UI.placeable, 0.16);
+    this.placementHint.setVisible(placingTier !== null);
+    if (placingTier === null) return;
+    const range = UNIT_DEFS[placingTier].range;
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
         if (isPlaceable(x, y) && !game.unitAt(x, y)) {
+          const canReach = tileCanReachPath(x, y, range);
+          this.highlightG.fillStyle(canReach ? UI.placeable : UI.danger, canReach ? 0.19 : 0.1);
           this.highlightG.fillRect(FIELD_X + x * TILE, FIELD_Y + y * TILE, TILE - 1, TILE - 1);
         }
       }
     }
   }
 
-  private updateRange(game: Game, selectedUnitId: number | null): void {
+  private updateRange(game: Game, selectedUnitId: number | null, placingTier: HandRank | null): void {
     this.rangeG.clear();
+    if (placingTier !== null) {
+      const pointer = this.scene.input.activePointer;
+      const tile = tileAtScreen(pointer.x, pointer.y);
+      if (tile && isPlaceable(tile.tx, tile.ty) && !game.unitAt(tile.tx, tile.ty)) {
+        const p = tileCenter(tile.tx, tile.ty);
+        const def = UNIT_DEFS[placingTier];
+        const canReach = tileCanReachPath(tile.tx, tile.ty, def.range);
+        const color = canReach ? UI.accent : UI.danger;
+        this.rangeG.fillStyle(color, 0.22);
+        this.rangeG.fillCircle(FIELD_X + p.x, FIELD_Y + p.y, 5);
+        this.rangeG.lineStyle(2, color, 0.72);
+        this.rangeG.strokeCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
+      }
+      return;
+    }
     if (selectedUnitId === null) return;
     const unit = game.field.units.find((u) => u.id === selectedUnitId);
     if (!unit) return;

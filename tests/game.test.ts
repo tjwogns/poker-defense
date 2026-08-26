@@ -42,18 +42,26 @@ describe('Game state machine', () => {
     const g = new Game(3);
     g.confirmHand();
     expect(g.placeUnit(1, 1)).toBe(false); // 경로
-    expect(g.placeUnit(5, 5)).toBe(true);
+    expect(g.placeUnit(5, 2)).toBe(true);
     expect(g.pendingUnits.length).toBe(0);
     g.confirmHand(); // 이미 확정됨 → null이지만 대기 유닛은 없음
-    expect(g.placeUnit(5, 5)).toBe(false); // 대기 유닛 없음 + 점유 타일
+    expect(g.placeUnit(5, 2)).toBe(false); // 대기 유닛 없음 + 점유 타일
+  });
+
+  test('확정한 유닛을 배치하기 전에는 전투를 시작할 수 없다', () => {
+    const g = new Game(31);
+    g.confirmHand();
+    expect(g.startCombat()).toBe(false);
+    expect(g.placeUnit(5, 2)).toBe(true);
+    expect(g.startCombat()).toBe(true);
   });
 
   test('배치 상한을 넘길 수 없다', () => {
     const g = new Game(4);
     for (let i = 0; i < UNIT_CAP; i++) g.pendingUnits.push(HandRank.HighCard);
     let placed = 0;
-    for (let y = 2; y < 10 && placed < UNIT_CAP; y++) {
-      for (let x = 2; x < 15 && placed < UNIT_CAP; x++) {
+    for (let y = 0; y < 12 && placed < UNIT_CAP; y++) {
+      for (let x = 0; x < 17 && placed < UNIT_CAP; x++) {
         if (g.placeUnit(x, y)) placed++;
       }
     }
@@ -65,7 +73,7 @@ describe('Game state machine', () => {
   test('판매: 골드 환급 + 유닛 제거', () => {
     const g = new Game(5);
     g.pendingUnits.push(HandRank.Trips);
-    g.placeUnit(5, 5);
+    g.placeUnit(5, 2);
     const unit = g.field.units[0];
     const before = g.gold;
     expect(g.sellUnit(unit.id)).toBe(true);
@@ -112,7 +120,7 @@ describe('Game state machine', () => {
     g.placeUnit(4, 4);
     const unitId = g.field.units[0].id;
     g.gold = 1000;
-    g.confirmHand();
+    g.handConfirmed = true;
     g.startCombat();
 
     expect(g.sellUnit(unitId)).toBe(false);
@@ -150,6 +158,7 @@ describe('Game state machine', () => {
   test('필드 적 80마리 초과 시 패배', () => {
     const g = new Game(8);
     g.confirmHand();
+    g.pendingUnits = [];
     g.startCombat();
     for (let i = 0; i <= FIELD_CAP; i++) spawnEnemy(g.field, 'normal', 1, { dist: i });
     g.tickCombat(1 / 30);
@@ -160,6 +169,7 @@ describe('Game state machine', () => {
     const g = new Game(9);
     g.round = 60;
     g.confirmHand();
+    g.pendingUnits = [];
     g.startCombat();
     runCombat(g); // 유닛 없음 → 시간 경과로 라운드 종료 → 승리
     expect(g.phase).toBe('victory');
@@ -169,6 +179,7 @@ describe('Game state machine', () => {
     const g = new Game(10);
     g.round = 10;
     g.confirmHand();
+    g.pendingUnits = [];
     g.startCombat();
     // 스폰이 모두 끝날 때까지 진행 (0.6s × 11 ≈ 6.6s)
     for (let i = 0; i < 30 * 10 && g.phase === 'combat'; i++) g.tickCombat(1 / 30);

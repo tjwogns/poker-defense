@@ -197,7 +197,13 @@ export class SidePanel {
     }
 
     this.startBtn.container.setVisible(inPrep);
-    this.startBtn.setEnabled(inPrep && this.game.handConfirmed);
+    const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
+    this.startBtn.setEnabled(readyToStart);
+    this.startBtn.setLabel(
+      !g.handConfirmed ? '족보를 먼저 확정하세요'
+        : g.pendingUnits.length > 0 ? '유닛을 초록 타일에 배치하세요'
+          : '전투 시작  ▶',
+    );
     for (let i = 0; i < SPEEDS.length; i++) {
       const value = SPEEDS[i];
       this.speedBtns[i].container.setVisible(!inPrep && g.phase === 'combat');

@@ -6,9 +6,10 @@
 import { Game } from '../core/game';
 import { HandRank, HAND_NAMES_KO, Suit } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
-import { GRID_W, GRID_H, isPlaceable } from '../core/map';
+import { GRID_W, GRID_H, isPlaceable, tileCanReachPath } from '../core/map';
 import { UNIT_CAP } from '../core/balance';
 import { RelicId } from '../core/relics';
+import { UNIT_DEFS } from '../core/units';
 
 const GOLD_RESERVE = 300; // 이자용으로 남길 골드
 
@@ -96,7 +97,9 @@ function playPrep(g: Game, stats: GameStats): void {
       }
       g.sellUnit(weakest.id);
     }
-    const spot = PLACEMENT.find(([x, y]) => !g.unitAt(x, y));
+    const spot = PLACEMENT.find(([x, y]) => (
+      !g.unitAt(x, y) && tileCanReachPath(x, y, UNIT_DEFS[tier].range)
+    ));
     if (!spot) break;
     g.placeUnit(spot[0], spot[1]);
   }

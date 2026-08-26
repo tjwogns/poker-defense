@@ -12,7 +12,8 @@ import {
   Field, TickResult, Unit, addUnit, aliveEnemies, banishNewest, createField,
   spawnEnemy, strikeAll, stunAll, tick,
 } from './combat';
-import { isPlaceable } from './map';
+import { isPlaceable, tileCanReachPath } from './map';
+import { UNIT_DEFS } from './units';
 import {
   RelicId,
   relicChoices as makeRelicChoices,
@@ -122,16 +123,19 @@ export class Game {
     if (this.phase !== 'prep') return false;
     if (this.pendingUnits.length === 0) return false;
     if (this.field.units.length >= UNIT_CAP) return false;
+    const tier = this.pendingUnits[0];
     if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
+    if (!tileCanReachPath(tx, ty, UNIT_DEFS[tier].range)) return false;
     addUnit(this.field, this.pendingUnits.shift()!, tx, ty);
     return true;
   }
 
   moveUnit(unitId: number, tx: number, ty: number): boolean {
     if (this.phase !== 'prep') return false;
-    if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
     const unit = this.field.units.find((u) => u.id === unitId);
     if (!unit) return false;
+    if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
+    if (!tileCanReachPath(tx, ty, UNIT_DEFS[unit.tier].range)) return false;
     unit.tx = tx;
     unit.ty = ty;
     return true;
@@ -244,7 +248,12 @@ export class Game {
   }
 
   startCombat(): boolean {
-    if (this.phase !== 'prep' || !this.handConfirmed || this.relicChoices.length > 0) return false;
+    if (
+      this.phase !== 'prep'
+      || !this.handConfirmed
+      || this.pendingUnits.length > 0
+      || this.relicChoices.length > 0
+    ) return false;
     const { kind } = this.nextWave();
     this.spawnQueue =
       kind === 'boss'
