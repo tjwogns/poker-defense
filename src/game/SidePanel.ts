@@ -9,6 +9,7 @@ import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 
 const PX = 800; // 패널 콘텐츠 x
+const SPEEDS = [1, 2, 4] as const;
 
 export interface PanelCallbacks {
   onStart(): void;
@@ -91,20 +92,20 @@ export class SidePanel {
     scene.add.rectangle(780, 406, 484, 1, UI.panelLine).setOrigin(0, 0);
 
     this.startBtn = makeButton(scene, 1022, 452, 440, 52, '전투 시작 ▶', cb.onStart, { fontSize: 18 });
-    for (const n of [1, 2, 3]) {
+    SPEEDS.forEach((n, index) => {
       this.speedBtns.push(
-        makeButton(scene, 838 + (n - 1) * 84, 452, 72, 38, `×${n}`, () => cb.onSpeed(n)),
+        makeButton(scene, 838 + index * 84, 452, 72, 38, `×${n}`, () => cb.onSpeed(n)),
       );
-    }
+    });
     this.pauseBtn = makeButton(scene, 1100, 452, 96, 38, '일시정지', cb.onPause, { fill: 0x6ca4d9, fontSize: 12 });
     this.soundBtn = makeButton(scene, 1204, 452, 88, 38, 'SOUND', cb.onSound, { fill: 0x42544a, fontSize: 11 });
     this.combatText = makeText(scene, PX, 486, '', 13, UI.textDim);
-    this.relicText = makeText(scene, PX, 528, '', 13, UI.textDim);
+    this.relicText = makeText(scene, PX, 510, '', 12, UI.textDim);
 
     this.helpText = makeText(
       scene, PX, 620,
-      '카드 클릭 = 홀드 · 교환 후 족보 확정 = 유닛 획득\n초록 타일 클릭 = 배치 · 배치한 유닛 클릭 = 선택\n적이 80마리를 넘으면 패배합니다',
-      13, UI.textDim,
+      'Q/W/R/T = 무늬 스킬 · 1/2/4 = 배속 · SPACE = 정지\n카드로 유닛과 스킬을 얻고, 동일 유닛 3기로 합성\n적이 80마리를 넘으면 패배합니다',
+      12, UI.textDim,
     );
     this.helpText.setLineSpacing(6);
   }
@@ -168,9 +169,10 @@ export class SidePanel {
 
     this.startBtn.container.setVisible(inPrep);
     this.startBtn.setEnabled(inPrep && this.game.handConfirmed);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < SPEEDS.length; i++) {
+      const value = SPEEDS[i];
       this.speedBtns[i].container.setVisible(!inPrep && g.phase === 'combat');
-      this.speedBtns[i].setLabel(speed === i + 1 ? `×${i + 1} ●` : `×${i + 1}`);
+      this.speedBtns[i].setLabel(speed === value ? `×${value} ●` : `×${value}`);
     }
     this.pauseBtn.container.setVisible(g.phase === 'combat');
     this.pauseBtn.setLabel(paused ? '계속하기' : '일시정지');

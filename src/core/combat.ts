@@ -3,6 +3,7 @@ import { ENEMY_KINDS, EnemyKindId } from './enemies';
 import { UNIT_DEFS, UnitDef, damagePerHit } from './units';
 import { ENEMY_BASE_SPEED, enemyHp, killGold, bossGold } from './balance';
 import { TILE, Pt, pointAt, tileCenter } from './map';
+import { bossModifiers } from './bosses';
 
 export interface Enemy {
   id: number;
@@ -12,6 +13,7 @@ export interface Enemy {
   dist: number;      // 경로상 누적 px (pointAt이 순환 처리)
   slowUntil: number; // 전투 시간(초) 기준
   slowPct: number;
+  stunUntil: number;
   bounty: number;
   round: number;     // 스폰된 라운드 (클리어 보너스 판정용)
   alive: boolean;
@@ -35,7 +37,12 @@ export interface TickResult {
   goldEarned: number;
   deaths: Enemy[];
   attacks: AttackEvent[];
+  bossEvents: BossEvent[];
 }
+
+export type BossEvent =
+  | { type: 'tax'; bossRound: 40; amount: number }
+  | { type: 'summon'; bossRound: 50; count: number };
 
 export interface Field {
   enemies: Enemy[];
@@ -65,6 +72,7 @@ export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts:
     dist: opts.dist ?? 0,
     slowUntil: 0,
     slowPct: 0,
+    stunUntil: 0,
     bounty: opts.bounty ?? (kind === 'boss' ? bossGold(round) : killGold(round)),
     round,
     alive: true,
@@ -89,6 +97,41 @@ export function unitPos(u: Unit): Pt {
 
 export function aliveEnemies(field: Field): Enemy[] {
   return field.enemies.filter((e) => e.alive);
+}
+
+function emptyResult(): TickResult {
+  return { goldEarned: 0, deaths: [], attacks: [], bossEvents: [] };
+}
+
+/** 액티브 스킬용 현재 HP 비례 전체 공격. 방어를 무시하고 정상 처치 보상을 준다. */
+export function strikeAll(field: Field, normalPct: number, bossPct: number): TickResult {
+  const result = emptyResult();
+  for (const enemy of [...field.enemies]) {
+    if (!enemy.alive) continue;
+    const pct = enemy.kind === 'boss' ? bossPct : normalPct;
+    applyDamage(field, enemy, enemy.hp * pct, true, result);
+  }
+  return result;
+}
+
+/** 최근 등장한 비보스 적을 보상·분열 없이 전장에서 제거한다. */
+export function banishNewest(field: Field, count: number): Enemy[] {
+  const targets = field.enemies
+    .filter((enemy) => enemy.alive && enemy.kind !== 'boss')
+    .sort((a, b) => b.id - a.id)
+    .slice(0, count);
+  for (const enemy of targets) enemy.alive = false;
+  return targets;
+}
+
+export function stunAll(field: Field, duration: number): number {
+  let affected = 0;
+  for (const enemy of field.enemies) {
+    if (!enemy.alive) continue;
+    enemy.stunUntil = Math.max(enemy.stunUntil, field.time + duration);
+    affected++;
+  }
+  return affected;
 }
 
 function dist2(a: Pt, b: Pt): number {
@@ -127,7 +170,10 @@ function die(field: Field, enemy: Enemy, result: TickResult): void {
 
 function applyDamage(field: Field, enemy: Enemy, amount: number, ignoreDefense: boolean, result: TickResult): void {
   if (!enemy.alive) return;
-  const mult = ignoreDefense ? 1 : ENEMY_KINDS[enemy.kind].damageTakenMult;
+  let mult = ignoreDefense ? 1 : ENEMY_KINDS[enemy.kind].damageTakenMult;
+  if (enemy.kind === 'boss' && !ignoreDefense) {
+    mult *= bossModifiers(enemy.round, enemy.hp / enemy.maxHp).damageTakenMultiplier;
+  }
   enemy.hp -= amount * mult;
   if (enemy.hp <= 0) die(field, enemy, result);
 }
@@ -209,17 +255,22 @@ function performAttack(field: Field, unit: Unit, def: UnitDef, globalMult: numbe
  * 순서: 시간 → 이동/재생 → 유닛 공격.
  */
 export function tick(field: Field, dt: number, globalDmgMult: number): TickResult {
-  const result: TickResult = { goldEarned: 0, deaths: [], attacks: [] };
+  const result = emptyResult();
   field.time += dt;
 
   for (const e of field.enemies) {
     if (!e.alive) continue;
     const def = ENEMY_KINDS[e.kind];
+    const boss = e.kind === 'boss'
+      ? bossModifiers(e.round, e.hp / e.maxHp)
+      : { damageTakenMultiplier: 1, speedMultiplier: 1, regenPctPerSec: 0 };
     const slowed = field.time < e.slowUntil;
-    const speed = ENEMY_BASE_SPEED * def.speedMult * (slowed ? 1 - e.slowPct : 1);
+    const stunned = field.time < e.stunUntil;
+    const speed = stunned ? 0 : ENEMY_BASE_SPEED * def.speedMult * boss.speedMultiplier * (slowed ? 1 - e.slowPct : 1);
     e.dist += speed * dt;
-    if (def.regenPctPerSec > 0) {
-      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * def.regenPctPerSec * dt);
+    const regenPct = def.regenPctPerSec + boss.regenPctPerSec;
+    if (regenPct > 0) {
+      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * regenPct * dt);
     }
   }
 

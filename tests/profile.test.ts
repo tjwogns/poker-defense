@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
-import { dailySeed, defaultProfile, loadProfile, recordRun, saveProfile } from '../src/meta/profile';
+import {
+  dailySeed, defaultProfile, exportPlaytestData, loadProfile, recordRun, saveProfile,
+} from '../src/meta/profile';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -25,6 +27,18 @@ describe('profile persistence', () => {
     storage.setItem('poker-defense:v1:profile', '{broken');
 
     expect(loadProfile(storage)).toEqual(defaultProfile());
+  });
+
+  test('v1 프로필은 기록을 보존하며 v2와 빈 최근 런으로 마이그레이션한다', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('poker-defense:v1:profile', JSON.stringify({
+      version: 1, totalRuns: 4, wins: 1, bestScore: 5000, bestRound: 33,
+      tutorialDone: true, soundEnabled: false, achievements: ['first_run'], daily: null,
+    }));
+
+    expect(loadProfile(storage)).toMatchObject({
+      version: 2, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [],
+    });
   });
 
   test('저장 후 다시 읽으면 기록과 설정을 보존한다', () => {
@@ -52,5 +66,22 @@ describe('profile persistence', () => {
     expect(dailySeed('2026-08-26')).toBe(dailySeed('2026-08-26'));
     expect(dailySeed('2026-08-26')).not.toBe(dailySeed('2026-08-27'));
     expect(dailySeed('2026-08-26')).toBeGreaterThan(0);
+  });
+
+  test('최근 플레이 로그는 최신 20판만 저장한다', () => {
+    let profile = defaultProfile();
+    for (let seed = 1; seed <= 21; seed++) {
+      profile = recordRun(profile, { ...victory, seed, score: seed * 100 }, 'standard', '2026-08-26');
+    }
+    expect(profile.recentRuns).toHaveLength(20);
+    expect(profile.recentRuns[0].seed).toBe(2);
+    expect(profile.recentRuns[19].seed).toBe(21);
+  });
+
+  test('플레이테스트 내보내기는 민감 정보 없이 최근 런을 JSON으로 만든다', () => {
+    const profile = recordRun(defaultProfile(), victory, 'daily', '2026-08-26');
+    const exported = JSON.parse(exportPlaytestData(profile)) as { schema: string; runs: unknown[] };
+    expect(exported.schema).toBe('poker-defense-playtest-v1');
+    expect(exported.runs).toHaveLength(1);
   });
 });

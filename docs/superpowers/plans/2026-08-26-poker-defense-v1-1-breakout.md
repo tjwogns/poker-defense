@@ -25,10 +25,10 @@
 
 **Interfaces:** `dominantSuit(cards): Suit`, `Game.powerCharges`, `Game.useSuitPower(suit): SuitPowerResult | null`.
 
-- [ ] Write failing tests for tie-breaking, charge caps, phase guard, and all four effects.
-- [ ] Run the focused tests and confirm missing behavior failures.
-- [ ] Implement combat primitives and Game integration.
-- [ ] Run focused and full tests.
+- [x] Write failing tests for tie-breaking, charge caps, phase guard, and all four effects.
+- [x] Run the focused tests and confirm missing behavior failures.
+- [x] Implement combat primitives and Game integration.
+- [x] Run focused and full tests.
 
 ### Task 2: Six boss identities
 
@@ -36,9 +36,9 @@
 
 **Interfaces:** `bossDef(round)`, `bossModifiers(round, hpRatio)`, summon and tax timers.
 
-- [ ] Write failing tests for six definitions and each combat/economy behavior.
-- [ ] Implement damage, regen, speed, tax, summon, and final phase effects.
-- [ ] Run focused and full tests.
+- [x] Write failing tests for six definitions and each combat/economy behavior.
+- [x] Implement damage, regen, speed, tax, summon, and final phase effects.
+- [x] Run focused and full tests.
 
 ### Task 3: Profile v2 and sharing
 
@@ -46,9 +46,9 @@
 
 **Interfaces:** `Profile.recentRuns`, `exportPlaytestData(profile)`, `shareText(summary, mode, date)`, `challengeUrl(base, date)`.
 
-- [ ] Write failing migration, capped history, export, share copy, and URL tests.
-- [ ] Implement defensive v1→v2 migration and pure share helpers.
-- [ ] Run focused and full tests.
+- [x] Write failing migration, capped history, export, share copy, and URL tests.
+- [x] Implement defensive v1→v2 migration and pure share helpers.
+- [x] Run focused and full tests.
 
 ### Task 4: Breakout UI and game feel
 
@@ -56,10 +56,10 @@
 
 **Interfaces:** Power bar invokes `useSuitPower`; boss HUD consumes live boss; end overlay invokes share/download; menu exports playtest JSON.
 
-- [ ] Add skill buttons and keyboard `Q/W/R/T` bindings.
-- [ ] Add named boss HUD, summon/tax warnings, damage numbers, camera feedback, and ×4 speed.
-- [ ] Add share/copy/download result controls and play-log export.
-- [ ] Run typecheck, tests, build, and Chrome smoke.
+- [x] Add skill buttons and keyboard `Q/W/R/T` bindings.
+- [x] Add named boss HUD, summon/tax warnings, damage numbers, camera feedback, and ×4 speed.
+- [x] Add share/copy/download result controls and play-log export.
+- [x] Run typecheck, tests, build, and Chrome smoke.
 
 ### Task 5: Balance and documentation
 
@@ -67,6 +67,6 @@
 
 **Interfaces:** Simulator spends suit charges deterministically and reports power usage; smoke validates share controls.
 
-- [ ] Apply 0.45s spawn and 32s timeout, teach bot suit powers.
-- [ ] Run 100 games and record results.
-- [ ] Run full verification and sync non-destructive Obsidian v1.1 notes.
+- [x] Apply 0.45s spawn and 32s timeout, teach bot suit powers.
+- [x] Run 100 games and record results.
+- [x] Run full verification and sync non-destructive Obsidian v1.1 notes.

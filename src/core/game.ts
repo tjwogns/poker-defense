@@ -1,4 +1,4 @@
-import { Card, HandRank } from './cards/types';
+import { Card, HandRank, Suit } from './cards/types';
 import { drawHand, exchange } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
@@ -9,7 +9,8 @@ import {
 } from './balance';
 import { EnemyKindId, ENEMY_KINDS, waveKind } from './enemies';
 import {
-  Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
+  Field, TickResult, Unit, addUnit, aliveEnemies, banishNewest, createField,
+  spawnEnemy, strikeAll, stunAll, tick,
 } from './combat';
 import { isPlaceable } from './map';
 import {
@@ -24,6 +25,8 @@ import {
   scoreForRoundClear,
   VICTORY_SCORE,
 } from './scoring';
+import { dominantSuit, SuitPowerResult } from './abilities';
+import { bossDef } from './bosses';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 
@@ -39,6 +42,8 @@ export class Game {
   score = 0;
   kills = 0;
   bestHand: HandRank = HandRank.HighCard;
+  powerCharges: Record<Suit, number> = { S: 0, H: 0, D: 0, C: 0 };
+  lastPowerSuit: Suit | null = null;
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -57,6 +62,8 @@ export class Game {
   private spawnQueue: EnemyKindId[] = [];
   private spawnTimer = 0;
   private combatTimer = 0;
+  private nextBossTaxAt = Infinity;
+  private nextBossSummonAt = Infinity;
 
   constructor(seed: number) {
     this.seed = seed;
@@ -99,6 +106,9 @@ export class Game {
     this.bestHand = Math.max(this.bestHand, rank) as HandRank;
     this.score += scoreForHand(rank);
     this.pendingUnits.push(rank);
+    const suit = dominantSuit(this.hand);
+    this.lastPowerSuit = suit;
+    this.powerCharges[suit] = Math.min(3, this.powerCharges[suit] + 1);
     return rank;
   }
 
@@ -203,10 +213,35 @@ export class Game {
   nextWave(): { kind: EnemyKindId; name: string; count: number } {
     const kind = waveKind(this.round);
     const count = kind === 'boss' ? 1 + BOSS_MINIONS : WAVE_SIZE;
-    return { kind, name: ENEMY_KINDS[kind].name, count };
+    return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count };
   }
 
   // ── 전투 ──────────────────────────────────────────
+
+  useSuitPower(suit: Suit): SuitPowerResult | null {
+    if (this.phase !== 'combat' || this.powerCharges[suit] <= 0) return null;
+    this.powerCharges[suit]--;
+
+    if (suit === 'S') {
+      const affected = aliveEnemies(this.field).length;
+      const result = strikeAll(this.field, 0.22, 0.06);
+      const mods = relicModifiers(this.relics);
+      result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
+      this.gold += result.goldEarned;
+      this.kills += result.deaths.length;
+      this.score += scoreForKills(this.round, result.deaths.length);
+      return { suit, affected, goldEarned: result.goldEarned };
+    }
+    if (suit === 'H') {
+      return { suit, affected: banishNewest(this.field, 6).length, goldEarned: 0 };
+    }
+    if (suit === 'D') {
+      const goldEarned = 25 + this.round * 3;
+      this.gold += goldEarned;
+      return { suit, affected: 0, goldEarned };
+    }
+    return { suit, affected: stunAll(this.field, 3), goldEarned: 0 };
+  }
 
   startCombat(): boolean {
     if (this.phase !== 'prep' || !this.handConfirmed || this.relicChoices.length > 0) return false;
@@ -217,6 +252,12 @@ export class Game {
         : Array<EnemyKindId>(WAVE_SIZE).fill(kind);
     this.spawnTimer = 0;
     this.combatTimer = 0;
+    const hasTaxBoss = this.round === 40
+      || this.field.enemies.some((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 40);
+    const hasSummonBoss = this.round === 50
+      || this.field.enemies.some((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 50);
+    this.nextBossTaxAt = hasTaxBoss ? this.field.time + 5 : Infinity;
+    this.nextBossSummonAt = hasSummonBoss ? this.field.time + 8 : Infinity;
     this.phase = 'combat';
     return true;
   }
@@ -236,6 +277,20 @@ export class Game {
     this.gold += result.goldEarned;
     this.kills += result.deaths.length;
     this.score += scoreForKills(this.round, result.deaths.length);
+
+    const taxBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 40);
+    while (taxBoss && this.field.time >= this.nextBossTaxAt) {
+      this.gold = Math.max(0, this.gold - 5);
+      result.bossEvents.push({ type: 'tax', bossRound: 40, amount: 5 });
+      this.nextBossTaxAt += 5;
+    }
+    const summonBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 50);
+    while (summonBoss && this.field.time >= this.nextBossSummonAt) {
+      spawnEnemy(this.field, 'normal', summonBoss.round, { dist: summonBoss.dist - 12 });
+      spawnEnemy(this.field, 'normal', summonBoss.round, { dist: summonBoss.dist + 12 });
+      result.bossEvents.push({ type: 'summon', bossRound: 50, count: 2 });
+      this.nextBossSummonAt += 8;
+    }
 
     const alive = aliveEnemies(this.field).length;
     if (alive > this.fieldCap) {

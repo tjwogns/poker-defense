@@ -8,8 +8,8 @@ export const TICK_RATE = 30;          // 고정 틱/초
 export const ROUNDS = 60;             // 총 라운드
 export const WAVE_SIZE = 30;          // 라운드당 일반 적 수
 export const BOSS_MINIONS = 10;       // 보스 라운드 수행원 수
-export const SPAWN_INTERVAL = 0.6;    // 초
-export const COMBAT_MAX_TIME = 40;    // 스폰 완료 후 최대 전투 시간(초)
+export const SPAWN_INTERVAL = 0.45;   // 초 — 초반 대기감을 줄인 v1.1 템포
+export const COMBAT_MAX_TIME = 32;    // 스폰 완료 후 최대 전투 시간(초)
 export const FIELD_CAP = 80;          // 필드 적 누적 상한 (초과 = 패배)
 export const UNIT_CAP = 30;           // 배치 상한
 export const BOSS_EVERY = 10;

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { ACHIEVEMENTS, dailySeed, loadProfile, saveProfile } from '../meta/profile';
+import { ACHIEVEMENTS, dailySeed, exportPlaytestData, loadProfile, saveProfile } from '../meta/profile';
+import { dailyDateFromSearch } from '../meta/share';
 import { UI, makeButton, makeText } from './ui';
 
 function localDate(): string {
@@ -16,6 +17,8 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const profile = loadProfile(localStorage);
     const date = localDate();
+    const challengeDate = dailyDateFromSearch(window.location.search, date);
+    const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
     const graphics = this.add.graphics();
     graphics.fillGradientStyle(0x07130c, 0x07130c, 0x173422, 0x173422, 1);
     graphics.fillRect(0, 0, 1280, 720);
@@ -41,20 +44,35 @@ export class MenuScene extends Phaser.Scene {
     makeButton(this, 770, 327, 250, 54, '새 게임', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fontSize: 18 });
-    makeButton(this, 770, 397, 250, 54, '오늘의 도전', () => {
-      this.scene.start('play', { seed: dailySeed(date), mode: 'daily' });
+    makeButton(this, 770, 397, 250, 54, hasChallenge ? '친구의 도전 수락' : '오늘의 도전', () => {
+      this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
     }, { fill: 0xe6c84f, fontSize: 18 });
-    makeText(this, 770, 435, `${date} · 모두에게 같은 패`, 12, UI.textDim).setOrigin(0.5);
+    makeText(
+      this,
+      770,
+      435,
+      `${challengeDate} · ${hasChallenge ? '공유 시드 그대로 플레이' : '모두에게 같은 패'}`,
+      12,
+      UI.textDim,
+    ).setOrigin(0.5);
 
     const sound = makeButton(this, 1160, 54, 150, 36, profile.soundEnabled ? 'SOUND ON' : 'SOUND OFF', () => {
       profile.soundEnabled = !profile.soundEnabled;
       saveProfile(localStorage, profile);
       sound.setLabel(profile.soundEnabled ? 'SOUND ON' : 'SOUND OFF');
     }, { fill: 0x42544a, fontSize: 12 });
+    makeButton(this, 1160, 100, 150, 34, 'LOG EXPORT', () => {
+      const blob = new Blob([exportPlaytestData(profile)], { type: 'application/json' });
+      const anchor = document.createElement('a');
+      anchor.download = `poker-defense-playtest-${date}.json`;
+      anchor.href = URL.createObjectURL(blob);
+      anchor.click();
+      URL.revokeObjectURL(anchor.href);
+    }, { fill: 0x42544a, fontSize: 11 });
 
-    makeText(this, 640, 560, 'E 교환  ·  ENTER 확정  ·  SPACE 전투/일시정지  ·  1–3 배속  ·  M 음소거', 13, UI.textDim)
+    makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
-    makeText(this, 640, 610, 'v1.0  ·  DETERMINISTIC TACTICAL RUN', 11, '#60746a', true).setOrigin(0.5);
+    makeText(this, 640, 610, 'v1.1  ·  BREAKOUT EDITION', 11, '#60746a', true).setOrigin(0.5);
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
   }
 }

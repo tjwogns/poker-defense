@@ -58,6 +58,7 @@ const state = () =>
           relicChoices: g.relicChoices.length,
           relics: g.relics.length,
           score: g.score,
+          powerCharges: { ...g.powerCharges },
         }
       : null;
   });
@@ -68,6 +69,9 @@ console.log('초기 상태:', JSON.stringify(await state()));
 await page.mouse.click(694, 640);
 await new Promise((r) => setTimeout(r, 300));
 console.log('확정 후:', JSON.stringify(await state()));
+const charged = await state();
+const suit = Object.entries(charged.powerCharges).find(([, count]) => count > 0)?.[0];
+if (!suit) throw new Error('족보 확정 후 무늬 스킬이 충전되지 않았습니다.');
 
 // 타일 (8,5)에 배치 — 화면 (390, 258)
 await page.mouse.click(390, 258);
@@ -81,6 +85,15 @@ await new Promise((r) => setTimeout(r, 4000));
 const combat = await state();
 console.log('전투 4초:', JSON.stringify(combat));
 await page.screenshot({ path: `${TMP}/shot4-combat.png` });
+
+// 실제 키 입력으로 충전된 무늬 스킬 사용
+const keyForSuit = { S: 'KeyQ', H: 'KeyW', D: 'KeyR', C: 'KeyT' };
+const beforePower = combat.powerCharges[suit];
+await page.keyboard.press(keyForSuit[suit]);
+await new Promise((r) => setTimeout(r, 250));
+const afterPower = await state();
+console.log('스킬 사용 후:', JSON.stringify(afterPower));
+await page.screenshot({ path: `${TMP}/shot4b-power.png` });
 
 // 코어를 결정론적으로 R10 종료까지 진행해 유물 3지선다 확인
 await page.evaluate(() => {
@@ -101,6 +114,36 @@ await new Promise((r) => setTimeout(r, 250));
 const chosen = await state();
 console.log('유물 선택 후:', JSON.stringify(chosen));
 
+// 필드 상한을 넘겨 종료 오버레이와 PNG 결과 카드 버튼 확인
+await page.evaluate(() => {
+  const g = window.__game;
+  const source = g.field.enemies.find((enemy) => enemy.alive);
+  if (!source) throw new Error('종료 테스트용 적이 없습니다.');
+  g.phase = 'combat';
+  while (g.field.enemies.filter((enemy) => enemy.alive).length <= g.fieldCap) {
+    g.field.enemies.push({ ...source, id: g.field.nextId++, alive: true });
+  }
+});
+await new Promise((r) => setTimeout(r, 350));
+const ended = await state();
+console.log('종료 화면:', JSON.stringify(ended));
+await page.screenshot({ path: `${TMP}/shot6-end.png` });
+
+// Web Share 미지원 브라우저의 실제 클립보드 폴백
+await page.evaluate(() => {
+  window.__copiedText = '';
+  Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: async (value) => { window.__copiedText = value; } },
+    configurable: true,
+  });
+});
+await page.mouse.click(512, 520);
+await new Promise((r) => setTimeout(r, 150));
+const copiedText = await page.evaluate(() => window.__copiedText);
+await page.mouse.click(768, 520);
+await new Promise((r) => setTimeout(r, 150));
+
 await browser.close();
 
 if (errors.length) {
@@ -111,8 +154,20 @@ if (!combat || combat.phase !== 'combat' || combat.enemies === 0 || combat.units
   console.log('스모크 실패: 상태 불일치');
   process.exit(1);
 }
+if (afterPower.powerCharges[suit] !== beforePower - 1) {
+  console.log('스모크 실패: 무늬 스킬 키 입력 상태 불일치');
+  process.exit(1);
+}
 if (!reward || reward.relicChoices !== 3 || !chosen || chosen.relics !== 1 || chosen.relicChoices !== 0) {
   console.log('스모크 실패: 유물 선택 상태 불일치');
+  process.exit(1);
+}
+if (!ended || ended.phase !== 'defeat') {
+  console.log('스모크 실패: 종료/공유 화면 상태 불일치');
+  process.exit(1);
+}
+if (!copiedText.includes('포커 디펜스') || !copiedText.includes('STANDARD RUN')) {
+  console.log('스모크 실패: 결과 공유 클립보드 폴백 불일치');
   process.exit(1);
 }
 console.log('SMOKE_OK');

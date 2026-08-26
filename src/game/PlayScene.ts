@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import { Game, Phase } from '../core/game';
 import { TickResult, enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
-import { HAND_NAMES_KO, HandRank } from '../core/cards/types';
+import { HAND_NAMES_KO, HandRank, Suit } from '../core/cards/types';
+import { SUIT_POWER_DEFS } from '../core/abilities';
 import { TICK_RATE } from '../core/balance';
-import { FieldRenderer, Fx, tileAtScreen } from './FieldRenderer';
+import { FIELD_X, FIELD_Y, FieldRenderer, Fx, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
 import { FONT, UI, makeButton, makeText } from './ui';
@@ -12,6 +13,9 @@ import { RELIC_DEFS } from '../core/relics';
 import { loadProfile, Profile, recordRun, RunMode, saveProfile } from '../meta/profile';
 import { AudioManager } from './AudioManager';
 import { TutorialOverlay } from './TutorialOverlay';
+import { SuitPowerBar } from './SuitPowerBar';
+import { BossHud } from './BossHud';
+import { downloadShareCard, shareRun } from './ShareCard';
 
 const DT = 1 / TICK_RATE;
 
@@ -20,16 +24,21 @@ export class PlayScene extends Phaser.Scene {
   private fieldView!: FieldRenderer;
   private handBar!: HandBar;
   private panel!: SidePanel;
+  private powerBar!: SuitPowerBar;
+  private bossHud!: BossHud;
 
   private seedValue = 1;
   private speed = 1;
   private acc = 0;
   private fx: Fx[] = [];
+  private damageLabelShownThisFrame = false;
+  private cameraShakenThisFrame = false;
   private selectedUnitId: number | null = null;
   private moving = false;
   private ended = false;
   private paused = false;
   private mode: RunMode = 'standard';
+  private runDate = '';
   private profile!: Profile;
   private audio!: AudioManager;
   private tutorialActive = false;
@@ -39,9 +48,10 @@ export class PlayScene extends Phaser.Scene {
     super('play');
   }
 
-  init(data: { seed?: number; mode?: RunMode }): void {
+  init(data: { seed?: number; mode?: RunMode; date?: string }): void {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
+    this.runDate = data.date ?? this.localDate();
   }
 
   create(): void {
@@ -96,6 +106,8 @@ export class PlayScene extends Phaser.Scene {
       onSound: () => this.toggleSound(),
       onHome: () => this.scene.start('menu'),
     });
+    this.powerBar = new SuitPowerBar(this, this.core, (suit) => this.usePower(suit));
+    this.bossHud = new BossHud(this);
 
     this.input.on(
       'pointerdown',
@@ -122,8 +134,11 @@ export class PlayScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number): void {
     const dt = deltaMs / 1000;
+    this.damageLabelShownThisFrame = false;
+    this.cameraShakenThisFrame = false;
     if (this.core.phase === 'combat' && !this.paused) this.stepCombat(dt);
     this.fieldView.update(this.core, this.selectedUnitId, this.isPlacing(), this.fx, dt);
+    this.bossHud.refresh(this.core);
     this.syncRelicPicker();
   }
 
@@ -194,6 +209,8 @@ export class PlayScene extends Phaser.Scene {
     if (!selected) this.selectedUnitId = null;
     this.handBar.refresh();
     this.panel.refresh(selected, this.speed, this.paused, this.audio.enabled, this.mode);
+    this.powerBar.refresh();
+    this.bossHud.refresh(this.core);
     this.syncRelicPicker();
   }
 
@@ -253,15 +270,33 @@ export class PlayScene extends Phaser.Scene {
         this.refreshUI();
       }
     });
-    for (const n of [1, 2, 3]) {
-      keyboard.on(`keydown-${n}`, () => {
+    for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
+      keyboard.on(`keydown-${key}`, () => {
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
         }
       });
     }
+    const powers: Array<[string, Suit]> = [['Q', 'S'], ['W', 'H'], ['R', 'D'], ['T', 'C']];
+    for (const [key, suit] of powers) {
+      keyboard.on(`keydown-${key}`, () => this.usePower(suit));
+    }
     keyboard.on('keydown-M', () => this.toggleSound());
+  }
+
+  private usePower(suit: Suit): void {
+    if (this.tutorialActive || this.ended || this.paused) return;
+    const result = this.core.useSuitPower(suit);
+    if (!result) return;
+    const def = SUIT_POWER_DEFS[suit];
+    const suffix = result.goldEarned > 0
+      ? ` +${result.goldEarned}G`
+      : result.affected > 0 ? ` ×${result.affected}` : '';
+    this.audio.play('power');
+    this.flashCenter(`${def.glyph} ${def.name}${suffix}`, def.color);
+    if (!this.reducedMotion()) this.cameras.main.shake(90, 0.0025);
+    this.refreshUI();
   }
 
   private syncRelicPicker(): void {
@@ -269,7 +304,11 @@ export class PlayScene extends Phaser.Scene {
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = this.add.rectangle(390, 270, 748, 520, 0x06100a, 0.93).setInteractive();
     children.push(dim);
-    const title = makeText(this, 390, 102, '보스 격파 · 유물을 선택하세요', 28, UI.gold, true).setOrigin(0.5);
+    const bossSurvived = this.core.field.enemies.some((enemy) => enemy.alive && enemy.kind === 'boss');
+    const rewardTitle = bossSurvived
+      ? '보스 라운드 생존 · 유물을 선택하세요'
+      : '보스 격파 · 유물을 선택하세요';
+    const title = makeText(this, 390, 102, rewardTitle, 28, UI.gold, true).setOrigin(0.5);
     children.push(title);
     this.core.relicChoices.forEach((id, index) => {
       const def = RELIC_DEFS[id];
@@ -327,6 +366,14 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectFx(result: TickResult): void {
+    for (const event of result.bossEvents) {
+      if (event.type === 'tax') {
+        this.flashCenter(`황금 폭군  −${event.amount}G`, UI.danger);
+      } else {
+        this.flashCenter(`군단왕  부하 +${event.count}`, 0x8a58b5);
+      }
+      this.audio.play('boss');
+    }
     const max = 40;
     for (const atk of result.attacks) {
       if (this.fx.length >= max) break;
@@ -340,6 +387,26 @@ export class PlayScene extends Phaser.Scene {
         ttl: 0.08,
         color: UNIT_DEFS[unit.tier].color,
       });
+      if (!this.damageLabelShownThisFrame) {
+        this.damageLabelShownThisFrame = true;
+        const damage = makeText(
+          this,
+          FIELD_X + to.x,
+          FIELD_Y + to.y - 12,
+          Math.round(atk.damage).toLocaleString(),
+          11,
+          '#f5e7a8',
+          true,
+        ).setOrigin(0.5).setDepth(7).setShadow(0, 2, '#000000', 4);
+        this.tweens.add({
+          targets: damage, y: damage.y - 18, alpha: 0, duration: 430,
+          onComplete: () => damage.destroy(),
+        });
+      }
+    }
+    if (result.deaths.length > 0 && !this.cameraShakenThisFrame && !this.reducedMotion()) {
+      this.cameraShakenThisFrame = true;
+      this.cameras.main.shake(Math.min(130, 45 + result.deaths.length * 5), 0.0014);
     }
   }
 
@@ -349,7 +416,7 @@ export class PlayScene extends Phaser.Scene {
     this.ended = true;
     const won = this.core.phase === 'victory';
     this.audio.play(won ? 'win' : 'lose');
-    this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.localDate());
+    this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
     saveProfile(localStorage, this.profile);
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.72).setDepth(20);
     this.add
@@ -371,13 +438,32 @@ export class PlayScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(21);
-    const btn = makeButton(this, 640, 430, 220, 52, '다시 시작', () => {
+    const summary = this.core.summary();
+    const date = this.runDate;
+    const btn = makeButton(this, 640, 452, 220, 52, '다시 시작', () => {
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
-      this.scene.restart({ seed: nextSeed, mode: this.mode });
+      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate });
     }, { fontSize: 18 });
     btn.container.setDepth(22);
-    const home = makeButton(this, 640, 500, 180, 42, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
+    const share = makeButton(this, 512, 520, 220, 42, '결과 공유', async () => {
+      try {
+        const result = await shareRun(summary, this.mode, date);
+        this.flashCenter(result === 'shared' ? '결과를 공유했습니다' : '링크를 복사했습니다', UI.accent);
+      } catch {
+        // 사용자가 공유 창을 닫은 경우 게임 흐름은 그대로 유지한다.
+      }
+    }, { fill: 0xe6c84f, fontSize: 14 });
+    share.container.setDepth(22);
+    const card = makeButton(this, 768, 520, 220, 42, 'PNG 카드 저장', () => {
+      downloadShareCard(summary, this.mode, date);
+    }, { fill: 0x6ca4d9, fontSize: 14 });
+    card.container.setDepth(22);
+    const home = makeButton(this, 640, 578, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
     home.container.setDepth(22);
+  }
+
+  private reducedMotion(): boolean {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   }
 
   private localDate(): string {

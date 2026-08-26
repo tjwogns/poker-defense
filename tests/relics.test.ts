@@ -75,6 +75,7 @@ describe('Game relic flow', () => {
     const game = new Game(93);
     game.round = 10;
     game.gold = 0;
+    game.upgradeLevel = 5; // 철갑 딜러의 35% 피해 감소를 뚫을 화력
     game.relics.push('war_chest');
     game.pendingUnits.push(HandRank.RoyalFlush);
     game.placeUnit(2, 2);

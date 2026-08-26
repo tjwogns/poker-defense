@@ -22,7 +22,7 @@ export const ACHIEVEMENTS: Record<AchievementId, { name: string; description: st
 };
 
 export interface Profile {
-  version: 1;
+  version: 2;
   totalRuns: number;
   wins: number;
   bestScore: number;
@@ -31,6 +31,19 @@ export interface Profile {
   soundEnabled: boolean;
   achievements: AchievementId[];
   daily: { date: string; bestScore: number } | null;
+  recentRuns: RunLog[];
+}
+
+export interface RunLog {
+  date: string;
+  mode: RunMode;
+  seed: number;
+  score: number;
+  round: number;
+  result: 'victory' | 'defeat' | 'active';
+  kills: number;
+  bestHand: HandRank;
+  relics: string[];
 }
 
 export interface StorageLike {
@@ -40,7 +53,7 @@ export interface StorageLike {
 
 export function defaultProfile(): Profile {
   return {
-    version: 1,
+    version: 2,
     totalRuns: 0,
     wins: 0,
     bestScore: 0,
@@ -49,6 +62,7 @@ export function defaultProfile(): Profile {
     soundEnabled: true,
     achievements: [],
     daily: null,
+    recentRuns: [],
   };
 }
 
@@ -70,6 +84,9 @@ export function loadProfile(storage: StorageLike): Profile {
         ? parsed.achievements.filter(isAchievement)
         : [],
       daily: isDaily(parsed.daily) ? parsed.daily : null,
+      recentRuns: Array.isArray(parsed.recentRuns)
+        ? parsed.recentRuns.filter(isRunLog).slice(-20)
+        : [],
     };
   } catch {
     return defaultProfile();
@@ -110,7 +127,34 @@ export function recordRun(
     daily: mode === 'daily'
       ? { date, bestScore: Math.max(priorDaily, summary.score) }
       : profile.daily,
+    recentRuns: [
+      ...profile.recentRuns,
+      {
+        date,
+        mode,
+        seed: summary.seed,
+        score: summary.score,
+        round: summary.round,
+        result: summary.result,
+        kills: summary.kills,
+        bestHand: summary.bestHand,
+        relics: [...summary.relics],
+      },
+    ].slice(-20),
   };
+}
+
+export function exportPlaytestData(profile: Profile): string {
+  return JSON.stringify({
+    schema: 'poker-defense-playtest-v1',
+    aggregate: {
+      totalRuns: profile.totalRuns,
+      wins: profile.wins,
+      bestScore: profile.bestScore,
+      bestRound: profile.bestRound,
+    },
+    runs: profile.recentRuns,
+  }, null, 2);
 }
 
 /** FNV-1a 32-bit: 날짜 문자열만으로 플랫폼 독립적인 양의 시드를 만든다. */
@@ -135,4 +179,18 @@ function isDaily(value: unknown): value is { date: string; bestScore: number } {
   if (!value || typeof value !== 'object') return false;
   const daily = value as { date?: unknown; bestScore?: unknown };
   return typeof daily.date === 'string' && safeCount(daily.bestScore) === daily.bestScore;
+}
+
+function isRunLog(value: unknown): value is RunLog {
+  if (!value || typeof value !== 'object') return false;
+  const run = value as Partial<RunLog>;
+  return typeof run.date === 'string'
+    && (run.mode === 'standard' || run.mode === 'daily')
+    && typeof run.seed === 'number'
+    && typeof run.score === 'number'
+    && typeof run.round === 'number'
+    && (run.result === 'victory' || run.result === 'defeat' || run.result === 'active')
+    && typeof run.kills === 'number'
+    && typeof run.bestHand === 'number'
+    && Array.isArray(run.relics);
 }
