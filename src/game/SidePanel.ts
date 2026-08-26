@@ -22,6 +22,7 @@ export interface PanelCallbacks {
   onPause(): void;
   onSound(): void;
   onHome(): void;
+  onGuide(): void;
 }
 
 function traitLabel(def: UnitDef): string {
@@ -125,11 +126,15 @@ export class SidePanel {
     this.relicText = makeText(scene, PX, 580, '', 11, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
 
     this.helpText = makeText(
-      scene, PX, 638,
-      'Q/W/R/T 무늬 스킬  ·  1/2/4 배속  ·  SPACE 정지\n카드 → 유닛+스킬  ·  동일 유닛 3기 → 상위 합성\n필드 한도를 넘기기 전에 60라운드를 지키세요',
-      11, UI.textDim,
+      scene, PX, 641,
+      'Q/W/R/T 스킬 · 1/2/4 배속 · SPACE 정지\n카드 → 유닛+스킬 · 동일 3기 → 상위 합성',
+      10, UI.textDim,
     );
     this.helpText.setLineSpacing(4);
+    makeButton(scene, 1178, 660, 132, 38, '족보 · 유닛 도감', cb.onGuide, {
+      fill: 0x78612b,
+      fontSize: 10,
+    });
   }
 
   refresh(

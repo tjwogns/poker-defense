@@ -16,6 +16,7 @@ import { TutorialOverlay } from './TutorialOverlay';
 import { SuitPowerBar } from './SuitPowerBar';
 import { BossHud } from './BossHud';
 import { downloadShareCard, shareRun } from './ShareCard';
+import { GuideOverlay } from './GuideOverlay';
 
 const DT = 1 / TICK_RATE;
 
@@ -43,6 +44,8 @@ export class PlayScene extends Phaser.Scene {
   private audio!: AudioManager;
   private tutorialActive = false;
   private relicOverlay: Phaser.GameObjects.Container | null = null;
+  private guideOverlay: GuideOverlay | null = null;
+  private guideWasPaused = false;
 
   constructor() {
     super('play');
@@ -64,6 +67,8 @@ export class PlayScene extends Phaser.Scene {
     this.ended = false;
     this.paused = false;
     this.relicOverlay = null;
+    this.guideOverlay = null;
+    this.guideWasPaused = false;
     this.profile = loadProfile(localStorage);
     this.audio = new AudioManager(this.profile.soundEnabled);
 
@@ -105,6 +110,7 @@ export class PlayScene extends Phaser.Scene {
       onPause: () => this.togglePause(),
       onSound: () => this.toggleSound(),
       onHome: () => this.scene.start('menu'),
+      onGuide: () => this.openGuide(),
     });
     this.powerBar = new SuitPowerBar(this, this.core, (suit) => this.usePower(suit));
     this.bossHud = new BossHud(this);
@@ -255,15 +261,15 @@ export class PlayScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     keyboard.on('keydown-E', () => {
-      if (this.tutorialActive || this.ended) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay) return;
       if (this.core.doExchange()) this.onHandAction('exchange');
     });
     keyboard.on('keydown-ENTER', () => {
-      if (this.tutorialActive || this.ended) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay) return;
       if (this.core.confirmHand() !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
-      if (this.tutorialActive || this.ended) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
         this.audio.play(this.core.nextWave().kind === 'boss' ? 'boss' : 'click');
@@ -272,6 +278,7 @@ export class PlayScene extends Phaser.Scene {
     });
     for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
       keyboard.on(`keydown-${key}`, () => {
+        if (this.guideOverlay) return;
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
@@ -282,7 +289,35 @@ export class PlayScene extends Phaser.Scene {
     for (const [key, suit] of powers) {
       keyboard.on(`keydown-${key}`, () => this.usePower(suit));
     }
-    keyboard.on('keydown-M', () => this.toggleSound());
+    keyboard.on('keydown-M', () => {
+      if (!this.guideOverlay) this.toggleSound();
+    });
+    keyboard.on('keydown-H', () => {
+      if (this.tutorialActive || this.ended || this.relicOverlay) return;
+      if (this.guideOverlay) this.closeGuide();
+      else this.openGuide();
+    });
+    keyboard.on('keydown-ESC', () => {
+      if (this.guideOverlay) this.closeGuide();
+    });
+  }
+
+  private openGuide(): void {
+    if (this.guideOverlay || this.tutorialActive || this.ended || this.relicOverlay) return;
+    this.guideWasPaused = this.paused;
+    if (this.core.phase === 'combat') this.paused = true;
+    this.guideOverlay = new GuideOverlay(this, () => this.closeGuide());
+    this.audio.play('click');
+    this.refreshUI();
+  }
+
+  private closeGuide(): void {
+    if (!this.guideOverlay) return;
+    this.guideOverlay.destroy();
+    this.guideOverlay = null;
+    if (this.core.phase === 'combat') this.paused = this.guideWasPaused;
+    this.audio.play('click');
+    this.refreshUI();
   }
 
   private usePower(suit: Suit): void {
