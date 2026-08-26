@@ -26,13 +26,18 @@ export class MenuScene extends Phaser.Scene {
       graphics.fillStyle(i % 2 ? 0x5cb187 : 0xe6c84f, 0.055);
       graphics.fillCircle(40 + ((i * 173) % 1200), 30 + ((i * 97) % 650), 2 + (i % 4));
     }
+    makeText(this, 105, 360, '♠', 190, '#5cb187', true).setOrigin(0.5).setAlpha(0.055);
+    makeText(this, 1175, 360, '♦', 190, UI.gold, true).setOrigin(0.5).setAlpha(0.045);
 
     makeText(this, 640, 92, '♠  POKER DEFENSE  ♦', 18, UI.accentText, true).setOrigin(0.5);
     makeText(this, 640, 150, 'ROYAL SIEGE', 58, UI.gold, true)
       .setOrigin(0.5).setShadow(0, 5, '#000000', 12);
     makeText(this, 640, 208, '패를 만들고 · 군단을 합성하고 · 60라운드를 지켜내세요', 18, UI.textDim)
       .setOrigin(0.5);
+    graphics.lineStyle(2, 0xe6c84f, 0.28);
+    graphics.lineBetween(515, 232, 765, 232);
 
+    this.add.rectangle(644, 366, 760, 190, 0x000000, 0.28);
     this.add.rectangle(640, 360, 760, 190, UI.panel, 0.96).setStrokeStyle(1, UI.panelLine);
     makeText(this, 350, 292, 'COMMANDER RECORD', 12, UI.textDim, true);
     makeText(this, 350, 326, `최고 점수  ${profile.bestScore.toLocaleString()}`, 22, UI.gold, true);
@@ -72,7 +77,7 @@ export class MenuScene extends Phaser.Scene {
 
     makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
-    makeText(this, 640, 610, 'v1.1  ·  BREAKOUT EDITION', 11, '#60746a', true).setOrigin(0.5);
+    makeText(this, 640, 610, 'v1.2  ·  ROYAL TABLE EDITION', 11, '#60746a', true).setOrigin(0.5);
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
   }
 }

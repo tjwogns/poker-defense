@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { bossDef, featuredBoss } from '../core/bosses';
 import { Game } from '../core/game';
 import { UI, makeText } from './ui';
+import { BOSS_HUD_BOUNDS } from './layout';
 
 export class BossHud {
   private root: Phaser.GameObjects.Container;
@@ -11,13 +12,16 @@ export class BossHud {
   private hpFg: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene) {
-    const bg = scene.add.rectangle(390, 30, 430, 54, 0x070b08, 0.9).setStrokeStyle(1, 0xe24b77, 0.8);
-    this.name = makeText(scene, 190, 17, '', 14, UI.gold, true);
-    this.mechanic = makeText(scene, 190, 37, '', 11, UI.textDim);
-    const hpBg = scene.add.rectangle(578, 20, 200, 9, 0x000000, 0.8).setOrigin(0, 0.5);
-    this.hpFg = scene.add.rectangle(578, 20, 200, 9, 0xe24b77, 1).setOrigin(0, 0.5);
-    this.hp = makeText(scene, 678, 31, '', 10, UI.text).setOrigin(0.5);
-    this.root = scene.add.container(0, 0, [bg, this.name, this.mechanic, hpBg, this.hpFg, this.hp])
+    const { x, y, width, height } = BOSS_HUD_BOUNDS;
+    const bg = scene.add.rectangle(x + width / 2, y + height / 2, width, height, UI.panelDeep, 0.98)
+      .setStrokeStyle(1, 0xe24b77, 0.72);
+    const accent = scene.add.rectangle(x + 2, y + height / 2, 3, height - 4, 0xe24b77, 0.95);
+    this.name = makeText(scene, x + 12, y + 6, '', 12, UI.gold, true);
+    this.mechanic = makeText(scene, x + 12, y + 22, '', 9, UI.textDim);
+    const hpBg = scene.add.rectangle(x + 268, y + 12, 152, 8, 0x000000, 0.8).setOrigin(0, 0.5);
+    this.hpFg = scene.add.rectangle(x + 268, y + 12, 152, 8, 0xe24b77, 1).setOrigin(0, 0.5);
+    this.hp = makeText(scene, x + 344, y + 22, '', 9, UI.text).setOrigin(0.5);
+    this.root = scene.add.container(0, 0, [bg, accent, this.name, this.mechanic, hpBg, this.hpFg, this.hp])
       .setDepth(8).setVisible(false);
   }
 
@@ -29,7 +33,7 @@ export class BossHud {
     const ratio = Math.max(0, boss.hp / boss.maxHp);
     this.name.setText(`♛ ${def.name}`);
     this.mechanic.setText(def.mechanic);
-    this.hpFg.width = 200 * ratio;
+    this.hpFg.width = 152 * ratio;
     this.hp.setText(`${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}`);
   }
 }

@@ -35,9 +35,50 @@ const ENEMY_RADIUS: Record<EnemyKindId, number> = {
 };
 
 interface EnemyView {
-  body: Phaser.GameObjects.Arc;
+  root: Phaser.GameObjects.Container;
   hpBg: Phaser.GameObjects.Rectangle;
   hpFg: Phaser.GameObjects.Rectangle;
+  barWidth: number;
+}
+
+interface UnitView {
+  root: Phaser.GameObjects.Container;
+  selection: Phaser.GameObjects.Arc;
+}
+
+function enemyArt(scene: Phaser.Scene, kind: EnemyKindId, radius: number, color: number): Phaser.GameObjects.Container {
+  const shadow = scene.add.ellipse(2, 4, radius * 2.2, radius * 1.45, 0x000000, 0.38);
+  const aura = scene.add.circle(0, 0, radius + 3, color, kind === 'boss' ? 0.2 : 0.1)
+    .setStrokeStyle(kind === 'boss' ? 2 : 1, color, 0.55);
+  let body: Phaser.GameObjects.Shape;
+  if (kind === 'fast') {
+    body = scene.add.triangle(0, 0, 0, -radius, radius, radius, -radius, radius, color, 1);
+  } else if (kind === 'tank') {
+    body = scene.add.rectangle(0, 0, radius * 1.65, radius * 1.65, color, 1).setRotation(Math.PI / 4);
+  } else if (kind === 'splitter') {
+    body = scene.add.polygon(0, 0, [0, -radius, radius, 0, 0, radius, -radius, 0], color, 1);
+  } else if (kind === 'boss') {
+    const points: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = -Math.PI / 2 + (Math.PI * i) / 6;
+      const r = i % 2 === 0 ? radius : radius * 0.72;
+      points.push(Math.cos(angle) * r, Math.sin(angle) * r);
+    }
+    body = scene.add.polygon(0, 0, points, color, 1);
+  } else {
+    body = scene.add.circle(0, 0, radius, color, 1);
+  }
+  body.setStrokeStyle(kind === 'boss' ? 2 : 1, 0xf8e9c2, kind === 'boss' ? 0.7 : 0.28);
+  const marks: Record<EnemyKindId, string> = {
+    normal: '•', fast: '›', tank: '◆', regen: '+', splitter: '✦', boss: '♛',
+  };
+  const emblem = scene.add.text(0, kind === 'fast' ? 2 : 0, marks[kind], {
+    fontFamily: FONT,
+    fontSize: `${kind === 'boss' ? 15 : Math.max(9, radius)}px`,
+    fontStyle: 'bold',
+    color: kind === 'boss' ? '#f7d95a' : '#f4eee4',
+  }).setOrigin(0.5);
+  return scene.add.container(0, 0, [shadow, aura, body, emblem]).setDepth(3);
 }
 
 export class FieldRenderer {
@@ -46,7 +87,7 @@ export class FieldRenderer {
   private rangeG: Phaser.GameObjects.Graphics;
   private fxG: Phaser.GameObjects.Graphics;
   private enemyViews = new Map<number, EnemyView>();
-  private unitViews = new Map<number, Phaser.GameObjects.Container>();
+  private unitViews = new Map<number, UnitView>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -58,23 +99,48 @@ export class FieldRenderer {
 
   private drawStatic(): void {
     const g = this.scene.add.graphics().setDepth(0);
+    g.fillStyle(0x000000, 0.32);
+    g.fillRoundedRect(FIELD_X - 4, FIELD_Y - 2, GRID_W * TILE + 8, GRID_H * TILE + 8, 8);
+    g.fillGradientStyle(0x10261a, 0x10261a, 0x08130d, 0x08130d, 1);
+    g.fillRoundedRect(FIELD_X - 1, FIELD_Y - 1, GRID_W * TILE + 2, GRID_H * TILE + 2, 6);
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
-        const color = isPathTile(x, y) ? UI.pathTile : UI.fieldTile;
+        const sx = FIELD_X + x * TILE;
+        const sy = FIELD_Y + y * TILE;
+        const path = isPathTile(x, y);
+        const color = path ? UI.pathTile : UI.fieldTile;
         g.fillStyle(color, 1);
-        g.fillRect(FIELD_X + x * TILE, FIELD_Y + y * TILE, TILE - 1, TILE - 1);
+        g.fillRoundedRect(sx + 1, sy + 1, TILE - 3, TILE - 3, path ? 5 : 3);
+        g.fillStyle(path ? 0x6d8a72 : 0x5cb187, path ? 0.055 : ((x + y) % 2 ? 0.025 : 0.045));
+        g.fillRoundedRect(sx + 3, sy + 3, TILE - 7, TILE - 7, 3);
+        if (path) {
+          g.lineStyle(1, 0x8eaf96, 0.08);
+          g.strokeRoundedRect(sx + 2, sy + 2, TILE - 5, TILE - 5, 4);
+        }
       }
     }
-    g.lineStyle(2, UI.accent, 0.18);
+    // 경로 방향을 암시하는 작은 금빛 마커
+    g.fillStyle(0xe6c84f, 0.2);
+    for (let x = 3; x <= 13; x += 3) {
+      const cx = FIELD_X + x * TILE + TILE / 2;
+      const cy = FIELD_Y + TILE + TILE / 2;
+      g.fillTriangle(cx - 3, cy - 4, cx + 4, cy, cx - 3, cy + 4);
+    }
+    g.lineStyle(2, UI.accent, 0.35);
     g.strokeRoundedRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 3, GRID_H * TILE + 3, 4);
     // 스폰 지점 표시
     const s = tileCenter(1, 1);
-    g.fillStyle(UI.danger, 0.9);
+    g.fillStyle(UI.danger, 0.95);
+    g.fillCircle(FIELD_X + s.x, FIELD_Y + s.y, 12);
+    g.fillStyle(0x2a1010, 0.9);
     g.fillTriangle(
-      FIELD_X + s.x - 7, FIELD_Y + s.y - 7,
-      FIELD_X + s.x - 7, FIELD_Y + s.y + 7,
-      FIELD_X + s.x + 8, FIELD_Y + s.y,
+      FIELD_X + s.x - 5, FIELD_Y + s.y - 6,
+      FIELD_X + s.x - 5, FIELD_Y + s.y + 6,
+      FIELD_X + s.x + 7, FIELD_Y + s.y,
     );
+    this.scene.add.text(390, 270, '♠   ROYAL TABLE   ♦', {
+      fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: '#5cb187',
+    }).setOrigin(0.5).setAlpha(0.055).setDepth(0);
   }
 
   /** 매 프레임 호출: core 상태를 화면에 반영 */
@@ -93,23 +159,31 @@ export class FieldRenderer {
       let view = this.unitViews.get(u.id);
       if (!view) {
         const def = UNIT_DEFS[u.tier];
-        const body = this.scene.add.circle(0, 0, 15, def.color);
-        body.setStrokeStyle(2, 0x0d1a12, 1);
+        const shadow = this.scene.add.ellipse(2, 5, 32, 20, 0x000000, 0.42);
+        const selection = this.scene.add.circle(0, 0, 20, 0xe6c84f, 0.05)
+          .setStrokeStyle(2, 0xe6c84f, 0.95).setVisible(false);
+        const halo = this.scene.add.circle(0, 0, 17, def.color, 0.24)
+          .setStrokeStyle(1, def.color, 0.75);
+        const body = this.scene.add.circle(0, 0, 13, UI.panelDeep, 1).setStrokeStyle(2, def.color, 1);
+        const core = this.scene.add.circle(0, 0, 10, def.color, 0.92);
         const glyph = this.scene.add
           .text(0, 0, def.glyph, {
-            fontFamily: FONT, fontSize: '15px', color: '#0d1a12', fontStyle: 'bold',
+            fontFamily: FONT, fontSize: '13px', color: '#0b140e', fontStyle: 'bold',
           })
           .setOrigin(0.5);
-        view = this.scene.add.container(0, 0, [body, glyph]).setDepth(2);
+        const root = this.scene.add.container(0, 0, [shadow, selection, halo, body, core, glyph]).setDepth(2);
+        view = { root, selection };
         this.unitViews.set(u.id, view);
       }
       const p = unitPos(u);
-      view.setPosition(FIELD_X + p.x, FIELD_Y + p.y);
-      view.setScale(u.id === selectedUnitId ? 1.15 : 1);
+      const selected = u.id === selectedUnitId;
+      view.root.setPosition(FIELD_X + p.x, FIELD_Y + p.y);
+      view.root.setScale(selected ? 1.12 : 1);
+      view.selection.setVisible(selected);
     }
     for (const [id, view] of this.unitViews) {
       if (!liveIds.has(id)) {
-        view.destroy();
+        view.root.destroy();
         this.unitViews.delete(id);
       }
     }
@@ -124,28 +198,32 @@ export class FieldRenderer {
       if (!view) {
         const def = ENEMY_KINDS[e.kind];
         const r = ENEMY_RADIUS[e.kind];
-        const body = this.scene.add.circle(0, 0, r, def.color).setDepth(3);
-        body.setStrokeStyle(1, 0x000000, 0.5);
-        const hpBg = this.scene.add.rectangle(0, 0, 22, 4, 0x000000, 0.7).setDepth(3);
-        const hpFg = this.scene.add.rectangle(0, 0, 22, 4, 0x76d67a).setDepth(3);
-        view = { body, hpBg, hpFg };
+        const root = enemyArt(this.scene, e.kind, r, def.color);
+        const barWidth = e.kind === 'boss' ? 42 : 24;
+        const hpBg = this.scene.add.rectangle(0, 0, barWidth, e.kind === 'boss' ? 5 : 3, 0x000000, 0.78).setDepth(3);
+        const hpFg = this.scene.add.rectangle(0, 0, barWidth, e.kind === 'boss' ? 5 : 3, 0x76d67a).setDepth(3);
+        view = { root, hpBg, hpFg, barWidth };
         this.enemyViews.set(e.id, view);
       }
       const p = enemyPos(e);
       const sx = FIELD_X + p.x;
       const sy = FIELD_Y + p.y;
       const r = ENEMY_RADIUS[e.kind];
-      view.body.setPosition(sx, sy);
-      view.body.setScale(e.kind === 'boss' ? 1 + Math.sin(game.field.time * 5) * 0.08 : 1);
+      view.root.setPosition(sx, sy);
+      view.root.setScale(e.kind === 'boss' ? 1 + Math.sin(game.field.time * 5) * 0.055 : 1);
+      view.root.setAlpha(game.field.time < e.stunUntil ? 0.62 : 1);
       const ratio = Math.max(0, e.hp / e.maxHp);
       view.hpBg.setPosition(sx, sy - r - 6);
-      view.hpFg.setPosition(sx - 11 + 11 * ratio, sy - r - 6);
-      view.hpFg.width = 22 * ratio;
+      view.hpFg.setPosition(sx - view.barWidth / 2 + (view.barWidth * ratio) / 2, sy - r - 6);
+      view.hpFg.width = view.barWidth * ratio;
       view.hpFg.setFillStyle(ratio > 0.5 ? 0x76d67a : ratio > 0.25 ? 0xe0a33c : 0xd06258);
+      const showHp = e.kind === 'boss' || ratio < 0.995;
+      view.hpBg.setVisible(showHp);
+      view.hpFg.setVisible(showHp);
     }
     for (const [id, view] of this.enemyViews) {
       if (!liveIds.has(id)) {
-        view.body.destroy();
+        view.root.destroy();
         view.hpBg.destroy();
         view.hpFg.destroy();
         this.enemyViews.delete(id);

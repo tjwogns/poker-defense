@@ -79,8 +79,8 @@ await new Promise((r) => setTimeout(r, 300));
 console.log('배치 후:', JSON.stringify(await state()));
 await page.screenshot({ path: `${TMP}/shot3-placed.png` });
 
-// 전투 시작 (1022, 452)
-await page.mouse.click(1022, 452);
+// 전투 시작 (고정 컨트롤 섹션 중앙)
+await page.mouse.click(1022, 424);
 await new Promise((r) => setTimeout(r, 4000));
 const combat = await state();
 console.log('전투 4초:', JSON.stringify(combat));
@@ -144,6 +144,15 @@ const copiedText = await page.evaluate(() => window.__copiedText);
 await page.mouse.click(768, 520);
 await new Promise((r) => setTimeout(r, 150));
 
+// 작은 노트북/모바일 가로 크기에서도 캔버스가 비율 유지로 화면 안에 들어오는지 확인
+await page.setViewport({ width: 960, height: 540 });
+await new Promise((r) => setTimeout(r, 250));
+const compactCanvas = await page.$eval('canvas', (canvas) => {
+  const rect = canvas.getBoundingClientRect();
+  return { width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom };
+});
+await page.screenshot({ path: `${TMP}/shot7-compact.png` });
+
 await browser.close();
 
 if (errors.length) {
@@ -168,6 +177,10 @@ if (!ended || ended.phase !== 'defeat') {
 }
 if (!copiedText.includes('포커 디펜스') || !copiedText.includes('STANDARD RUN')) {
   console.log('스모크 실패: 결과 공유 클립보드 폴백 불일치');
+  process.exit(1);
+}
+if (compactCanvas.right > 960.5 || compactCanvas.bottom > 540.5 || compactCanvas.width / compactCanvas.height < 1.77) {
+  console.log('스모크 실패: 작은 가로 화면 캔버스 스케일 불일치');
   process.exit(1);
 }
 console.log('SMOKE_OK');
