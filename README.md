@@ -3,6 +3,15 @@
 포커 족보로 유닛을 뽑아 순환 경로를 도는 적을 막는 웹 디펜스 게임.
 카드 조합, 군단 성장, 순환형 전장을 결합한 독립 오리지널 프로젝트다.
 
+## v1.3 Daily Ranking Beta
+
+- 한국 표준시 기준으로 모두가 같은 오늘의 도전을 플레이
+- 메인 화면에서 날짜별 온라인 TOP 10과 내 지휘관 확인
+- 데일리 종료 화면에서 이용자가 직접 선택해 점수 등록
+- 자유 입력 없이 자동 생성된 익명 지휘관 이름 사용
+- 같은 지휘관의 같은 날짜 기록은 최고 점수만 보관
+- Cloudflare Worker + D1 API에 날짜·시드·점수 범위 검증과 플레이어 ID 해시 적용
+
 ## v1.2 Royal Table UI
 
 - 우측 정보를 상태·경제·군단·컨트롤·스킬·유물·도움말의 7개 고정 구획으로 분리해 텍스트 겹침 제거
@@ -89,6 +98,23 @@ tests/      vitest 단위 테스트 (core 전체)
 - 수집 주소는 CORS와 `sendBeacon` 요청을 허용해야 한다. 로컬 개발에서는 `.env.example`을 복사해 같은 변수를 설정할 수 있다.
 - 공개 안내문은 `/privacy.html`에 포함된다.
 
+## 온라인 일일 랭킹 서버 연결
+
+게임 UI는 `VITE_LEADERBOARD_ENDPOINT`가 비어 있어도 정상 실행되며, 이 경우 랭킹 화면에 서버 연결 전 상태가 표시된다. 실제 온라인 집계에는 `leaderboard-worker/`의 Worker와 D1 데이터베이스를 배포한다.
+
+```bash
+cd leaderboard-worker
+npm install
+npx wrangler login
+npx wrangler d1 create royal-siege-leaderboard
+# 출력된 database_id를 wrangler.jsonc에 입력
+npm run db:remote
+npx wrangler secret put PLAYER_HASH_SALT
+npm run deploy
+```
+
+배포 후 GitHub 저장소의 Actions 변수 `VITE_LEADERBOARD_ENDPOINT`에 Worker HTTPS 주소를 저장하고 `Deploy to GitHub Pages` 워크플로를 다시 실행한다. 로컬 개발에서는 `.env`에 같은 변수를 넣는다.
+
 ## 저작권
 
 게임의 자체 코드·문구·디자인은 별도 허가가 없는 한 모든 권리를 보유한다.
@@ -101,4 +127,5 @@ Phaser와 EventEmitter3 등 제3자 구성요소는 각각의 MIT 라이선스�
 - [x] M3: 사운드, 고족보 연출, 튜토리얼, localStorage 기록, 데일리 런
 - [x] M4A: 유닛 합성, 유물 빌드, 점수·업적, 모바일 가로 모드 지원
 - [x] M4B-1: 무늬 액티브, 고유 보스, 결과 공유, 플레이테스트 로그
-- [ ] M4B-2: 무한 모드, 히든 레시피, 조커/상점, 온라인 리더보드
+- [ ] M4B-2: 무한 모드, 히든 레시피, 조커/상점
+- [x] M4B-2A: 온라인 일일 TOP 10 랭킹 베타

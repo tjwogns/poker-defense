@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  dailySeed, defaultProfile, exportPlaytestData, loadProfile, recordRun, saveProfile,
+  dailyDate, dailySeed, defaultProfile, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, recordRun, saveProfile,
 } from '../src/meta/profile';
 
 class MemoryStorage {
@@ -37,7 +37,7 @@ describe('profile persistence', () => {
     }));
 
     expect(loadProfile(storage)).toMatchObject({
-      version: 2, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [],
+      version: 3, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [],
     });
   });
 
@@ -66,6 +66,19 @@ describe('profile persistence', () => {
     expect(dailySeed('2026-08-26')).toBe(dailySeed('2026-08-26'));
     expect(dailySeed('2026-08-26')).not.toBe(dailySeed('2026-08-27'));
     expect(dailySeed('2026-08-26')).toBeGreaterThan(0);
+  });
+
+  test('일일 도전 날짜는 한국 표준시 자정을 기준으로 한다', () => {
+    expect(dailyDate(new Date('2026-08-26T14:59:59Z'))).toBe('2026-08-26');
+    expect(dailyDate(new Date('2026-08-26T15:00:00Z'))).toBe('2026-08-27');
+  });
+
+  test('익명 랭킹 지휘관 이름은 한 번 생성한 뒤 유지한다', () => {
+    const created = ensureLeaderboardIdentity(defaultProfile(), () => 'fixed-player-id');
+    const loadedAgain = ensureLeaderboardIdentity(created, () => 'different-id');
+    expect(created.leaderboardPlayerId).toBe('fixed-player-id');
+    expect(created.leaderboardName).toMatch(/\s\d{2}$/);
+    expect(loadedAgain).toEqual(created);
   });
 
   test('최근 플레이 로그는 최신 20판만 저장한다', () => {

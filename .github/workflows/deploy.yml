@@ -40,6 +40,7 @@ jobs:
         run: npm run build
         env:
           VITE_ANALYTICS_ENDPOINT: ${{ vars.VITE_ANALYTICS_ENDPOINT }}
+          VITE_LEADERBOARD_ENDPOINT: ${{ vars.VITE_LEADERBOARD_ENDPOINT }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

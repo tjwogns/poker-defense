@@ -1,15 +1,12 @@
 import Phaser from 'phaser';
-import { ACHIEVEMENTS, dailySeed, exportPlaytestData, loadProfile, saveProfile } from '../meta/profile';
+import {
+  ACHIEVEMENTS, dailyDate, dailySeed, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, saveProfile,
+} from '../meta/profile';
 import { dailyDateFromSearch } from '../meta/share';
 import { getAnalytics } from '../meta/analytics';
 import { AnalyticsConsentOverlay } from './AnalyticsConsentOverlay';
 import { UI, makeButton, makeText } from './ui';
-
-function localDate(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-}
+import { LeaderboardOverlay } from './LeaderboardOverlay';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -17,9 +14,10 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    const profile = loadProfile(localStorage);
+    let profile = ensureLeaderboardIdentity(loadProfile(localStorage));
+    saveProfile(localStorage, profile);
     const analytics = getAnalytics();
-    const date = localDate();
+    const date = dailyDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
     const graphics = this.add.graphics();
@@ -40,8 +38,8 @@ export class MenuScene extends Phaser.Scene {
     graphics.lineStyle(2, 0xe6c84f, 0.28);
     graphics.lineBetween(515, 232, 765, 232);
 
-    this.add.rectangle(644, 366, 760, 190, 0x000000, 0.28);
-    this.add.rectangle(640, 360, 760, 190, UI.panel, 0.96).setStrokeStyle(1, UI.panelLine);
+    this.add.rectangle(644, 376, 760, 230, 0x000000, 0.28);
+    this.add.rectangle(640, 370, 760, 230, UI.panel, 0.96).setStrokeStyle(1, UI.panelLine);
     makeText(this, 350, 292, 'COMMANDER RECORD', 12, UI.textDim, true);
     makeText(this, 350, 326, `최고 점수  ${profile.bestScore.toLocaleString()}`, 22, UI.gold, true);
     makeText(this, 350, 365, `최고 라운드  ${profile.bestRound} / 60`, 16, UI.text);
@@ -49,23 +47,40 @@ export class MenuScene extends Phaser.Scene {
     const achievementCount = profile.achievements.length;
     makeText(this, 350, 431, `업적 ${achievementCount} / ${Object.keys(ACHIEVEMENTS).length}`, 14, UI.accentText);
 
-    makeButton(this, 770, 327, 250, 54, '새 게임', () => {
+    makeButton(this, 770, 310, 250, 50, '새 게임', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fontSize: 18 });
-    makeButton(this, 770, 397, 250, 54, hasChallenge ? '친구의 도전 수락' : '오늘의 도전', () => {
+    makeButton(this, 770, 370, 250, 50, hasChallenge ? '친구의 도전 수락' : '오늘의 도전', () => {
       this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
     }, { fill: 0xe6c84f, fontSize: 18 });
     makeText(
       this,
       770,
-      435,
+      403,
       `${challengeDate} · ${hasChallenge ? '공유 시드 그대로 플레이' : '모두에게 같은 패'}`,
       12,
       UI.textDim,
     ).setOrigin(0.5);
+    let leaderboardOverlay: LeaderboardOverlay | null = null;
+    const closeLeaderboard = () => {
+      leaderboardOverlay?.destroy();
+      leaderboardOverlay = null;
+    };
+    makeButton(this, 770, 449, 250, 38, '온라인 일일 랭킹', () => {
+      if (leaderboardOverlay) return;
+      leaderboardOverlay = new LeaderboardOverlay(
+        this,
+        challengeDate,
+        profile.leaderboardPlayerId,
+        profile.leaderboardName,
+        closeLeaderboard,
+      );
+      analytics.track('leaderboard_viewed', { date: challengeDate });
+    }, { fill: 0x6ca4d9, fontSize: 13 });
+    this.input.keyboard?.on('keydown-ESC', closeLeaderboard);
 
     const sound = makeButton(this, 1160, 54, 150, 36, profile.soundEnabled ? 'SOUND ON' : 'SOUND OFF', () => {
-      profile.soundEnabled = !profile.soundEnabled;
+      profile = { ...profile, soundEnabled: !profile.soundEnabled };
       saveProfile(localStorage, profile);
       sound.setLabel(profile.soundEnabled ? 'SOUND ON' : 'SOUND OFF');
     }, { fill: 0x42544a, fontSize: 12 });
@@ -89,7 +104,7 @@ export class MenuScene extends Phaser.Scene {
 
     makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
-    makeText(this, 640, 610, 'v1.2  ·  ROYAL TABLE EDITION', 11, '#60746a', true).setOrigin(0.5);
+    makeText(this, 640, 610, 'v1.3  ·  DAILY RANKING BETA', 11, '#60746a', true).setOrigin(0.5);
     analytics.track('menu_view', { challenge: hasChallenge });
     if (analytics.consent === 'unknown') {
       new AnalyticsConsentOverlay(this, (allowed) => {

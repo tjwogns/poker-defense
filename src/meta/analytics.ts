@@ -18,7 +18,9 @@ export type AnalyticsEventName =
   | 'run_finished'
   | 'run_abandoned'
   | 'retry_clicked'
-  | 'result_shared';
+  | 'result_shared'
+  | 'leaderboard_viewed'
+  | 'leaderboard_submitted';
 
 export interface AnalyticsEvent {
   id: string;

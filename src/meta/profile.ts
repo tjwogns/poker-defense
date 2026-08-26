@@ -22,7 +22,7 @@ export const ACHIEVEMENTS: Record<AchievementId, { name: string; description: st
 };
 
 export interface Profile {
-  version: 2;
+  version: 3;
   totalRuns: number;
   wins: number;
   bestScore: number;
@@ -32,6 +32,8 @@ export interface Profile {
   achievements: AchievementId[];
   daily: { date: string; bestScore: number } | null;
   recentRuns: RunLog[];
+  leaderboardPlayerId: string;
+  leaderboardName: string;
 }
 
 export interface RunLog {
@@ -53,7 +55,7 @@ export interface StorageLike {
 
 export function defaultProfile(): Profile {
   return {
-    version: 2,
+    version: 3,
     totalRuns: 0,
     wins: 0,
     bestScore: 0,
@@ -63,6 +65,8 @@ export function defaultProfile(): Profile {
     achievements: [],
     daily: null,
     recentRuns: [],
+    leaderboardPlayerId: '',
+    leaderboardName: '',
   };
 }
 
@@ -87,10 +91,37 @@ export function loadProfile(storage: StorageLike): Profile {
       recentRuns: Array.isArray(parsed.recentRuns)
         ? parsed.recentRuns.filter(isRunLog).slice(-20)
         : [],
+      leaderboardPlayerId: safeIdentityPart(parsed.leaderboardPlayerId, 100),
+      leaderboardName: safeIdentityPart(parsed.leaderboardName, 30),
     };
   } catch {
     return defaultProfile();
   }
+}
+
+const COMMANDER_ADJECTIVES = ['고요한', '황금빛', '용감한', '날쌘', '푸른', '붉은', '은빛', '영리한'];
+const COMMANDER_NOUNS = ['스페이드', '하트', '다이아', '클로버', '조커', '에이스', '왕관', '방패'];
+
+export function ensureLeaderboardIdentity(
+  profile: Profile,
+  idFactory: () => string = randomIdentity,
+): Profile {
+  if (profile.leaderboardPlayerId && profile.leaderboardName) return profile;
+  const playerId = idFactory();
+  const hash = dailySeed(playerId);
+  const adjective = COMMANDER_ADJECTIVES[hash % COMMANDER_ADJECTIVES.length];
+  const noun = COMMANDER_NOUNS[Math.floor(hash / COMMANDER_ADJECTIVES.length) % COMMANDER_NOUNS.length];
+  const suffix = String(hash % 100).padStart(2, '0');
+  return {
+    ...profile,
+    leaderboardPlayerId: playerId,
+    leaderboardName: `${adjective} ${noun} ${suffix}`,
+  };
+}
+
+/** 일일 도전 기준 날짜. 전 세계에서 같은 판을 쓰도록 한국 표준시로 고정한다. */
+export function dailyDate(now = new Date()): string {
+  return new Date(now.getTime() + 9 * 60 * 60_000).toISOString().slice(0, 10);
 }
 
 export function saveProfile(storage: StorageLike, profile: Profile): boolean {
@@ -170,6 +201,15 @@ export function dailySeed(date: string): number {
 
 function safeCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+}
+
+function safeIdentityPart(value: unknown, maxLength: number): string {
+  return typeof value === 'string' && value.length <= maxLength ? value : '';
+}
+
+function randomIdentity(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 function isAchievement(value: unknown): value is AchievementId {

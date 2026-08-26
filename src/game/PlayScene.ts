@@ -10,7 +10,9 @@ import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
 import { FONT, UI, makeButton, makeText } from './ui';
 import { RELIC_DEFS } from '../core/relics';
-import { loadProfile, Profile, recordRun, RunMode, saveProfile } from '../meta/profile';
+import {
+  dailyDate, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
+} from '../meta/profile';
 import { AudioManager } from './AudioManager';
 import { TutorialOverlay } from './TutorialOverlay';
 import { SuitPowerBar } from './SuitPowerBar';
@@ -20,6 +22,7 @@ import { GuideOverlay } from './GuideOverlay';
 import { ExitConfirmOverlay } from './ExitConfirmOverlay';
 import { Analytics, getAnalytics } from '../meta/analytics';
 import { tileCanReachPath } from '../core/map';
+import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
 
 const DT = 1 / TICK_RATE;
 
@@ -66,7 +69,7 @@ export class PlayScene extends Phaser.Scene {
   init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean }): void {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
-    this.runDate = data.date ?? this.localDate();
+    this.runDate = data.date ?? dailyDate();
     this.analytics = getAnalytics();
     this.runId = this.analytics.beginRun({ mode: this.mode, retry: data.retry ?? false });
     this.runStartedAt = performance.now();
@@ -89,7 +92,8 @@ export class PlayScene extends Phaser.Scene {
     this.lastTrackedRound = 1;
     this.firstCombatTracked = false;
     this.abandonedTracked = false;
-    this.profile = loadProfile(localStorage);
+    this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
+    saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
 
     this.fieldView = new FieldRenderer(this);
@@ -605,7 +609,40 @@ export class PlayScene extends Phaser.Scene {
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
     }, { fontSize: 18 });
     btn.container.setDepth(22);
-    const share = makeButton(this, 512, won ? 520 : 535, 220, 42, '결과 공유', async () => {
+    const actionY = won ? 520 : 535;
+    if (this.mode === 'daily') {
+      const ranking = makeButton(this, 384, actionY, 220, 42, '일일 랭킹 등록', async () => {
+        ranking.setEnabled(false);
+        ranking.setLabel('등록 중…');
+        try {
+          const result = await submitDailyScore({
+            date,
+            playerId: this.profile.leaderboardPlayerId,
+            name: this.profile.leaderboardName,
+            summary,
+          });
+          ranking.setLabel(`등록 완료 · #${result.rank}`);
+          this.analytics.track('leaderboard_submitted', {
+            date,
+            rank: result.rank,
+            score: result.bestScore,
+            accepted: result.accepted,
+          }, this.runId);
+          this.flashCenter(`#${result.rank} · 일일 랭킹 등록 완료`, 0xe6c84f, 24);
+        } catch {
+          ranking.setLabel('등록 실패 · 다시 시도');
+          ranking.setEnabled(true);
+        }
+      }, { fill: 0x9f74cf, fontSize: 14 });
+      ranking.container.setDepth(22);
+      if (!leaderboardConfigured()) {
+        ranking.setLabel('랭킹 서버 준비 중');
+        ranking.setEnabled(false);
+      }
+    }
+    const shareX = this.mode === 'daily' ? 640 : 512;
+    const cardX = this.mode === 'daily' ? 896 : 768;
+    const share = makeButton(this, shareX, actionY, 220, 42, '결과 공유', async () => {
       try {
         const result = await shareRun(summary, this.mode, date);
         this.analytics.track('result_shared', { method: result, mode: this.mode }, this.runId);
@@ -615,7 +652,7 @@ export class PlayScene extends Phaser.Scene {
       }
     }, { fill: 0xe6c84f, fontSize: 14 });
     share.container.setDepth(22);
-    const card = makeButton(this, 768, won ? 520 : 535, 220, 42, 'PNG 카드 저장', () => {
+    const card = makeButton(this, cardX, actionY, 220, 42, 'PNG 카드 저장', () => {
       downloadShareCard(summary, this.mode, date);
       this.flashCenter('PNG 카드를 저장했습니다', 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
@@ -677,9 +714,4 @@ export class PlayScene extends Phaser.Scene {
     return 'TIP · 위협도 60 전에 합성과 재배치로 경로 화력을 집중하세요';
   }
 
-  private localDate(): string {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60_000;
-    return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-  }
 }
