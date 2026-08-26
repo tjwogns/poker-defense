@@ -8,6 +8,7 @@ import { HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
 import { GRID_W, GRID_H, isPlaceable } from '../core/map';
 import { UNIT_CAP } from '../core/balance';
+import { RelicId } from '../core/relics';
 
 const GOLD_RESERVE = 300; // 이자용으로 남길 골드
 
@@ -58,6 +59,14 @@ function clearHolds(g: Game): void {
 }
 
 function playPrep(g: Game, stats: GameStats): void {
+  if (g.relicChoices.length > 0) {
+    const priority: RelicId[] = [
+      'royal_seal', 'compound_ledger', 'war_chest',
+      'swift_shuffle', 'fortified_table', 'ace_up_sleeve',
+    ];
+    const chosen = priority.find((id) => g.relicChoices.includes(id)) ?? g.relicChoices[0];
+    g.chooseRelic(chosen);
+  }
   // 이미 트리플 이상이면 그대로 확정, 아니면 무료 교환 1회
   if (evaluateHand(g.hand) < HandRank.Trips) {
     chooseHolds(g);
@@ -92,6 +101,19 @@ function playPrep(g: Game, stats: GameStats): void {
     g.placeUnit(spot[0], spot[1]);
   }
 
+  // 낮은 등급부터 3기 합성. 합성 결과가 다시 3기가 되면 연쇄 합성한다.
+  let fused = true;
+  while (fused) {
+    fused = false;
+    for (let tier = HandRank.HighCard; tier < HandRank.RoyalFlush; tier++) {
+      const ids = g.fusionCandidates(tier).slice(0, 3);
+      if (ids.length === 3 && g.fuseUnits(ids)) {
+        fused = true;
+        break;
+      }
+    }
+  }
+
   // 강화: 예비 골드를 남기고 전부 투자
   while (g.gold >= g.upgradeCostNow + GOLD_RESERVE) g.buyUpgrade();
 
@@ -104,13 +126,14 @@ interface GameStats {
   roundReached: number;
   upgradeLevel: number;
   handCounts: number[];
+  score: number;
 }
 
 function playGame(seed: number): GameStats {
   const g = new Game(seed);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
-    handCounts: Array(10).fill(0),
+    handCounts: Array(10).fill(0), score: 0,
   };
   const dt = 1 / 30;
   let guard = 0;
@@ -121,6 +144,7 @@ function playGame(seed: number): GameStats {
   stats.result = g.phase === 'victory' ? 'victory' : 'defeat';
   stats.roundReached = g.round;
   stats.upgradeLevel = g.upgradeLevel;
+  stats.score = g.score;
   return stats;
 }
 
@@ -134,6 +158,7 @@ for (let seed = 1; seed <= games; seed++) {
 const wins = all.filter((s) => s.result === 'victory').length;
 const avgRound = all.reduce((s, g) => s + g.roundReached, 0) / all.length;
 const avgUpgrade = all.reduce((s, g) => s + g.upgradeLevel, 0) / all.length;
+const avgScore = all.reduce((s, g) => s + g.score, 0) / all.length;
 const rounds = all.map((s) => s.roundReached).sort((a, b) => a - b);
 const median = rounds[Math.floor(rounds.length / 2)];
 const totalHands = all.reduce<number[]>(
@@ -146,6 +171,7 @@ console.log(`\n=== 포커 디펜스 시뮬레이션 (${games}판) ===`);
 console.log(`클리어율      : ${((wins / games) * 100).toFixed(1)}% (${wins}/${games})`);
 console.log(`평균 도달     : R${avgRound.toFixed(1)} / 중앙값 R${median}`);
 console.log(`평균 강화 Lv  : ${avgUpgrade.toFixed(1)}`);
+console.log(`평균 점수     : ${Math.round(avgScore).toLocaleString()}`);
 console.log(`도달 분포     : ${rounds.join(' ')}`);
 console.log(`\n족보 분포 (교환 1회 포함 실효 확률):`);
 for (let t = 9; t >= 0; t--) {

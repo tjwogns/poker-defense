@@ -1,6 +1,6 @@
 # Poker Defense v1.0 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 합성, 유물, 데일리 런, 기록, 튜토리얼과 연출을 갖춘 재방문 가능한 포커 디펜스 v1.0을 만든다.
 
@@ -26,10 +26,10 @@
 
 **Interfaces:** Produces `RelicId`, `RELIC_DEFS`, `relicChoices(seed, milestone, owned)` and Game `relicChoices`, `chooseRelic()`.
 
-- [ ] Write tests proving deterministic unique offers, owned exclusion, selection gating, and each aggregate modifier.
-- [ ] Run `npm test -- tests/relics.test.ts` and confirm failures caused by missing module/API.
-- [ ] Implement definitions, deterministic offer generation, Game selection and derived modifiers.
-- [ ] Run relic and full test suites.
+- [x] Write tests proving deterministic unique offers, owned exclusion, selection gating, and each aggregate modifier.
+- [x] Run `npm test -- tests/relics.test.ts` and confirm failures caused by missing module/API.
+- [x] Implement definitions, deterministic offer generation, Game selection and derived modifiers.
+- [x] Run relic and full test suites.
 
 ### Task 2: Unit fusion and phase invariants
 
@@ -37,10 +37,10 @@
 
 **Interfaces:** Produces `fusionCandidates(tier)`, `fuseUnits(unitIds)`, `fieldCap`, guarded `sellUnit` and `buyUpgrade`.
 
-- [ ] Write tests for three-of-a-kind fusion, invalid materials, royal cap, and combat mutation rejection.
-- [ ] Run targeted tests and confirm expected failures.
-- [ ] Implement minimal fusion and phase guards; connect `BOSS_HP_MULT` as the boss definition source.
-- [ ] Run full tests.
+- [x] Write tests for three-of-a-kind fusion, invalid materials, royal cap, and combat mutation rejection.
+- [x] Run targeted tests and confirm expected failures.
+- [x] Implement minimal fusion and phase guards; connect `BOSS_HP_MULT` as the boss definition source.
+- [x] Run full tests.
 
 ### Task 3: Scoring and profile persistence
 
@@ -48,10 +48,10 @@
 
 **Interfaces:** Produces Game `score`, `kills`, `summary()` and meta `loadProfile`, `recordRun`, `saveProfile`, `dailySeed`.
 
-- [ ] Write literal expectation tests for score events, stable date seed, malformed storage recovery, best records and achievements.
-- [ ] Confirm tests fail for missing APIs.
-- [ ] Implement pure scoring and defensive versioned persistence.
-- [ ] Run targeted and full tests.
+- [x] Write literal expectation tests for score events, stable date seed, malformed storage recovery, best records and achievements.
+- [x] Confirm tests fail for missing APIs.
+- [x] Implement pure scoring and defensive versioned persistence.
+- [x] Run targeted and full tests.
 
 ### Task 4: Menu, tutorial, sound, and game controls
 
@@ -59,11 +59,11 @@
 
 **Interfaces:** Menu starts `play` with `{seed, mode}`; PlayScene persists Game summary and returns to menu; controls expose pause, sound, fusion and relic choice.
 
-- [ ] Add menu scene with standard/daily actions and persisted stats.
-- [ ] Add generated Web Audio cues and saved mute preference.
-- [ ] Add tutorial overlay, keyboard shortcuts, pause, fusion, relic cards, score and run mode UI.
-- [ ] Add mobile landscape guidance and accessible page metadata.
-- [ ] Run typecheck and full tests.
+- [x] Add menu scene with standard/daily actions and persisted stats.
+- [x] Add generated Web Audio cues and saved mute preference.
+- [x] Add tutorial overlay, keyboard shortcuts, pause, fusion, relic cards, score and run mode UI.
+- [x] Add mobile landscape guidance and accessible page metadata.
+- [x] Run typecheck and full tests.
 
 ### Task 5: Rendering polish and portable smoke test
 
@@ -71,10 +71,10 @@
 
 **Interfaces:** Browser smoke starts its own preview target through `BASE_URL`, writes screenshots to `os.tmpdir()`, and validates menu/play/combat state.
 
-- [ ] Add readable placement/fusion feedback, boss emphasis, richer attack effects and status copy.
-- [ ] Remove user-specific filesystem paths from smoke test.
-- [ ] Update README for v1.0 systems and controls.
-- [ ] Run production and single-file builds plus smoke test.
+- [x] Add readable placement/fusion feedback, boss emphasis, richer attack effects and status copy.
+- [x] Remove user-specific filesystem paths from smoke test.
+- [x] Update README for v1.0 systems and controls.
+- [x] Run production and single-file builds plus smoke test.
 
 ### Task 6: Balance, documentation, and release verification
 
@@ -82,7 +82,7 @@
 
 **Interfaces:** Simulator uses legal v1.0 fusion/relic decisions and reports score; Obsidian notes link the product, architecture, balance and release record.
 
-- [ ] Teach the heuristic bot to fuse and choose relics.
-- [ ] Run 100 deterministic games and record the distribution.
-- [ ] Run `npm test`, `npm run build`, and `SINGLEFILE=1 npm run build` fresh.
-- [ ] Update the Obsidian MOC, design, architecture, balance and v1.0 release notes.
+- [x] Teach the heuristic bot to fuse and choose relics.
+- [x] Run 100 deterministic games and record the distribution.
+- [x] Run `npm test`, `npm run build`, and `SINGLEFILE=1 npm run build` fresh.
+- [x] Update the Obsidian MOC, design, architecture, balance and v1.0 release notes.

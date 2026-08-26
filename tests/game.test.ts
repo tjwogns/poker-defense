@@ -73,6 +73,54 @@ describe('Game state machine', () => {
     expect(g.field.units.length).toBe(0);
   });
 
+  test('준비 단계에서 동일 등급 유닛 3기를 한 단계 위 유닛으로 합성한다', () => {
+    const g = new Game(51);
+    for (const [x, y] of [[4, 4], [5, 4], [6, 4]]) {
+      g.pendingUnits.push(HandRank.Pair);
+      expect(g.placeUnit(x, y)).toBe(true);
+    }
+    const ids = g.field.units.map((unit) => unit.id);
+
+    expect(g.fusionCandidates(HandRank.Pair)).toEqual(ids);
+    expect(g.fuseUnits(ids)).toBe(true);
+    expect(g.field.units).toHaveLength(1);
+    expect(g.field.units[0].tier).toBe(HandRank.TwoPair);
+    expect([g.field.units[0].tx, g.field.units[0].ty]).toEqual([4, 4]);
+  });
+
+  test('합성은 정확히 같은 등급 3기만 가능하고 신룡은 합성할 수 없다', () => {
+    const g = new Game(52);
+    for (const tier of [HandRank.Pair, HandRank.Pair, HandRank.Trips]) {
+      g.pendingUnits.push(tier);
+      g.placeUnit(4 + g.field.units.length, 4);
+    }
+    const ids = g.field.units.map((unit) => unit.id);
+    expect(g.fuseUnits(ids.slice(0, 2))).toBe(false);
+    expect(g.fuseUnits(ids)).toBe(false);
+
+    const royal = new Game(53);
+    for (let i = 0; i < 3; i++) {
+      royal.pendingUnits.push(HandRank.RoyalFlush);
+      royal.placeUnit(4 + i, 4);
+    }
+    expect(royal.fuseUnits(royal.field.units.map((unit) => unit.id))).toBe(false);
+  });
+
+  test('전투 중에는 유닛 판매와 공격력 강화를 할 수 없다', () => {
+    const g = new Game(54);
+    g.pendingUnits.push(HandRank.Pair);
+    g.placeUnit(4, 4);
+    const unitId = g.field.units[0].id;
+    g.gold = 1000;
+    g.confirmHand();
+    g.startCombat();
+
+    expect(g.sellUnit(unitId)).toBe(false);
+    expect(g.buyUpgrade()).toBe(false);
+    expect(g.field.units).toHaveLength(1);
+    expect(g.gold).toBe(1000);
+  });
+
   test('강화: 비용 차감과 배율 증가', () => {
     const g = new Game(6);
     g.gold = 100;

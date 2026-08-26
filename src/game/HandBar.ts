@@ -27,7 +27,7 @@ export class HandBar {
   private exchangeBtn: Button;
   private confirmBtn: Button;
 
-  constructor(scene: Phaser.Scene, game: Game, onAction: () => void) {
+  constructor(scene: Phaser.Scene, game: Game, onAction: (action: 'hold' | 'exchange' | 'confirm') => void) {
     this.game = game;
 
     for (let i = 0; i < 5; i++) {
@@ -51,7 +51,7 @@ export class HandBar {
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerdown', () => {
         this.game.toggleHold(i);
-        onAction();
+        onAction('hold');
       });
       this.cards.push({ root, bg, corner, suit, holdTag });
     }
@@ -60,11 +60,11 @@ export class HandBar {
 
     this.exchangeBtn = makeButton(scene, 542, 640, 160, 44, '교환 (무료)', () => {
       this.game.doExchange();
-      onAction();
+      onAction('exchange');
     });
     this.confirmBtn = makeButton(scene, 694, 640, 120, 44, '족보 확정 ▶', () => {
       this.game.confirmHand();
-      onAction();
+      onAction('confirm');
     }, { fill: 0xe6c84f });
   }
 

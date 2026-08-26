@@ -3,8 +3,8 @@ import { drawHand, exchange } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
-  START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, SPAWN_INTERVAL, COMBAT_MAX_TIME,
-  FIELD_CAP, UNIT_CAP, SELL_REFUND,
+  START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
+  FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
 import { EnemyKindId, ENEMY_KINDS, waveKind } from './enemies';
@@ -12,6 +12,18 @@ import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
 import { isPlaceable } from './map';
+import {
+  RelicId,
+  relicChoices as makeRelicChoices,
+  relicModifiers,
+} from './relics';
+import {
+  RunSummary,
+  scoreForHand,
+  scoreForKills,
+  scoreForRoundClear,
+  VICTORY_SCORE,
+} from './scoring';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 
@@ -24,12 +36,17 @@ export class Game {
   round = 1;
   gold = START_GOLD;
   upgradeLevel = 0;
+  score = 0;
+  kills = 0;
+  bestHand: HandRank = HandRank.HighCard;
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
   exchangesUsed = 0;
   handConfirmed = false;
   lastHandRank: HandRank | null = null;
+  relics: RelicId[] = [];
+  relicChoices: RelicId[] = [];
 
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
@@ -55,7 +72,8 @@ export class Game {
   }
 
   get exchangeCostNow(): number {
-    return exchangeCost(this.exchangesUsed);
+    const free = relicModifiers(this.relics).freeExchanges;
+    return exchangeCost(Math.max(0, this.exchangesUsed - (free - 1)));
   }
 
   doExchange(): boolean {
@@ -72,8 +90,14 @@ export class Game {
   confirmHand(): HandRank | null {
     if (this.phase !== 'prep' || this.handConfirmed) return null;
     this.handConfirmed = true;
-    const rank = evaluateHand(this.hand);
+    const baseRank = evaluateHand(this.hand);
+    const bonus = this.round % BOSS_EVERY === 0
+      ? relicModifiers(this.relics).bossRankBonus
+      : 0;
+    const rank = Math.min(HandRank.RoyalFlush, baseRank + bonus) as HandRank;
     this.lastHandRank = rank;
+    this.bestHand = Math.max(this.bestHand, rank) as HandRank;
+    this.score += scoreForHand(rank);
     this.pendingUnits.push(rank);
     return rank;
   }
@@ -103,7 +127,31 @@ export class Game {
     return true;
   }
 
+  fusionCandidates(tier: HandRank): number[] {
+    if (tier >= HandRank.RoyalFlush) return [];
+    return this.field.units
+      .filter((unit) => unit.tier === tier)
+      .sort((a, b) => a.id - b.id)
+      .map((unit) => unit.id);
+  }
+
+  fuseUnits(unitIds: number[]): boolean {
+    if (this.phase !== 'prep' || unitIds.length !== 3 || new Set(unitIds).size !== 3) return false;
+    const materials = unitIds.map((id) => this.field.units.find((unit) => unit.id === id));
+    if (materials.some((unit) => !unit)) return false;
+    const units = materials as Unit[];
+    const tier = units[0].tier;
+    if (tier >= HandRank.RoyalFlush || units.some((unit) => unit.tier !== tier)) return false;
+
+    const origin = units[0];
+    const consumed = new Set(unitIds);
+    this.field.units = this.field.units.filter((unit) => !consumed.has(unit.id));
+    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty);
+    return true;
+  }
+
   sellUnit(unitId: number): boolean {
+    if (this.phase !== 'prep') return false;
     const idx = this.field.units.findIndex((u) => u.id === unitId);
     if (idx < 0) return false;
     this.gold += SELL_REFUND[this.field.units[idx].tier];
@@ -118,10 +166,31 @@ export class Game {
   }
 
   get dmgMult(): number {
-    return upgradeMultiplier(this.upgradeLevel);
+    return upgradeMultiplier(this.upgradeLevel) * relicModifiers(this.relics).damageMultiplier;
+  }
+
+  get fieldCap(): number {
+    return FIELD_CAP + relicModifiers(this.relics).fieldCapBonus;
+  }
+
+  get interestNow(): number {
+    const mods = relicModifiers(this.relics);
+    return interest(
+      this.gold,
+      INTEREST_RATE * mods.interestMultiplier,
+      INTEREST_CAP + mods.interestCapBonus,
+    );
+  }
+
+  chooseRelic(id: RelicId): boolean {
+    if (this.phase !== 'prep' || !this.relicChoices.includes(id)) return false;
+    this.relics.push(id);
+    this.relicChoices = [];
+    return true;
   }
 
   buyUpgrade(): boolean {
+    if (this.phase !== 'prep') return false;
     const cost = this.upgradeCostNow;
     if (this.gold < cost) return false;
     this.gold -= cost;
@@ -140,7 +209,7 @@ export class Game {
   // ── 전투 ──────────────────────────────────────────
 
   startCombat(): boolean {
-    if (this.phase !== 'prep' || !this.handConfirmed) return false;
+    if (this.phase !== 'prep' || !this.handConfirmed || this.relicChoices.length > 0) return false;
     const { kind } = this.nextWave();
     this.spawnQueue =
       kind === 'boss'
@@ -162,10 +231,14 @@ export class Game {
     }
 
     const result = tick(this.field, dt, this.dmgMult);
+    const mods = relicModifiers(this.relics);
+    result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
     this.gold += result.goldEarned;
+    this.kills += result.deaths.length;
+    this.score += scoreForKills(this.round, result.deaths.length);
 
     const alive = aliveEnemies(this.field).length;
-    if (alive > FIELD_CAP) {
+    if (alive > this.fieldCap) {
       this.phase = 'defeat';
       return result;
     }
@@ -180,20 +253,41 @@ export class Game {
   private endRound(): void {
     // 이번 라운드 스폰분(분열 자식 포함) 전멸 시 클리어 보너스
     const roundCleared = !this.field.enemies.some((e) => e.round === this.round && e.alive);
-    if (roundCleared) this.gold += clearBonus(this.round);
+    if (roundCleared) {
+      this.gold += clearBonus(this.round);
+      this.score += scoreForRoundClear(this.round);
+    }
 
     if (this.round >= ROUNDS) {
+      this.score += VICTORY_SCORE;
       this.phase = 'victory';
       return;
     }
 
+    const completedRound = this.round;
     this.round++;
-    this.gold += interest(this.gold);
+    this.gold += this.interestNow;
     this.field.enemies = this.field.enemies.filter((e) => e.alive); // 시체 정리, 생존자는 이월
     this.hand = drawHand(this.rng);
     this.holds = [false, false, false, false, false];
     this.exchangesUsed = 0;
     this.handConfirmed = false;
+    if (completedRound % BOSS_EVERY === 0) {
+      this.relicChoices = makeRelicChoices(this.seed, completedRound, this.relics);
+    }
     this.phase = 'prep';
+  }
+
+  summary(): RunSummary {
+    return {
+      seed: this.seed,
+      result: this.phase === 'victory' || this.phase === 'defeat' ? this.phase : 'active',
+      score: this.score,
+      round: this.round,
+      kills: this.kills,
+      bestHand: this.bestHand,
+      upgradeLevel: this.upgradeLevel,
+      relics: [...this.relics],
+    };
   }
 }

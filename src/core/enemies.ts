@@ -1,4 +1,4 @@
-import { BOSS_EVERY } from './balance';
+import { BOSS_EVERY, BOSS_HP_MULT } from './balance';
 
 export type EnemyKindId = 'normal' | 'fast' | 'tank' | 'regen' | 'splitter' | 'boss';
 
@@ -21,7 +21,7 @@ export const ENEMY_KINDS: Record<EnemyKindId, EnemyKindDef> = {
   // 주의: 해금 라운드는 10의 배수(보스 라운드)를 피해야 한다 — 기획안의 R20을 R21로 보정
   regen:    { id: 'regen',    name: '재생형', unlockRound: 21, hpMult: 1,    speedMult: 1,   damageTakenMult: 1,    regenPctPerSec: 0.015, splits: false, color: 0x6fbf7a },
   splitter: { id: 'splitter', name: '분열형', unlockRound: 32, hpMult: 1,    speedMult: 1,   damageTakenMult: 1,    regenPctPerSec: 0,     splits: true,  color: 0xba6fd0 },
-  boss:     { id: 'boss',     name: '보스',   unlockRound: 0,  hpMult: 40,   speedMult: 0.7, damageTakenMult: 1,    regenPctPerSec: 0,     splits: false, color: 0x7a2f2f },
+  boss:     { id: 'boss',     name: '보스',   unlockRound: 0,  hpMult: BOSS_HP_MULT, speedMult: 0.7, damageTakenMult: 1, regenPctPerSec: 0, splits: false, color: 0x7a2f2f },
 };
 
 const ROTATION: EnemyKindId[] = ['normal', 'fast', 'tank', 'regen', 'splitter'];

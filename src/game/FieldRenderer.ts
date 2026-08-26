@@ -65,6 +65,8 @@ export class FieldRenderer {
         g.fillRect(FIELD_X + x * TILE, FIELD_Y + y * TILE, TILE - 1, TILE - 1);
       }
     }
+    g.lineStyle(2, UI.accent, 0.18);
+    g.strokeRoundedRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 3, GRID_H * TILE + 3, 4);
     // 스폰 지점 표시
     const s = tileCenter(1, 1);
     g.fillStyle(UI.danger, 0.9);
@@ -134,6 +136,7 @@ export class FieldRenderer {
       const sy = FIELD_Y + p.y;
       const r = ENEMY_RADIUS[e.kind];
       view.body.setPosition(sx, sy);
+      view.body.setScale(e.kind === 'boss' ? 1 + Math.sin(game.field.time * 5) * 0.08 : 1);
       const ratio = Math.max(0, e.hp / e.maxHp);
       view.hpBg.setPosition(sx, sy - r - 6);
       view.hpFg.setPosition(sx - 11 + 11 * ratio, sy - r - 6);
@@ -185,6 +188,8 @@ export class FieldRenderer {
       }
       this.fxG.lineStyle(2, f.color, Math.min(1, f.ttl / 0.08));
       this.fxG.lineBetween(FIELD_X + f.x1, FIELD_Y + f.y1, FIELD_X + f.x2, FIELD_Y + f.y2);
+      this.fxG.fillStyle(f.color, Math.min(0.9, f.ttl / 0.08));
+      this.fxG.fillCircle(FIELD_X + f.x2, FIELD_Y + f.y2, 2 + 4 * (f.ttl / 0.08));
     }
   }
 }

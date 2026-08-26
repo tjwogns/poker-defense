@@ -3,7 +3,9 @@ import { Game } from '../core/game';
 import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO } from '../core/cards/types';
-import { FIELD_CAP, ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
+import { ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
+import { RELIC_DEFS } from '../core/relics';
+import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 
 const PX = 800; // 패널 콘텐츠 x
@@ -14,6 +16,10 @@ export interface PanelCallbacks {
   onUpgrade(): void;
   onSell(): void;
   onMove(): void;
+  onFuse(): void;
+  onPause(): void;
+  onSound(): void;
+  onHome(): void;
 }
 
 function traitLabel(def: UnitDef): string {
@@ -42,8 +48,12 @@ export class SidePanel {
   private unitStats: Phaser.GameObjects.Text;
   private sellBtn: Button;
   private moveBtn: Button;
+  private fuseBtn: Button;
   private startBtn: Button;
   private speedBtns: Button[] = [];
+  private pauseBtn: Button;
+  private soundBtn: Button;
+  private relicText: Phaser.GameObjects.Text;
   private combatText: Phaser.GameObjects.Text;
   private helpText: Phaser.GameObjects.Text;
 
@@ -54,6 +64,7 @@ export class SidePanel {
 
     this.roundText = makeText(scene, PX, 36, '', 22, UI.text, true);
     this.waveText = makeText(scene, PX, 66, '', 14, UI.textDim);
+    makeButton(scene, 1208, 42, 88, 30, '나가기', cb.onHome, { fill: 0x42544a, fontSize: 11 });
 
     makeText(scene, PX, 96, '필드 적', 13, UI.textDim);
     scene.add.rectangle(PX, 118, 360, 14, 0x000000, 0.5).setOrigin(0, 0.5);
@@ -73,8 +84,9 @@ export class SidePanel {
     makeText(scene, PX, 272, '선택 유닛', 13, UI.textDim);
     this.unitName = makeText(scene, PX, 292, '', 17, UI.text, true);
     this.unitStats = makeText(scene, PX, 318, '', 13, UI.textDim);
-    this.sellBtn = makeButton(scene, 866, 368, 130, 38, '판매', cb.onSell, { fill: UI.danger });
-    this.moveBtn = makeButton(scene, 1010, 368, 130, 38, '재배치', cb.onMove);
+    this.sellBtn = makeButton(scene, 846, 368, 100, 38, '판매', cb.onSell, { fill: UI.danger });
+    this.moveBtn = makeButton(scene, 956, 368, 100, 38, '재배치', cb.onMove);
+    this.fuseBtn = makeButton(scene, 1096, 368, 158, 38, '동일 3기 합성', cb.onFuse, { fill: 0xb781dc });
 
     scene.add.rectangle(780, 406, 484, 1, UI.panelLine).setOrigin(0, 0);
 
@@ -84,7 +96,10 @@ export class SidePanel {
         makeButton(scene, 838 + (n - 1) * 84, 452, 72, 38, `×${n}`, () => cb.onSpeed(n)),
       );
     }
+    this.pauseBtn = makeButton(scene, 1100, 452, 96, 38, '일시정지', cb.onPause, { fill: 0x6ca4d9, fontSize: 12 });
+    this.soundBtn = makeButton(scene, 1204, 452, 88, 38, 'SOUND', cb.onSound, { fill: 0x42544a, fontSize: 11 });
     this.combatText = makeText(scene, PX, 486, '', 13, UI.textDim);
+    this.relicText = makeText(scene, PX, 528, '', 13, UI.textDim);
 
     this.helpText = makeText(
       scene, PX, 620,
@@ -94,11 +109,17 @@ export class SidePanel {
     this.helpText.setLineSpacing(6);
   }
 
-  refresh(selectedUnit: Unit | null, speed: number): void {
+  refresh(
+    selectedUnit: Unit | null,
+    speed: number,
+    paused: boolean,
+    soundEnabled: boolean,
+    mode: RunMode,
+  ): void {
     const g = this.game;
     const inPrep = g.phase === 'prep';
 
-    this.roundText.setText(`ROUND ${g.round} / ${ROUNDS}`);
+    this.roundText.setText(`ROUND ${g.round} / ${ROUNDS}   ·   ${mode === 'daily' ? 'DAILY' : 'STANDARD'}`);
     const wave = g.nextWave();
     this.waveText.setText(
       inPrep
@@ -107,18 +128,18 @@ export class SidePanel {
     );
 
     const alive = aliveEnemies(g.field).length;
-    const ratio = Math.min(1, alive / FIELD_CAP);
+    const ratio = Math.min(1, alive / g.fieldCap);
     this.gaugeFg.width = 360 * ratio;
     this.gaugeFg.setFillStyle(ratio > 0.75 ? UI.danger : ratio > 0.5 ? 0xe0a33c : UI.accent);
-    this.gaugeText.setText(`${alive} / ${FIELD_CAP}`);
+    this.gaugeText.setText(`${alive} / ${g.fieldCap}`);
 
-    this.goldText.setText(`골드 ${g.gold}`);
+    this.goldText.setText(`골드 ${g.gold.toLocaleString()}    점수 ${g.score.toLocaleString()}`);
 
     this.upgradeText.setText(
       `공격력 강화 Lv ${g.upgradeLevel}  (현재 ×${g.dmgMult.toFixed(2)})`,
     );
     this.upgradeBtn.setLabel(`강화 ${g.upgradeCostNow}G`);
-    this.upgradeBtn.setEnabled(g.gold >= g.upgradeCostNow);
+    this.upgradeBtn.setEnabled(inPrep && g.gold >= g.upgradeCostNow);
 
     if (g.pendingUnits.length > 0) {
       const names = g.pendingUnits.map((t) => UNIT_DEFS[t].name).join(', ');
@@ -134,13 +155,15 @@ export class SidePanel {
         `DPS ${def.dps} × 강화 ×${g.dmgMult.toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
       );
       this.sellBtn.setLabel(`판매 +${SELL_REFUND[selectedUnit.tier]}G`);
-      this.sellBtn.setEnabled(true);
+      this.sellBtn.setEnabled(inPrep);
       this.moveBtn.setEnabled(inPrep);
+      this.fuseBtn.setEnabled(inPrep && g.fusionCandidates(selectedUnit.tier).length >= 3);
     } else {
       this.unitName.setText('—');
       this.unitStats.setText('필드의 유닛을 클릭해 선택');
       this.sellBtn.setEnabled(false);
       this.moveBtn.setEnabled(false);
+      this.fuseBtn.setEnabled(false);
     }
 
     this.startBtn.container.setVisible(inPrep);
@@ -149,7 +172,14 @@ export class SidePanel {
       this.speedBtns[i].container.setVisible(!inPrep && g.phase === 'combat');
       this.speedBtns[i].setLabel(speed === i + 1 ? `×${i + 1} ●` : `×${i + 1}`);
     }
+    this.pauseBtn.container.setVisible(g.phase === 'combat');
+    this.pauseBtn.setLabel(paused ? '계속하기' : '일시정지');
+    this.soundBtn.container.setVisible(g.phase === 'combat');
+    this.soundBtn.setLabel(soundEnabled ? 'SOUND ON' : 'SOUND OFF');
     this.combatText.setText(g.phase === 'combat' ? '적 전멸 또는 시간 경과 시 라운드 종료 · 생존한 적은 이월' : '');
     this.combatText.setVisible(g.phase === 'combat');
+    const relics = g.relics.map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`).join('  ·  ');
+    this.relicText.setText(relics ? `유물  ${relics}` : '유물  —  보스를 꺾으면 선택');
+    this.relicText.setWordWrapWidth(440, true);
   }
 }

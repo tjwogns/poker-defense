@@ -38,8 +38,8 @@ export function bossGold(round: number): number {
 export function clearBonus(round: number): number {
   return 20 + 2 * round;
 }
-export function interest(gold: number): number {
-  return Math.min(Math.floor(gold * INTEREST_RATE), INTEREST_CAP);
+export function interest(gold: number, rate = INTEREST_RATE, cap = INTEREST_CAP): number {
+  return Math.min(Math.floor(gold * rate), cap);
 }
 
 /** exchangesUsed = 이번 라운드에 이미 쓴 교환 횟수. 첫 회 무료, 이후 10/25/50/100/200… (배가) */
