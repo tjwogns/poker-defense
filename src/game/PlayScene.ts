@@ -435,9 +435,9 @@ export class PlayScene extends Phaser.Scene {
     this.relicOverlay = this.add.container(0, 0, children).setDepth(18);
   }
 
-  private flashCenter(labelText: string, color: number): void {
+  private flashCenter(labelText: string, color: number, depth = 16): void {
     const label = makeText(this, 390, 270, labelText, 30, `#${color.toString(16).padStart(6, '0')}`, true)
-      .setOrigin(0.5).setDepth(16).setShadow(0, 3, '#000000', 8);
+      .setOrigin(0.5).setDepth(depth).setShadow(0, 3, '#000000', 8);
     this.tweens.add({
       targets: label, y: 230, alpha: 0, duration: 1200, ease: 'Cubic.Out',
       onComplete: () => label.destroy(),
@@ -542,6 +542,11 @@ export class PlayScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(21);
+    if (!won) {
+      this.add.text(640, 423, this.defeatTip(), {
+        fontFamily: FONT, fontSize: '14px', color: UI.accentText,
+      }).setOrigin(0.5).setDepth(21);
+    }
     const summary = this.core.summary();
     this.analytics.track('run_finished', {
       mode: this.mode,
@@ -555,27 +560,28 @@ export class PlayScene extends Phaser.Scene {
       durationSeconds: this.elapsedSeconds(),
     }, this.runId);
     const date = this.runDate;
-    const btn = makeButton(this, 640, 452, 220, 52, '다시 시작', () => {
+    const btn = makeButton(this, 640, won ? 452 : 470, 220, 52, '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
     }, { fontSize: 18 });
     btn.container.setDepth(22);
-    const share = makeButton(this, 512, 520, 220, 42, '결과 공유', async () => {
+    const share = makeButton(this, 512, won ? 520 : 535, 220, 42, '결과 공유', async () => {
       try {
         const result = await shareRun(summary, this.mode, date);
         this.analytics.track('result_shared', { method: result, mode: this.mode }, this.runId);
-        this.flashCenter(result === 'shared' ? '결과를 공유했습니다' : '링크를 복사했습니다', UI.accent);
+        this.flashCenter(result === 'shared' ? '결과를 공유했습니다' : '링크를 복사했습니다', UI.accent, 24);
       } catch {
         // 사용자가 공유 창을 닫은 경우 게임 흐름은 그대로 유지한다.
       }
     }, { fill: 0xe6c84f, fontSize: 14 });
     share.container.setDepth(22);
-    const card = makeButton(this, 768, 520, 220, 42, 'PNG 카드 저장', () => {
+    const card = makeButton(this, 768, won ? 520 : 535, 220, 42, 'PNG 카드 저장', () => {
       downloadShareCard(summary, this.mode, date);
+      this.flashCenter('PNG 카드를 저장했습니다', 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
     card.container.setDepth(22);
-    const home = makeButton(this, 640, 578, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
+    const home = makeButton(this, 640, won ? 578 : 592, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
     home.container.setDepth(22);
   }
 
@@ -618,6 +624,18 @@ export class PlayScene extends Phaser.Scene {
 
   private elapsedSeconds(): number {
     return Math.max(0, Math.round((performance.now() - this.runStartedAt) / 1000));
+  }
+
+  private defeatTip(): string {
+    if (this.core.upgradeLevel < 3) {
+      return 'TIP · 골드를 공격 강화에 투자하면 누적 적을 더 빨리 정리할 수 있습니다';
+    }
+    if (this.core.bestHand <= HandRank.Pair) {
+      return 'TIP · 같은 숫자와 무늬를 HOLD해 투페어 이상의 유닛을 노려보세요';
+    }
+    const charges = Object.values(this.core.powerCharges).reduce((sum, count) => sum + count, 0);
+    if (charges > 0) return 'TIP · 남은 무늬 스킬을 Q/W/R/T로 사용해 위기를 넘겨보세요';
+    return 'TIP · 위협도 60 전에 합성과 재배치로 경로 화력을 집중하세요';
   }
 
   private localDate(): string {

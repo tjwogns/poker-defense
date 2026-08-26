@@ -3,6 +3,7 @@ import { Game } from '../core/game';
 import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO } from '../core/cards/types';
+import { HandRank } from '../core/cards/types';
 import { ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
 import { RELIC_DEFS } from '../core/relics';
 import { RunMode } from '../meta/profile';
@@ -149,14 +150,18 @@ export class SidePanel {
 
     this.roundText.setText(`ROUND ${g.round} / ${ROUNDS}   ·   ${mode === 'daily' ? 'DAILY' : 'STANDARD'}`);
     const wave = g.nextWave();
-    this.waveText.setText(
-      inPrep
-        ? `다음 웨이브: ${wave.name} ×${wave.count}${wave.kind === 'boss' ? '  ⚠ 보스' : ''}`
-        : `웨이브 진행: ${wave.name}`,
-    );
-
     const alive = aliveEnemies(g.field).length;
     const ratio = Math.min(1, alive / g.fieldCap);
+    const dangerPrep = inPrep && ratio >= 0.7;
+    this.waveText.setText(
+      inPrep
+        ? dangerPrep
+          ? `⚠ 적 ${alive}기 누적 · 교환/강화/무늬 스킬 필요`
+          : `다음 웨이브: ${wave.name} ×${wave.count}${wave.kind === 'boss' ? '  ⚠ 보스' : ''}`
+        : `웨이브 진행: ${wave.name}`,
+    );
+    this.waveText.setColor(dangerPrep ? UI.dangerText : UI.textDim);
+
     this.gaugeFg.width = 370 * ratio;
     this.gaugeFg.setFillStyle(ratio > 0.75 ? UI.danger : ratio > 0.5 ? 0xe0a33c : UI.accent);
     this.gaugeText.setText(`${alive} / ${g.fieldCap}`);
@@ -174,8 +179,18 @@ export class SidePanel {
       const names = g.pendingUnits.slice(0, 3).map((t) => UNIT_DEFS[t].name).join(', ');
       const extra = g.pendingUnits.length > 3 ? ` 외 ${g.pendingUnits.length - 3}` : '';
       this.pendingText.setText(`배치 대기 ${g.field.units.length}/${UNIT_CAP}  ·  ${names}${extra}`);
+      this.pendingText.setColor(UI.accentText);
     } else {
-      this.pendingText.setText(`배치 유닛 ${g.field.units.length} / ${UNIT_CAP}`);
+      const fusionTier = this.fusionReadyTier();
+      if (fusionTier !== null) {
+        this.pendingText.setText(
+          `배치 유닛 ${g.field.units.length}/${UNIT_CAP}  ·  합성 가능: ${UNIT_DEFS[fusionTier].name} 선택`,
+        );
+        this.pendingText.setColor(UI.gold);
+      } else {
+        this.pendingText.setText(`배치 유닛 ${g.field.units.length} / ${UNIT_CAP}`);
+        this.pendingText.setColor(UI.accentText);
+      }
     }
 
     if (selectedUnit) {
@@ -187,13 +202,19 @@ export class SidePanel {
       this.sellBtn.setLabel(`판매 +${SELL_REFUND[selectedUnit.tier]}G`);
       this.sellBtn.setEnabled(inPrep);
       this.moveBtn.setEnabled(inPrep);
-      this.fuseBtn.setEnabled(inPrep && g.fusionCandidates(selectedUnit.tier).length >= 3);
+      const canFuse = selectedUnit.tier < HandRank.RoyalFlush
+        && g.fusionCandidates(selectedUnit.tier).length >= 3;
+      this.fuseBtn.setEnabled(inPrep && canFuse);
+      this.fuseBtn.setLabel(canFuse
+        ? `${def.name} 3기 → ${UNIT_DEFS[(selectedUnit.tier + 1) as HandRank].name}`
+        : '동일 3기 합성');
     } else {
       this.unitName.setText('—');
       this.unitStats.setText('필드의 유닛을 클릭해 선택');
       this.sellBtn.setEnabled(false);
       this.moveBtn.setEnabled(false);
       this.fuseBtn.setEnabled(false);
+      this.fuseBtn.setLabel('동일 3기 합성');
     }
 
     this.startBtn.container.setVisible(inPrep);
@@ -217,5 +238,12 @@ export class SidePanel {
     this.combatText.setVisible(g.phase === 'combat');
     const relics = g.relics.map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`).join('  ·  ');
     this.relicText.setText(relics || '—  보스 라운드를 넘기면 새 유물을 선택합니다');
+  }
+
+  private fusionReadyTier(): HandRank | null {
+    for (let tier = HandRank.HighCard; tier < HandRank.RoyalFlush; tier++) {
+      if (this.game.fusionCandidates(tier).length >= 3) return tier;
+    }
+    return null;
   }
 }
