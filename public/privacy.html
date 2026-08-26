@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d1a12" />
+    <title>포커 디펜스 · 플레이 데이터 안내</title>
+    <style>
+      :root { color-scheme: dark; font-family: Pretendard, "Apple SD Gothic Neo", system-ui, sans-serif; }
+      body { margin: 0; background: #07130c; color: #e6ebe5; line-height: 1.75; }
+      main { box-sizing: border-box; width: min(760px, 100%); margin: 0 auto; padding: 64px 24px 96px; }
+      h1 { color: #e6c84f; font-size: clamp(28px, 5vw, 42px); line-height: 1.2; }
+      h2 { margin-top: 40px; color: #82c7a2; font-size: 20px; }
+      p, li { color: #b7c5bb; }
+      a { color: #82c7a2; }
+      code { color: #f5e7a8; }
+      .notice { padding: 18px 20px; border: 1px solid #416c52; background: #14211a; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>플레이 데이터 안내</h1>
+      <p class="notice">익명 플레이 기록은 선택 사항입니다. 게임 메인 화면의 <code>DATA</code> 버튼에서 언제든 허용하거나 중단할 수 있습니다.</p>
+
+      <h2>기록하는 항목</h2>
+      <p>게임 시작·재도전, 튜토리얼 완료 여부, 주요 라운드 도달, 확정한 족보 등급, 유닛 합성, 유물 선택, 종료 결과와 플레이 시간입니다. 이벤트 연결에는 무작위 세션·플레이 ID를 사용합니다.</p>
+
+      <h2>기록하지 않는 항목</h2>
+      <p>이름, 이메일, 연락처, 카드의 실제 내용, 계정 정보와 광고 식별자는 이벤트 데이터에 포함하지 않습니다.</p>
+
+      <h2>저장과 전송</h2>
+      <p>수집 서버가 설정되지 않은 빌드에서는 허용된 이벤트가 현재 브라우저에만 저장됩니다. 서버가 설정된 빌드에서는 동일한 이벤트 JSON이 HTTPS로 전송될 수 있으며, 서버 운영 환경에는 일반적인 접속 기록이 남을 수 있습니다. 브라우저에는 최근 이벤트 최대 500개만 보관합니다.</p>
+
+      <h2>삭제와 내보내기</h2>
+      <p><code>DATA OFF</code>로 변경하면 브라우저에 저장된 분석 이벤트가 삭제되고 이후 기록이 중단됩니다. <code>LOG EXPORT</code> 버튼으로 본인의 게임 기록과 허용된 분석 이벤트를 JSON 파일로 확인할 수 있습니다. 최고 점수 등 게임 진행 기록은 분석 동의와 별도로 브라우저에 저장됩니다.</p>
+
+      <h2>문의</h2>
+      <p>데이터 처리에 관한 문의는 <a href="https://github.com/tjwogns/poker-defense/issues">프로젝트 이슈</a>를 이용해 주세요.</p>
+      <p>시행일: 2026년 8월 26일</p>
+    </main>
+  </body>
+</html>

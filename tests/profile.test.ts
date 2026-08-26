@@ -81,7 +81,7 @@ describe('profile persistence', () => {
   test('플레이테스트 내보내기는 민감 정보 없이 최근 런을 JSON으로 만든다', () => {
     const profile = recordRun(defaultProfile(), victory, 'daily', '2026-08-26');
     const exported = JSON.parse(exportPlaytestData(profile)) as { schema: string; runs: unknown[] };
-    expect(exported.schema).toBe('poker-defense-playtest-v1');
+    expect(exported.schema).toBe('poker-defense-playtest-v2');
     expect(exported.runs).toHaveLength(1);
   });
 });

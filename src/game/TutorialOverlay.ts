@@ -15,7 +15,7 @@ export class TutorialOverlay {
   private counter: Phaser.GameObjects.Text;
   private step = 0;
 
-  constructor(scene: Phaser.Scene, onComplete: () => void) {
+  constructor(scene: Phaser.Scene, onComplete: (result: 'completed' | 'skipped') => void) {
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x06100a, 0.88).setInteractive();
     const panel = scene.add.rectangle(640, 350, 650, 330, UI.panel, 1)
       .setStrokeStyle(2, UI.accent, 0.75);
@@ -29,12 +29,12 @@ export class TutorialOverlay {
         this.refresh(next);
       } else {
         this.root.destroy(true);
-        onComplete();
+        onComplete('completed');
       }
     });
     const skip = makeButton(scene, 520, 500, 150, 46, '건너뛰기', () => {
       this.root.destroy(true);
-      onComplete();
+      onComplete('skipped');
     }, { fill: 0x42544a });
     this.root = scene.add.container(0, 0, [dim, panel, eyebrow, this.title, this.body, this.counter, next.container, skip.container])
       .setDepth(30);

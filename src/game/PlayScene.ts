@@ -17,6 +17,7 @@ import { SuitPowerBar } from './SuitPowerBar';
 import { BossHud } from './BossHud';
 import { downloadShareCard, shareRun } from './ShareCard';
 import { GuideOverlay } from './GuideOverlay';
+import { Analytics, getAnalytics } from '../meta/analytics';
 
 const DT = 1 / TICK_RATE;
 
@@ -46,15 +47,25 @@ export class PlayScene extends Phaser.Scene {
   private relicOverlay: Phaser.GameObjects.Container | null = null;
   private guideOverlay: GuideOverlay | null = null;
   private guideWasPaused = false;
+  private analytics!: Analytics;
+  private runId = '';
+  private runStartedAt = 0;
+  private lastTrackedRound = 1;
+  private firstCombatTracked = false;
+  private abandonedTracked = false;
+  private pageHideHandler!: () => void;
 
   constructor() {
     super('play');
   }
 
-  init(data: { seed?: number; mode?: RunMode; date?: string }): void {
+  init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean }): void {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
     this.runDate = data.date ?? this.localDate();
+    this.analytics = getAnalytics();
+    this.runId = this.analytics.beginRun({ mode: this.mode, retry: data.retry ?? false });
+    this.runStartedAt = performance.now();
   }
 
   create(): void {
@@ -69,6 +80,9 @@ export class PlayScene extends Phaser.Scene {
     this.relicOverlay = null;
     this.guideOverlay = null;
     this.guideWasPaused = false;
+    this.lastTrackedRound = 1;
+    this.firstCombatTracked = false;
+    this.abandonedTracked = false;
     this.profile = loadProfile(localStorage);
     this.audio = new AudioManager(this.profile.soundEnabled);
 
@@ -78,6 +92,7 @@ export class PlayScene extends Phaser.Scene {
       onStart: () => {
         const boss = this.core.nextWave().kind === 'boss';
         if (this.core.startCombat()) {
+          this.trackCombatStarted();
           this.audio.play(boss ? 'boss' : 'click');
           this.refreshUI();
         }
@@ -127,13 +142,20 @@ export class PlayScene extends Phaser.Scene {
     this.bindKeys();
     if (!this.profile.tutorialDone) {
       this.tutorialActive = true;
-      new TutorialOverlay(this, () => {
+      new TutorialOverlay(this, (result) => {
         this.tutorialActive = false;
         this.profile.tutorialDone = true;
         saveProfile(localStorage, this.profile);
+        this.analytics.track('tutorial_finished', { result }, this.runId);
         this.audio.play('confirm');
       });
     }
+    this.pageHideHandler = () => this.trackAbandoned('page_hidden');
+    window.addEventListener('pagehide', this.pageHideHandler);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('pagehide', this.pageHideHandler);
+      this.trackAbandoned('scene_left');
+    });
     // E2E/디버그용 훅
     (window as unknown as { __game?: Game }).__game = this.core;
   }
@@ -157,7 +179,10 @@ export class PlayScene extends Phaser.Scene {
       this.acc -= DT;
     }
     const phaseNow: Phase = this.core.phase;
-    if (phaseNow === 'prep') this.acc = 0;
+    if (phaseNow === 'prep') {
+      this.acc = 0;
+      this.trackRoundProgress();
+    }
     if ((phaseNow === 'victory' || phaseNow === 'defeat') && !this.ended) {
       this.showEnd();
     }
@@ -226,6 +251,13 @@ export class PlayScene extends Phaser.Scene {
     if (this.core.handConfirmed && rank !== null && rank >= HandRank.FullHouse) {
       this.celebrate(rank);
     }
+    if (action === 'confirm' && this.core.lastHandRank !== null) {
+      this.analytics.track('hand_confirmed', {
+        round: this.core.round,
+        rank: this.core.lastHandRank,
+        exchanges: this.core.exchangesUsed,
+      }, this.runId);
+    }
     this.refreshUI();
   }
 
@@ -238,6 +270,11 @@ export class PlayScene extends Phaser.Scene {
       this.selectedUnitId = null;
       this.audio.play('fuse');
       this.flashCenter(`${UNIT_DEFS[(selected.tier + 1) as HandRank].name} 합성!`, 0xb781dc);
+      this.analytics.track('unit_fused', {
+        round: this.core.round,
+        fromTier: selected.tier,
+        toTier: selected.tier + 1,
+      }, this.runId);
       this.refreshUI();
     }
   }
@@ -272,6 +309,7 @@ export class PlayScene extends Phaser.Scene {
       if (this.tutorialActive || this.ended || this.guideOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
+        this.trackCombatStarted();
         this.audio.play(this.core.nextWave().kind === 'boss' ? 'boss' : 'click');
         this.refreshUI();
       }
@@ -356,6 +394,11 @@ export class PlayScene extends Phaser.Scene {
       desc.setWordWrapWidth(154, true);
       card.on('pointerdown', () => {
         if (!this.core.chooseRelic(id)) return;
+        this.analytics.track('relic_selected', {
+          round: this.core.round,
+          relic: id,
+          relicCount: this.core.relics.length,
+        }, this.runId);
         this.audio.play('relic');
         this.relicOverlay?.destroy(true);
         this.relicOverlay = null;
@@ -449,6 +492,7 @@ export class PlayScene extends Phaser.Scene {
 
   private showEnd(): void {
     this.ended = true;
+    this.abandonedTracked = true;
     const won = this.core.phase === 'victory';
     this.audio.play(won ? 'win' : 'lose');
     this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
@@ -474,15 +518,28 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(21);
     const summary = this.core.summary();
+    this.analytics.track('run_finished', {
+      mode: this.mode,
+      result: summary.result,
+      round: summary.round,
+      score: summary.score,
+      kills: summary.kills,
+      bestHand: summary.bestHand,
+      upgradeLevel: summary.upgradeLevel,
+      relics: [...summary.relics],
+      durationSeconds: this.elapsedSeconds(),
+    }, this.runId);
     const date = this.runDate;
     const btn = makeButton(this, 640, 452, 220, 52, '다시 시작', () => {
+      this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
-      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate });
+      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
     }, { fontSize: 18 });
     btn.container.setDepth(22);
     const share = makeButton(this, 512, 520, 220, 42, '결과 공유', async () => {
       try {
         const result = await shareRun(summary, this.mode, date);
+        this.analytics.track('result_shared', { method: result, mode: this.mode }, this.runId);
         this.flashCenter(result === 'shared' ? '결과를 공유했습니다' : '링크를 복사했습니다', UI.accent);
       } catch {
         // 사용자가 공유 창을 닫은 경우 게임 흐름은 그대로 유지한다.
@@ -499,6 +556,43 @@ export class PlayScene extends Phaser.Scene {
 
   private reducedMotion(): boolean {
     return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  }
+
+  private trackCombatStarted(): void {
+    if (this.firstCombatTracked) return;
+    this.firstCombatTracked = true;
+    this.analytics.track('combat_started', { round: this.core.round }, this.runId);
+  }
+
+  private trackRoundProgress(): void {
+    if (this.core.round <= this.lastTrackedRound) return;
+    this.lastTrackedRound = this.core.round;
+    if ([2, 5, 10, 20, 30, 40, 50, 60].includes(this.core.round)) {
+      this.analytics.track('round_reached', {
+        round: this.core.round,
+        score: this.core.score,
+        units: this.core.field.units.length,
+        relics: this.core.relics.length,
+      }, this.runId);
+    }
+  }
+
+  private trackAbandoned(reason: string): void {
+    if (this.ended || this.abandonedTracked || !this.core) return;
+    this.abandonedTracked = true;
+    const summary = this.core.summary();
+    this.analytics.track('run_abandoned', {
+      reason,
+      mode: this.mode,
+      phase: this.core.phase,
+      round: summary.round,
+      score: summary.score,
+      durationSeconds: this.elapsedSeconds(),
+    }, this.runId);
+  }
+
+  private elapsedSeconds(): number {
+    return Math.max(0, Math.round((performance.now() - this.runStartedAt) / 1000));
   }
 
   private localDate(): string {

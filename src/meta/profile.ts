@@ -144,9 +144,9 @@ export function recordRun(
   };
 }
 
-export function exportPlaytestData(profile: Profile): string {
+export function exportPlaytestData(profile: Profile, analyticsEvents: unknown[] = []): string {
   return JSON.stringify({
-    schema: 'poker-defense-playtest-v1',
+    schema: 'poker-defense-playtest-v2',
     aggregate: {
       totalRuns: profile.totalRuns,
       wins: profile.wins,
@@ -154,6 +154,7 @@ export function exportPlaytestData(profile: Profile): string {
       bestRound: profile.bestRound,
     },
     runs: profile.recentRuns,
+    events: analyticsEvents,
   }, null, 2);
 }
 

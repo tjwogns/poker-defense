@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { ACHIEVEMENTS, dailySeed, exportPlaytestData, loadProfile, saveProfile } from '../meta/profile';
 import { dailyDateFromSearch } from '../meta/share';
+import { getAnalytics } from '../meta/analytics';
+import { AnalyticsConsentOverlay } from './AnalyticsConsentOverlay';
 import { UI, makeButton, makeText } from './ui';
 
 function localDate(): string {
@@ -16,6 +18,7 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     const profile = loadProfile(localStorage);
+    const analytics = getAnalytics();
     const date = localDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
@@ -67,17 +70,34 @@ export class MenuScene extends Phaser.Scene {
       sound.setLabel(profile.soundEnabled ? 'SOUND ON' : 'SOUND OFF');
     }, { fill: 0x42544a, fontSize: 12 });
     makeButton(this, 1160, 100, 150, 34, 'LOG EXPORT', () => {
-      const blob = new Blob([exportPlaytestData(profile)], { type: 'application/json' });
+      const blob = new Blob([exportPlaytestData(profile, analytics.exportEvents())], { type: 'application/json' });
       const anchor = document.createElement('a');
       anchor.download = `poker-defense-playtest-${date}.json`;
       anchor.href = URL.createObjectURL(blob);
       anchor.click();
       URL.revokeObjectURL(anchor.href);
     }, { fill: 0x42544a, fontSize: 11 });
+    const data = makeButton(this, 1160, 144, 150, 34, analytics.consent === 'granted' ? 'DATA ON' : 'DATA OFF', () => {
+      const allowed = analytics.consent !== 'granted';
+      analytics.setConsent(allowed ? 'granted' : 'denied');
+      data.setLabel(allowed ? 'DATA ON' : 'DATA OFF');
+      if (allowed) analytics.track('menu_view', { source: 'data_button' });
+    }, { fill: 0x42544a, fontSize: 11 });
+    makeButton(this, 1160, 188, 150, 34, 'PRIVACY', () => {
+      window.open('./privacy.html', '_blank', 'noopener,noreferrer');
+    }, { fill: 0x42544a, fontSize: 11 });
 
     makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
     makeText(this, 640, 610, 'v1.2  ·  ROYAL TABLE EDITION', 11, '#60746a', true).setOrigin(0.5);
+    analytics.track('menu_view', { challenge: hasChallenge });
+    if (analytics.consent === 'unknown') {
+      new AnalyticsConsentOverlay(this, (allowed) => {
+        analytics.setConsent(allowed ? 'granted' : 'denied');
+        data.setLabel(allowed ? 'DATA ON' : 'DATA OFF');
+        if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge });
+      });
+    }
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
   }
 }
