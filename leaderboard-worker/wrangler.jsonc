@@ -3,6 +3,8 @@
   "name": "royal-siege-leaderboard",
   "main": "src/index.js",
   "compatibility_date": "2026-08-27",
+  "workers_dev": true,
+  "preview_urls": false,
   "vars": {
     "ALLOWED_ORIGIN": "https://tjwogns.github.io"
   },
@@ -10,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "royal-siege-leaderboard",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "9e74b9b5-a6a7-4220-9a18-6f69969e4237",
       "migrations_dir": "migrations"
     }
   ]
