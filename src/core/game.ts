@@ -69,6 +69,8 @@ export class Game {
   private combatTimer = 0;
   private nextBossTaxAt = Infinity;
   private nextBossSummonAt = Infinity;
+  private pendingBossRewardRounds: number[] = [];
+  private queuedBossRewardRounds = new Set<number>();
 
   constructor(seed: number) {
     this.seed = seed;
@@ -226,6 +228,7 @@ export class Game {
       this.powerCharges.C = Math.min(this.powerCharges.C, relicModifiers(this.relics).clubChargeCap);
     }
     this.relicChoices = [];
+    this.openNextBossReward();
     return true;
   }
 
@@ -367,6 +370,10 @@ export class Game {
         (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === completedRound,
       );
 
+    // 보스는 제한시간 후 다음 라운드로 이월될 수 있다. 처치한 시점의 현재
+    // 라운드가 아니라 보스가 등장한 라운드를 기준으로 미수령 보상을 적립한다.
+    this.queueDefeatedBossRewards();
+
     // 이번 라운드 스폰분(분열 자식 포함) 전멸 시 클리어 보너스
     const roundCleared = !this.field.enemies.some((e) => e.round === completedRound && e.alive);
     if (roundCleared) {
@@ -393,10 +400,29 @@ export class Game {
     this.holds = [false, false, false, false, false];
     this.exchangesUsed = 0;
     this.handConfirmed = false;
-    if (bossDefeated) {
-      this.relicChoices = makeRelicChoices(this.seed, completedRound, this.relics);
-    }
     this.phase = 'prep';
+    this.openNextBossReward();
+  }
+
+  private queueDefeatedBossRewards(): void {
+    for (const boss of this.field.enemies) {
+      if (
+        boss.kind !== 'boss'
+        || boss.alive
+        || boss.round >= ROUNDS
+        || this.queuedBossRewardRounds.has(boss.round)
+      ) continue;
+      this.queuedBossRewardRounds.add(boss.round);
+      this.pendingBossRewardRounds.push(boss.round);
+    }
+    this.pendingBossRewardRounds.sort((a, b) => a - b);
+  }
+
+  private openNextBossReward(): void {
+    while (this.relicChoices.length === 0 && this.pendingBossRewardRounds.length > 0) {
+      const bossRound = this.pendingBossRewardRounds.shift()!;
+      this.relicChoices = makeRelicChoices(this.seed, bossRound, this.relics);
+    }
   }
 
   summary(): RunSummary {

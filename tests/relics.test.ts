@@ -145,7 +145,7 @@ describe('Game relic flow', () => {
     expect(enemy.hp).toBeCloseTo(hpBefore * 0.88, 3);
   });
 
-  test('보스를 처치하지 못하고 10라운드를 넘기면 유물 선택지가 나오지 않는다', () => {
+  test('보스를 처치하지 못하고 10라운드를 넘기면 아직 유물 선택지가 나오지 않는다', () => {
     const game = new Game(91);
     game.round = 10;
     game.confirmHand();
@@ -159,6 +159,34 @@ describe('Game relic flow', () => {
     expect(game.phase).toBe('prep');
     expect(game.round).toBe(11);
     expect(game.field.enemies.some((enemy) => enemy.kind === 'boss' && enemy.alive)).toBe(true);
+    expect(game.relicChoices).toEqual([]);
+  });
+
+  test('이월된 보스를 다음 라운드에 처치해도 유물 선택지가 나온다', () => {
+    const game = new Game(92);
+    game.round = 10;
+    game.confirmHand();
+    game.pendingUnits = [];
+    expect(game.startCombat()).toBe(true);
+
+    for (let i = 0; i < 5000 && game.phase === 'combat'; i++) game.tickCombat(1 / 30);
+    expect(game.round).toBe(11);
+    const carriedBoss = game.field.enemies.find(
+      (enemy) => enemy.kind === 'boss' && enemy.round === 10 && enemy.alive,
+    )!;
+
+    game.confirmHand();
+    game.pendingUnits = [];
+    expect(game.startCombat()).toBe(true);
+    carriedBoss.alive = false;
+    for (let i = 0; i < 5000 && game.phase === 'combat'; i++) game.tickCombat(1 / 30);
+
+    expect(game.phase).toBe('prep');
+    expect(game.round).toBe(12);
+    expect(game.relicChoices).toHaveLength(3);
+    const selected = game.relicChoices[0];
+    expect(game.chooseRelic(selected)).toBe(true);
+    expect(game.relics).toContain(selected);
     expect(game.relicChoices).toEqual([]);
   });
 

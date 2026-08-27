@@ -36,7 +36,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
       },
       {
         heading: '검증',
-        items: ['보스 처치 보상·최종 보스 50초 승패 판정 수정 · 자동 테스트 146개 통과'],
+        items: ['이월 보스도 처치 시 유물 보상 · 최종 보스 50초 승패 판정 · 자동 테스트 147개 통과'],
       },
       {
         heading: '플레이 안정성',
