@@ -68,6 +68,7 @@ export class PlayScene extends Phaser.Scene {
   private windowBlurHandler!: () => void;
   private windowFocusHandler!: () => void;
   private backgroundPaused = false;
+  private backgroundSpeed = 1;
 
   constructor() {
     super('play');
@@ -101,6 +102,7 @@ export class PlayScene extends Phaser.Scene {
     this.firstCombatTracked = false;
     this.abandonedTracked = false;
     this.backgroundPaused = false;
+    this.backgroundSpeed = 1;
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -183,6 +185,7 @@ export class PlayScene extends Phaser.Scene {
     window.addEventListener('pagehide', this.pageHideHandler);
     this.windowBlurHandler = () => {
       this.acc = 0;
+      this.backgroundSpeed = this.speed;
       if (this.core.phase === 'combat' && !this.paused && !this.backgroundPaused) {
         this.paused = true;
         this.backgroundPaused = true;
@@ -194,9 +197,10 @@ export class PlayScene extends Phaser.Scene {
     };
     this.windowFocusHandler = () => {
       this.acc = 0;
+      this.speed = this.backgroundSpeed;
       if (this.backgroundPaused) {
         this.backgroundPaused = false;
-        this.flashCenter('창을 떠나 게임이 일시정지됐습니다 · SPACE로 계속', 0xe6c84f);
+        this.flashCenter(`게임 일시정지 · ×${this.speed} 유지 · SPACE로 계속`, 0xe6c84f);
         this.refreshUI();
       }
     };
