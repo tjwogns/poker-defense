@@ -26,12 +26,16 @@ export type AnalyticsEventName =
   | 'patch_notes_viewed'
   | 'background_pause'
   | 'upgrade_bought'
-  | 'odds_opened';
+  | 'odds_opened'
+  | 'boss_encountered'
+  | 'boss_defeated'
+  | 'boss_survived';
 
 export interface AnalyticsEvent {
   id: string;
   name: AnalyticsEventName;
   at: string;
+  visitorId: string;
   sessionId: string;
   runId?: string;
   properties: AnalyticsProperties;
@@ -40,6 +44,7 @@ export interface AnalyticsEvent {
 interface AnalyticsState {
   version: 1;
   consent: AnalyticsConsent;
+  visitorId: string;
   events: AnalyticsEvent[];
 }
 
@@ -72,6 +77,10 @@ export class Analytics {
     this.send = options.send ?? sendEvent;
     this.sessionId = this.idFactory();
     this.state = loadState(storage);
+    if (!this.state.visitorId) {
+      this.state.visitorId = this.idFactory();
+      this.persist();
+    }
   }
 
   get consent(): AnalyticsConsent {
@@ -102,6 +111,7 @@ export class Analytics {
       id: this.idFactory(),
       name,
       at: this.now().toISOString(),
+      visitorId: this.state.visitorId,
       sessionId: this.sessionId,
       ...(runId ? { runId } : {}),
       properties: sanitizeProperties(properties),
@@ -152,6 +162,7 @@ function loadState(storage: AnalyticsStorage): AnalyticsState {
     return {
       version: 1,
       consent: parsed.consent === 'granted' || parsed.consent === 'denied' ? parsed.consent : 'unknown',
+      visitorId: typeof parsed.visitorId === 'string' ? parsed.visitorId : '',
       events: Array.isArray(parsed.events) ? parsed.events.filter(isAnalyticsEvent).slice(-MAX_EVENTS) : [],
     };
   } catch {
@@ -160,7 +171,7 @@ function loadState(storage: AnalyticsStorage): AnalyticsState {
 }
 
 function defaultState(): AnalyticsState {
-  return { version: 1, consent: 'unknown', events: [] };
+  return { version: 1, consent: 'unknown', visitorId: '', events: [] };
 }
 
 function sanitizeProperties(properties: AnalyticsProperties): AnalyticsProperties {
@@ -179,6 +190,7 @@ function isAnalyticsEvent(value: unknown): value is AnalyticsEvent {
   return typeof event.id === 'string'
     && typeof event.name === 'string'
     && typeof event.at === 'string'
+    && (!event.visitorId || typeof event.visitorId === 'string')
     && typeof event.sessionId === 'string'
     && (!event.runId || typeof event.runId === 'string')
     && !!event.properties

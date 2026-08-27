@@ -8,7 +8,7 @@ const ANALYTICS_EVENT_NAMES = new Set([
   'combat_started', 'round_reached', 'placement_blocked', 'unit_fused', 'relic_selected',
   'run_finished', 'run_abandoned', 'retry_clicked', 'result_shared', 'leaderboard_viewed',
   'leaderboard_submitted', 'synergy_activated', 'patch_notes_viewed', 'background_pause',
-  'upgrade_bought', 'odds_opened',
+  'upgrade_bought', 'odds_opened', 'boss_encountered', 'boss_defeated', 'boss_survived',
 ]);
 
 export default {
@@ -56,16 +56,20 @@ async function collectAnalytics(request, env, cors) {
   const propertiesJson = JSON.stringify(event.properties);
   if (propertiesJson.length > 4096) return json({ error: 'properties_too_large' }, 400, cors);
   const receivedAt = new Date().toISOString();
+  const visitorHash = event.visitorId
+    ? await hashPlayer(`analytics:${event.visitorId}`, env.PLAYER_HASH_SALT ?? '')
+    : null;
 
   await env.DB.prepare(
     `INSERT OR IGNORE INTO analytics_events
-       (id, name, occurred_at, received_at, session_id, run_id, game_version, properties_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, occurred_at, received_at, visitor_hash, session_id, run_id, game_version, properties_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     event.id,
     event.name,
     event.at,
     receivedAt,
+    visitorHash,
     event.sessionId,
     event.runId ?? null,
     body.gameVersion,
@@ -89,6 +93,7 @@ export function validateAnalyticsSubmission(body) {
   if (!ID_RE.test(event.id ?? '')) return 'invalid_event_id';
   if (!ANALYTICS_EVENT_NAMES.has(event.name)) return 'invalid_event_name';
   if (!isIsoDate(event.at)) return 'invalid_event_time';
+  if (event.visitorId !== undefined && !ID_RE.test(event.visitorId ?? '')) return 'invalid_visitor';
   if (!ID_RE.test(event.sessionId ?? '')) return 'invalid_session';
   if (event.runId !== undefined && !ID_RE.test(event.runId ?? '')) return 'invalid_run';
   if (!validProperties(event.properties)) return 'invalid_properties';

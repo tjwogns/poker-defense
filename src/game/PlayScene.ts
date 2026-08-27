@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { Game, Phase } from '../core/game';
-import { TickResult, enemyPos, unitPos } from '../core/combat';
+import { Enemy, TickResult, enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { HAND_NAMES_KO, HandRank, Suit } from '../core/cards/types';
 import { SUIT_POWER_DEFS } from '../core/abilities';
@@ -65,6 +65,10 @@ export class PlayScene extends Phaser.Scene {
   private runStartedAt = 0;
   private lastTrackedRound = 1;
   private firstCombatTracked = false;
+  private trackedBossEncounters = new Set<number>();
+  private trackedBossDefeats = new Set<number>();
+  private trackedBossSurvivals = new Set<number>();
+  private bossFirstSeenAt = new Map<number, number>();
   private abandonedTracked = false;
   private pageHideHandler!: () => void;
   private visibilityHandler!: () => void;
@@ -104,6 +108,10 @@ export class PlayScene extends Phaser.Scene {
     this.synergyLevels.clear();
     this.lastTrackedRound = 1;
     this.firstCombatTracked = false;
+    this.trackedBossEncounters.clear();
+    this.trackedBossDefeats.clear();
+    this.trackedBossSurvivals.clear();
+    this.bossFirstSeenAt.clear();
     this.abandonedTracked = false;
     this.backgroundPaused = false;
     this.backgroundSpeed = 1;
@@ -245,8 +253,12 @@ export class PlayScene extends Phaser.Scene {
     this.acc += dt * this.speed;
     let guard = 0;
     while (this.acc >= DT && this.core.phase === 'combat' && guard++ < 200) {
+      const roundBefore = this.core.round;
       const result = this.core.tickCombat(DT);
-      if (result) this.collectFx(result);
+      if (result) {
+        this.collectFx(result);
+        this.trackBossAnalytics(result, roundBefore);
+      }
       this.acc -= DT;
     }
     const phaseNow: Phase = this.core.phase;
@@ -646,6 +658,75 @@ export class PlayScene extends Phaser.Scene {
       this.cameraShakenThisFrame = true;
       this.cameras.main.shake(Math.min(130, 45 + result.deaths.length * 5), 0.0014);
     }
+  }
+
+  private trackBossAnalytics(result: TickResult, roundBefore: number): void {
+    const bosses = [
+      ...this.core.field.enemies.filter((enemy) => enemy.kind === 'boss'),
+      ...result.deaths.filter((enemy) => enemy.kind === 'boss'),
+    ];
+    for (const boss of bosses) this.trackBossEncounter(boss, roundBefore);
+
+    for (const boss of result.deaths.filter((enemy) => enemy.kind === 'boss')) {
+      if (this.trackedBossDefeats.has(boss.round)) continue;
+      this.trackedBossDefeats.add(boss.round);
+      this.analytics.track('boss_defeated', {
+        bossRound: boss.round,
+        resolvedRound: roundBefore,
+        roundsLate: Math.max(0, roundBefore - boss.round),
+        combatSecondsSinceSpawn: this.bossElapsedSeconds(boss.round),
+        units: this.core.field.units.length,
+        upgradeLevel: this.core.upgradeLevel,
+        relicCount: this.core.relics.length,
+        score: this.core.score,
+      }, this.runId);
+    }
+
+    const originalBoss = this.core.field.enemies.find(
+      (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === roundBefore,
+    );
+    if (!originalBoss || this.trackedBossSurvivals.has(originalBoss.round)) return;
+
+    const advancedPastBossRound = this.core.phase === 'prep' && this.core.round > roundBefore;
+    const runEnded = this.core.phase === 'defeat';
+    if (!advancedPastBossRound && !runEnded) return;
+
+    this.trackedBossSurvivals.add(originalBoss.round);
+    const outcome = this.core.defeatReason === 'final-boss-timeout'
+      ? 'final_timeout'
+      : runEnded ? 'field_cap' : 'round_timeout';
+    this.analytics.track('boss_survived', {
+      bossRound: originalBoss.round,
+      resolvedRound: roundBefore,
+      outcome,
+      hpPercent: Math.max(0, Math.min(100, Math.round((originalBoss.hp / originalBoss.maxHp) * 100))),
+      combatSecondsSinceSpawn: this.bossElapsedSeconds(originalBoss.round),
+      units: this.core.field.units.length,
+      upgradeLevel: this.core.upgradeLevel,
+      relicCount: this.core.relics.length,
+      score: this.core.score,
+    }, this.runId);
+  }
+
+  private trackBossEncounter(boss: Enemy, currentRound: number): void {
+    if (this.trackedBossEncounters.has(boss.round)) return;
+    this.trackedBossEncounters.add(boss.round);
+    this.bossFirstSeenAt.set(boss.round, this.core.field.time);
+    this.analytics.track('boss_encountered', {
+      bossRound: boss.round,
+      currentRound,
+      maxHp: Math.round(boss.maxHp),
+      enemies: this.core.field.enemies.filter((enemy) => enemy.alive).length,
+      units: this.core.field.units.length,
+      upgradeLevel: this.core.upgradeLevel,
+      relicCount: this.core.relics.length,
+      score: this.core.score,
+    }, this.runId);
+  }
+
+  private bossElapsedSeconds(bossRound: number): number {
+    const startedAt = this.bossFirstSeenAt.get(bossRound) ?? this.core.field.time;
+    return Math.max(0, Math.round(this.core.field.time - startedAt));
   }
 
   // ── 종료 ──────────────────────────────────────────

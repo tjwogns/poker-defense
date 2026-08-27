@@ -25,13 +25,31 @@ describe('anonymous play analytics', () => {
     analytics.setConsent('granted');
     const runId = analytics.beginRun({ mode: 'standard', retry: false });
     analytics.track('round_reached', { round: 10 }, runId);
+    analytics.track('boss_encountered', { bossRound: 10, maxHp: 2699 }, runId);
+    analytics.track('boss_survived', { bossRound: 10, hpPercent: 32, outcome: 'round_timeout' }, runId);
 
     const events = analytics.exportEvents();
     expect(events.map((event) => event.name)).toEqual([
-      'consent_granted', 'run_started', 'round_reached',
+      'consent_granted', 'run_started', 'round_reached', 'boss_encountered', 'boss_survived',
     ]);
     expect(events[2]).toMatchObject({ runId, properties: { round: 10 } });
+    expect(events.every((event) => event.visitorId === events[0].visitorId)).toBe(true);
     expect(storage.values.get(ANALYTICS_KEY)).not.toContain('email');
+  });
+
+  test('같은 브라우저 저장소에서는 새 페이지 세션에도 익명 방문 ID를 유지한다', () => {
+    const storage = new MemoryStorage();
+    let id = 0;
+    const options = { idFactory: () => `persistent-id-${++id}` };
+    const first = new Analytics(storage, options);
+    first.setConsent('granted');
+    const firstEvent = first.track('menu_view')!;
+
+    const reopened = new Analytics(storage, options);
+    const reopenedEvent = reopened.track('menu_view')!;
+
+    expect(reopenedEvent.visitorId).toBe(firstEvent.visitorId);
+    expect(reopenedEvent.sessionId).not.toBe(firstEvent.sessionId);
   });
 
   test('거부하면 기존 이벤트를 삭제하고 이후 기록도 중단한다', () => {
