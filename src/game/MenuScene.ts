@@ -7,6 +7,7 @@ import { getAnalytics } from '../meta/analytics';
 import { AnalyticsConsentOverlay } from './AnalyticsConsentOverlay';
 import { UI, makeButton, makeText } from './ui';
 import { LeaderboardOverlay } from './LeaderboardOverlay';
+import { PatchNotesOverlay } from './PatchNotesOverlay';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -101,6 +102,17 @@ export class MenuScene extends Phaser.Scene {
     makeButton(this, 1160, 188, 150, 34, 'PRIVACY', () => {
       window.open('./privacy.html', '_blank', 'noopener,noreferrer');
     }, { fill: 0x42544a, fontSize: 11 });
+    let patchNotesOverlay: PatchNotesOverlay | null = null;
+    const closePatchNotes = () => {
+      patchNotesOverlay?.destroy();
+      patchNotesOverlay = null;
+    };
+    makeButton(this, 1160, 232, 150, 34, 'PATCH NOTES · NEW', () => {
+      if (patchNotesOverlay) return;
+      patchNotesOverlay = new PatchNotesOverlay(this, closePatchNotes);
+      analytics.track('patch_notes_viewed', { version: 'v1.4' });
+    }, { fill: 0xe6c84f, fontSize: 10 });
+    this.input.keyboard?.on('keydown-ESC', closePatchNotes);
 
     makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);

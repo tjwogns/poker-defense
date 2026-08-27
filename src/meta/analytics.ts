@@ -21,7 +21,8 @@ export type AnalyticsEventName =
   | 'result_shared'
   | 'leaderboard_viewed'
   | 'leaderboard_submitted'
-  | 'synergy_activated';
+  | 'synergy_activated'
+  | 'patch_notes_viewed';
 
 export interface AnalyticsEvent {
   id: string;
