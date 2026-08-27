@@ -25,7 +25,8 @@ export type AnalyticsEventName =
   | 'synergy_activated'
   | 'patch_notes_viewed'
   | 'background_pause'
-  | 'upgrade_bought';
+  | 'upgrade_bought'
+  | 'odds_opened';
 
 export interface AnalyticsEvent {
   id: string;

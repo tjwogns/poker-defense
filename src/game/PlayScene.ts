@@ -25,6 +25,8 @@ import { tileCanReachPath } from '../core/map';
 import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
 import { SYNERGY_DEFS, UnitFamily } from '../core/synergies';
 import { safeFrameDelta } from './timing';
+import { OddsOverlay } from './OddsOverlay';
+import { RerollOdds } from '../core/cards/odds';
 
 const DT = 1 / TICK_RATE;
 
@@ -53,6 +55,7 @@ export class PlayScene extends Phaser.Scene {
   private tutorialActive = false;
   private relicOverlay: Phaser.GameObjects.Container | null = null;
   private guideOverlay: GuideOverlay | null = null;
+  private oddsOverlay: OddsOverlay | null = null;
   private guideWasPaused = false;
   private exitOverlay: ExitConfirmOverlay | null = null;
   private exitWasPaused = false;
@@ -94,6 +97,7 @@ export class PlayScene extends Phaser.Scene {
     this.paused = false;
     this.relicOverlay = null;
     this.guideOverlay = null;
+    this.oddsOverlay = null;
     this.guideWasPaused = false;
     this.exitOverlay = null;
     this.exitWasPaused = false;
@@ -108,7 +112,12 @@ export class PlayScene extends Phaser.Scene {
     this.audio = new AudioManager(this.profile.soundEnabled);
 
     this.fieldView = new FieldRenderer(this);
-    this.handBar = new HandBar(this, this.core, (action) => this.onHandAction(action));
+    this.handBar = new HandBar(
+      this,
+      this.core,
+      (action) => this.onHandAction(action),
+      (odds) => this.openOdds(odds),
+    );
     this.panel = new SidePanel(this, this.core, {
       onStart: () => {
         const boss = this.core.nextWave().kind === 'boss';
@@ -403,15 +412,15 @@ export class PlayScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     keyboard.on('keydown-E', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
       if (this.core.doExchange()) this.onHandAction('exchange');
     });
     keyboard.on('keydown-ENTER', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
       if (this.core.confirmHand() !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
         this.trackCombatStarted();
@@ -421,7 +430,7 @@ export class PlayScene extends Phaser.Scene {
     });
     for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
       keyboard.on(`keydown-${key}`, () => {
-        if (this.guideOverlay || this.exitOverlay) return;
+        if (this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
@@ -431,21 +440,37 @@ export class PlayScene extends Phaser.Scene {
     const powers: Array<[string, Suit]> = [['Q', 'S'], ['W', 'H'], ['R', 'D'], ['T', 'C']];
     for (const [key, suit] of powers) {
       keyboard.on(`keydown-${key}`, () => {
-        if (!this.exitOverlay) this.usePower(suit);
+      if (!this.oddsOverlay && !this.exitOverlay) this.usePower(suit);
       });
     }
     keyboard.on('keydown-M', () => {
-      if (!this.guideOverlay && !this.exitOverlay) this.toggleSound();
+      if (!this.guideOverlay && !this.oddsOverlay && !this.exitOverlay) this.toggleSound();
     });
     keyboard.on('keydown-H', () => {
-      if (this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.relicOverlay || this.oddsOverlay || this.exitOverlay) return;
       if (this.guideOverlay) this.closeGuide();
       else this.openGuide();
     });
     keyboard.on('keydown-ESC', () => {
       if (this.exitOverlay) this.closeExitConfirm();
+      else if (this.oddsOverlay) this.closeOdds();
       else if (this.guideOverlay) this.closeGuide();
     });
+  }
+
+  private openOdds(odds: RerollOdds): void {
+    if (this.oddsOverlay || this.core.phase !== 'prep' || this.core.handConfirmed) return;
+    this.oddsOverlay = new OddsOverlay(this, odds, () => this.closeOdds());
+    this.analytics.track('odds_opened', {
+      drawCount: odds.drawCount,
+      currentRank: odds.currentRank,
+      improvePercent: Math.round(odds.improveProbability * 1000) / 10,
+    }, this.runId);
+  }
+
+  private closeOdds(): void {
+    this.oddsOverlay?.destroy();
+    this.oddsOverlay = null;
   }
 
   private requestExit(): void {

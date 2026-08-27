@@ -8,7 +8,7 @@ const ANALYTICS_EVENT_NAMES = new Set([
   'combat_started', 'round_reached', 'placement_blocked', 'unit_fused', 'relic_selected',
   'run_finished', 'run_abandoned', 'retry_clicked', 'result_shared', 'leaderboard_viewed',
   'leaderboard_submitted', 'synergy_activated', 'patch_notes_viewed', 'background_pause',
-  'upgrade_bought',
+  'upgrade_bought', 'odds_opened',
 ]);
 
 export default {

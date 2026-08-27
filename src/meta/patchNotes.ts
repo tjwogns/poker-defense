@@ -24,6 +24,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
           '군단·정밀·마도·왕실·용족 시너지 5종 추가',
           '필드의 서로 다른 유닛 종류에 따라 단계별 효과 활성화',
           'BUILD 패널과 족보·유닛 도감에서 계열과 진행도 확인',
+          '현재 홀드 기준 리롤 상승 확률 요약과 전체 족보 확률표',
         ],
       },
       {
@@ -35,7 +36,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
       },
       {
         heading: '검증',
-        items: ['자동 테스트 139개 통과 · 30판 봇 클리어율 33.3%'],
+        items: ['자동 테스트 143개 통과 · 30판 봇 클리어율 33.3%'],
       },
       {
         heading: '플레이 안정성',
