@@ -20,7 +20,8 @@ export type AnalyticsEventName =
   | 'retry_clicked'
   | 'result_shared'
   | 'leaderboard_viewed'
-  | 'leaderboard_submitted';
+  | 'leaderboard_submitted'
+  | 'synergy_activated';
 
 export interface AnalyticsEvent {
   id: string;

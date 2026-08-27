@@ -104,7 +104,7 @@ export class MenuScene extends Phaser.Scene {
 
     makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
-    makeText(this, 640, 610, 'v1.3  ·  DAILY RANKING BETA', 11, '#60746a', true).setOrigin(0.5);
+    makeText(this, 640, 610, 'v1.4  ·  BUILD SYNERGY', 11, '#60746a', true).setOrigin(0.5);
     analytics.track('menu_view', { challenge: hasChallenge });
     if (analytics.consent === 'unknown') {
       new AnalyticsConsentOverlay(this, (allowed) => {

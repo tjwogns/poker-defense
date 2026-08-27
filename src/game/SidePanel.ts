@@ -9,6 +9,7 @@ import { RELIC_DEFS } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
+import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
 
 const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
@@ -123,8 +124,8 @@ export class SidePanel {
     this.soundBtn = makeButton(scene, 1200, 414, 88, 34, 'SOUND', cb.onSound, { fill: 0x34463c, fontSize: 10 });
     this.combatText = makeText(scene, PX, 441, '', 11, UI.textDim);
 
-    makeText(scene, PX, 560, 'RELIC BUILD', 10, UI.textDim, true);
-    this.relicText = makeText(scene, PX, 580, '', 11, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
+    makeText(scene, PX, 560, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
+    this.relicText = makeText(scene, PX, 578, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
 
     this.helpText = makeText(
       scene, PX, 641,
@@ -195,9 +196,9 @@ export class SidePanel {
 
     if (selectedUnit) {
       const def = UNIT_DEFS[selectedUnit.tier];
-      this.unitName.setText(`${def.name}  ·  ${HAND_NAMES_KO[def.tier]}`);
+      this.unitName.setText(`${def.name}  ·  ${HAND_NAMES_KO[def.tier]}  [${familyLabel(def.tier)}]`);
       this.unitStats.setText(
-        `DPS ${def.dps} × ${g.dmgMult.toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
+        `DPS ${def.dps} × ${g.unitDamageMult(def.tier).toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
       );
       this.sellBtn.setLabel(`판매 +${SELL_REFUND[selectedUnit.tier]}G`);
       this.sellBtn.setEnabled(inPrep);
@@ -237,7 +238,17 @@ export class SidePanel {
     this.combatText.setText(g.phase === 'combat' ? '시간 종료 시 생존한 적은 다음 라운드로 이월됩니다' : '');
     this.combatText.setVisible(g.phase === 'combat');
     const relics = g.relics.map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`).join('  ·  ');
-    this.relicText.setText(relics || '—  보스 라운드를 넘기면 새 유물을 선택합니다');
+    const synergies = g.synergies
+      .filter((status) => status.count > 0)
+      .map((status) => {
+        const def = SYNERGY_DEFS[status.id];
+        const target = status.nextTier?.count ?? status.activeTier?.count ?? def.tiers[0].count;
+        return `${def.glyph} ${def.name} ${status.count}/${target}${status.level > 0 ? '●' : ''}`;
+      })
+      .join('  ·  ');
+    this.relicText.setText(
+      `${synergies ? `시너지  ${synergies}` : '시너지  —'}\n${relics ? `유물  ${relics}` : '유물  — 보스 라운드 보상'}`,
+    );
   }
 
   private fusionReadyTier(): HandRank | null {

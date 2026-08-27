@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { UNIT_DEFS } from '../core/units';
 import { UI, makeButton, makeText } from './ui';
 import { HANDBOOK_ROWS } from './guideData';
+import { familyLabel } from '../core/synergies';
 
 /** 족보 성립 조건과 획득 유닛을 게임 중 확인하는 모달 도감. */
 export class GuideOverlay {
@@ -48,15 +49,18 @@ export class GuideOverlay {
         badge,
         makeText(scene, 130, y, row.hand, 13, UI.text, true).setOrigin(0, 0.5),
         makeText(scene, 330, y, row.rule, 12, UI.textDim).setOrigin(0, 0.5),
-        makeText(scene, 635, y, `${def.glyph}  ${row.unit}`, 13, `#${def.color.toString(16).padStart(6, '0')}`, true).setOrigin(0, 0.5),
+        makeText(scene, 635, y, `${def.glyph}  ${row.unit} · ${familyLabel(row.rank).split(' · ').join('/')}`, 12, `#${def.color.toString(16).padStart(6, '0')}`, true).setOrigin(0, 0.5),
         makeText(scene, 795, y, row.trait, 12, UI.textDim).setOrigin(0, 0.5),
       );
     });
 
     children.push(
-      makeText(scene, 120, 622, 'TIP', 11, UI.accentText, true),
-      makeText(scene, 165, 622, '같은 등급 유닛 3기를 합성하면 바로 다음 등급 유닛이 됩니다.', 13, UI.text, true),
-      makeText(scene, 120, 650, 'H로 언제든 도감을 열 수 있습니다 · ESC 또는 닫기 버튼으로 돌아가기', 11, UI.textDim),
+      makeText(scene, 120, 598, 'SYNERGY', 11, UI.accentText, true),
+      makeText(scene, 190, 598, '군단 2/4: 전체 +8/20% · 정밀 2: 정밀 +35% · 마도 2/3: 마도 +18/40%', 11, UI.text, true),
+      makeText(scene, 190, 621, '왕실 2/3: 전체 +12/28% · 용족 2: 용족 보스 +50% · 서로 다른 유닛 종류만 집계', 11, UI.text, true),
+      makeText(scene, 120, 645, 'FUSION', 11, UI.gold, true),
+      makeText(scene, 180, 645, '같은 등급 유닛 3기를 합성하면 바로 다음 등급 유닛이 됩니다.', 11, UI.text, true),
+      makeText(scene, 120, 670, 'H로 언제든 도감을 열 수 있습니다 · ESC 또는 닫기 버튼으로 돌아가기', 10, UI.textDim),
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(40);

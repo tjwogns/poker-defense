@@ -28,6 +28,7 @@ import {
 } from './scoring';
 import { dominantSuit, SuitPowerResult } from './abilities';
 import { bossDef } from './bosses';
+import { synergyStatuses, unitSynergyDamageMultiplier } from './synergies';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 
@@ -80,8 +81,11 @@ export class Game {
   }
 
   get exchangeCostNow(): number {
-    const free = relicModifiers(this.relics).freeExchanges;
-    return exchangeCost(Math.max(0, this.exchangesUsed - (free - 1)));
+    const mods = relicModifiers(this.relics);
+    return Math.ceil(
+      exchangeCost(Math.max(0, this.exchangesUsed - (mods.freeExchanges - 1)))
+      * mods.exchangeCostMultiplier,
+    );
   }
 
   doExchange(): boolean {
@@ -109,7 +113,8 @@ export class Game {
     this.pendingUnits.push(rank);
     const suit = dominantSuit(this.hand);
     this.lastPowerSuit = suit;
-    this.powerCharges[suit] = Math.min(3, this.powerCharges[suit] + 1);
+    const chargeCap = suit === 'C' ? relicModifiers(this.relics).clubChargeCap : 3;
+    this.powerCharges[suit] = Math.min(chargeCap, this.powerCharges[suit] + 1);
     return rank;
   }
 
@@ -183,8 +188,16 @@ export class Game {
     return upgradeMultiplier(this.upgradeLevel) * relicModifiers(this.relics).damageMultiplier;
   }
 
+  get synergies() {
+    return synergyStatuses(this.field.units);
+  }
+
+  unitDamageMult(tier: HandRank, targetIsBoss = false): number {
+    return this.dmgMult * unitSynergyDamageMultiplier(tier, this.synergies, targetIsBoss);
+  }
+
   get fieldCap(): number {
-    return FIELD_CAP + relicModifiers(this.relics).fieldCapBonus;
+    return Math.max(20, FIELD_CAP + relicModifiers(this.relics).fieldCapBonus);
   }
 
   get interestNow(): number {
@@ -199,6 +212,9 @@ export class Game {
   chooseRelic(id: RelicId): boolean {
     if (this.phase !== 'prep' || !this.relicChoices.includes(id)) return false;
     this.relics.push(id);
+    if (id === 'frozen_clover') {
+      this.powerCharges.C = Math.min(this.powerCharges.C, relicModifiers(this.relics).clubChargeCap);
+    }
     this.relicChoices = [];
     return true;
   }
@@ -227,16 +243,10 @@ export class Game {
     this.powerCharges[suit]--;
 
     if (suit === 'S') {
-      const affected = aliveEnemies(this.field).length;
-      const result = strikeAll(this.field, 0.22, 0.06);
-      const mods = relicModifiers(this.relics);
-      result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
-      this.gold += result.goldEarned;
-      this.kills += result.deaths.length;
-      this.score += scoreForKills(this.round, result.deaths.length);
-      return { suit, affected, goldEarned: result.goldEarned };
+      return this.resolveStrikePower(suit, 0.22, 0.06);
     }
     if (suit === 'H') {
+      if (relicModifiers(this.relics).heartStrike) return this.resolveStrikePower(suit, 0.12, 0.04);
       return { suit, affected: banishNewest(this.field, 6).length, goldEarned: 0 };
     }
     if (suit === 'D') {
@@ -244,7 +254,18 @@ export class Game {
       this.gold += goldEarned;
       return { suit, affected: 0, goldEarned };
     }
-    return { suit, affected: stunAll(this.field, 3), goldEarned: 0 };
+    return { suit, affected: stunAll(this.field, relicModifiers(this.relics).clubStunDuration), goldEarned: 0 };
+  }
+
+  private resolveStrikePower(suit: Suit, normalPct: number, bossPct: number): SuitPowerResult {
+    const affected = aliveEnemies(this.field).length;
+    const result = strikeAll(this.field, normalPct, bossPct);
+    const mods = relicModifiers(this.relics);
+    result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
+    this.gold += result.goldEarned;
+    this.kills += result.deaths.length;
+    this.score += scoreForKills(this.round, result.deaths.length);
+    return { suit, affected, goldEarned: result.goldEarned };
   }
 
   startCombat(): boolean {
@@ -280,7 +301,7 @@ export class Game {
       this.spawnTimer += SPAWN_INTERVAL;
     }
 
-    const result = tick(this.field, dt, this.dmgMult);
+    const result = tick(this.field, dt, this.dmgMult, this.synergies);
     const mods = relicModifiers(this.relics);
     result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
     this.gold += result.goldEarned;

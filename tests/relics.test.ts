@@ -7,6 +7,7 @@ import {
   relicModifiers,
 } from '../src/core/relics';
 import { h } from './helpers';
+import { spawnEnemy } from '../src/core/combat';
 
 describe('relic offers', () => {
   test('같은 시드와 마일스톤은 중복 없는 동일한 선택지 3개를 만든다', () => {
@@ -45,6 +46,10 @@ describe('relic effects', () => {
     expect(mods.fieldCapBonus).toBe(10);
     expect(mods.freeExchanges).toBe(2);
     expect(mods.bossRankBonus).toBe(1);
+    expect(mods.exchangeCostMultiplier).toBe(1);
+    expect(mods.clubStunDuration).toBe(3);
+    expect(mods.clubChargeCap).toBe(3);
+    expect(mods.heartStrike).toBe(false);
   });
 });
 
@@ -86,6 +91,58 @@ describe('Game relic flow', () => {
     expect(result.deaths.some((enemy) => enemy.kind === 'boss')).toBe(true);
     expect(result.goldEarned).toBe(150);
     expect(game.gold).toBe(150);
+  });
+
+  test('탐욕의 장부는 이자를 두 배로 늘리고 유료 교환 비용을 50% 올린다', () => {
+    const game = new Game(94);
+    game.relics.push('greedy_ledger');
+    game.gold = 100;
+
+    expect(game.interestNow).toBe(20);
+    expect(game.exchangeCostNow).toBe(0);
+    game.doExchange();
+    expect(game.exchangeCostNow).toBe(15);
+  });
+
+  test('유리 왕관은 큰 피해 보너스 대신 적 상한을 낮춘다', () => {
+    const game = new Game(95);
+    game.relics.push('glass_crown');
+
+    expect(game.dmgMult).toBeCloseTo(1.35);
+    expect(game.fieldCap).toBe(65);
+  });
+
+  test('얼어붙은 클로버는 충전 상한을 2로 낮추고 기절을 4.5초로 늘린다', () => {
+    const game = new Game(96);
+    game.relics.push('frozen_clover');
+    game.powerCharges.C = 2;
+    game.hand = h('2C 4C 6C 8C KC');
+    game.confirmHand();
+    expect(game.powerCharges.C).toBe(2);
+
+    const enemy = spawnEnemy(game.field, 'normal', 1);
+    game.phase = 'combat';
+    game.powerCharges.C = 1;
+    game.useSuitPower('C');
+    expect(enemy.stunUntil).toBeCloseTo(4.5);
+  });
+
+  test('피의 계약은 하트 스킬을 퇴장 대신 전체 현재 HP 피해로 바꾼다', () => {
+    const game = new Game(97);
+    game.relics.push('blood_contract');
+    game.round = 19;
+    game.handConfirmed = true;
+    game.pendingUnits = [];
+    game.startCombat();
+    game.tickCombat(1 / 30);
+    const enemy = game.field.enemies.find((item) => item.alive)!;
+    const hpBefore = enemy.hp;
+    game.powerCharges.H = 1;
+
+    const result = game.useSuitPower('H');
+    expect(result?.affected).toBeGreaterThan(0);
+    expect(enemy.alive).toBe(true);
+    expect(enemy.hp).toBeCloseTo(hpBefore * 0.88, 3);
   });
 
   test('10라운드 종료 후 유물 선택 전에는 다음 전투를 시작할 수 없다', () => {

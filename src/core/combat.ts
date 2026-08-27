@@ -4,6 +4,7 @@ import { UNIT_DEFS, UnitDef, damagePerHit } from './units';
 import { ENEMY_BASE_SPEED, enemyHp, killGold, bossGold } from './balance';
 import { TILE, Pt, pointAt, tileCenter } from './map';
 import { bossModifiers } from './bosses';
+import { SynergyStatus, unitSynergyDamageMultiplier } from './synergies';
 
 export interface Enemy {
   id: number;
@@ -191,7 +192,14 @@ function auraMult(field: Field, unit: Unit): number {
   return 1;
 }
 
-function performAttack(field: Field, unit: Unit, def: UnitDef, globalMult: number, result: TickResult): boolean {
+function performAttack(
+  field: Field,
+  unit: Unit,
+  def: UnitDef,
+  globalMult: number,
+  synergies: readonly SynergyStatus[],
+  result: TickResult,
+): boolean {
   const origin = unitPos(unit);
   const target = acquireTarget(field, origin, def.range * TILE);
   if (!target) return false;
@@ -205,20 +213,25 @@ function performAttack(field: Field, unit: Unit, def: UnitDef, globalMult: numbe
   }
 
   const targetPos = enemyPos(target);
-  result.attacks.push({ unitId: unit.id, targetId: target.id, damage: base });
+  const damageAgainst = (enemy: Enemy, amount: number) => amount
+    * unitSynergyDamageMultiplier(unit.tier, synergies, enemy.kind === 'boss');
+  const targetDamage = damageAgainst(target, base);
+  result.attacks.push({ unitId: unit.id, targetId: target.id, damage: targetDamage });
 
   if (slow && target.alive) {
     target.slowUntil = field.time + slow.dur;
     target.slowPct = slow.pct;
   }
 
-  applyDamage(field, target, base, ignoreDefense, result);
+  applyDamage(field, target, targetDamage, ignoreDefense, result);
 
   if (splash) {
     const r2 = splash * TILE * (splash * TILE);
     for (const e of field.enemies) {
       if (!e.alive || e.id === target.id) continue;
-      if (dist2(targetPos, enemyPos(e)) <= r2) applyDamage(field, e, base, ignoreDefense, result);
+      if (dist2(targetPos, enemyPos(e)) <= r2) {
+        applyDamage(field, e, damageAgainst(e, base), ignoreDefense, result);
+      }
     }
   }
 
@@ -241,7 +254,7 @@ function performAttack(field: Field, unit: Unit, def: UnitDef, globalMult: numbe
       }
       if (!next) break;
       dmg *= chain.decay;
-      applyDamage(field, next, dmg, ignoreDefense, result);
+      applyDamage(field, next, damageAgainst(next, dmg), ignoreDefense, result);
       hit.add(next.id);
       cur = next;
     }
@@ -254,7 +267,12 @@ function performAttack(field: Field, unit: Unit, def: UnitDef, globalMult: numbe
  * 고정 틱 시뮬레이션 한 스텝. 결정론 — 랜덤 없음.
  * 순서: 시간 → 이동/재생 → 유닛 공격.
  */
-export function tick(field: Field, dt: number, globalDmgMult: number): TickResult {
+export function tick(
+  field: Field,
+  dt: number,
+  globalDmgMult: number,
+  synergies: readonly SynergyStatus[] = [],
+): TickResult {
   const result = emptyResult();
   field.time += dt;
 
@@ -278,7 +296,7 @@ export function tick(field: Field, dt: number, globalDmgMult: number): TickResul
     const def = UNIT_DEFS[unit.tier];
     unit.cooldown -= dt;
     while (unit.cooldown <= 0) {
-      if (!performAttack(field, unit, def, globalDmgMult, result)) {
+      if (!performAttack(field, unit, def, globalDmgMult, synergies, result)) {
         unit.cooldown = 0;
         break;
       }
