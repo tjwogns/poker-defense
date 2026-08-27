@@ -2,7 +2,9 @@ import { describe, expect, test } from 'vitest';
 import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
-import { START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP } from '../src/core/balance';
+import {
+  START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME,
+} from '../src/core/balance';
 
 /** 라운드가 끝나 prep으로 돌아오거나 게임이 끝날 때까지 틱 진행 */
 function runCombat(game: Game, maxTicks = 5000): void {
@@ -165,13 +167,35 @@ describe('Game state machine', () => {
     expect(g.phase).toBe('defeat');
   });
 
-  test('60라운드를 버티면 승리', () => {
+  test('60라운드 최종 보스를 처치하지 못하면 제한시간 후 패배', () => {
     const g = new Game(9);
     g.round = 60;
     g.confirmHand();
     g.pendingUnits = [];
     g.startCombat();
-    runCombat(g); // 유닛 없음 → 시간 경과로 라운드 종료 → 승리
+    for (let i = 0; i < 30 * (10 + COMBAT_MAX_TIME); i++) g.tickCombat(1 / 30);
+    expect(g.phase).toBe('combat'); // 일반 제한시간 32초를 지나도 최종전은 계속된다.
+    expect(g.combatTimeRemaining).toBeGreaterThan(0);
+    expect(g.combatTimeRemaining).toBeLessThan(20);
+    runCombat(g);
+    expect(g.phase).toBe('defeat');
+    expect(g.defeatReason).toBe('final-boss-timeout');
+    expect(g.field.enemies.some((enemy) => enemy.kind === 'boss' && enemy.alive)).toBe(true);
+  });
+
+  test('60라운드 최종 보스를 처치해야 승리하고 수행원 생존 여부는 무관하다', () => {
+    const g = new Game(90);
+    g.round = 60;
+    g.confirmHand();
+    g.pendingUnits = [];
+    g.startCombat();
+    for (let i = 0; i < 30 * 10 && g.phase === 'combat'; i++) g.tickCombat(1 / 30);
+
+    const boss = g.field.enemies.find((enemy) => enemy.kind === 'boss' && enemy.round === 60)!;
+    boss.alive = false;
+    expect(g.field.enemies.some((enemy) => enemy.kind !== 'boss' && enemy.alive)).toBe(true);
+    g.tickCombat(1 / 30);
+
     expect(g.phase).toBe('victory');
   });
 

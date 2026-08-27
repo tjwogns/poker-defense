@@ -4,7 +4,7 @@ import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO } from '../core/cards/types';
 import { HandRank } from '../core/cards/types';
-import { ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
+import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
 import { RELIC_DEFS } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
@@ -235,7 +235,18 @@ export class SidePanel {
     this.pauseBtn.setLabel(paused ? '계속하기' : '일시정지');
     this.soundBtn.container.setVisible(g.phase === 'combat');
     this.soundBtn.setLabel(soundEnabled ? 'SOUND ON' : 'SOUND OFF');
-    this.combatText.setText(g.phase === 'combat' ? '시간 종료 시 생존한 적은 다음 라운드로 이월됩니다' : '');
+    const remaining = g.combatTimeRemaining;
+    this.combatText.setText(
+      g.phase !== 'combat'
+        ? ''
+        : g.round >= ROUNDS
+          ? remaining === null
+            ? `최종 보스 등장 중 · 등장 완료 후 제한시간 ${FINAL_BOSS_MAX_TIME}초`
+            : `최종 보스 제한시간 · ${Math.ceil(remaining)}초 안에 격파하세요`
+          : remaining === null
+            ? '적 등장 중 · 모든 적 등장 후 라운드 제한시간 시작'
+            : `라운드 종료까지 ${Math.ceil(remaining)}초 · 생존 적은 다음 라운드로 이월`,
+    );
     this.combatText.setVisible(g.phase === 'combat');
     const relics = g.relics.map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`).join('  ·  ');
     const synergies = g.synergies

@@ -36,7 +36,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
       },
       {
         heading: '검증',
-        items: ['자동 테스트 143개 통과 · 30판 봇 클리어율 33.3%'],
+        items: ['보스 처치 보상·최종 보스 50초 승패 판정 수정 · 자동 테스트 145개 통과'],
       },
       {
         heading: '플레이 안정성',

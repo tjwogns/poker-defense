@@ -4,6 +4,7 @@ import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
+  FINAL_BOSS_MAX_TIME,
   FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
@@ -31,6 +32,7 @@ import { bossDef } from './bosses';
 import { synergyStatuses, unitSynergyDamageMultiplier } from './synergies';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
+export type DefeatReason = 'field-cap' | 'final-boss-timeout';
 
 /**
  * 게임 상태 머신: prep(카드/배치/경제) ⇄ combat(고정 틱) → victory/defeat.
@@ -46,6 +48,7 @@ export class Game {
   bestHand: HandRank = HandRank.HighCard;
   powerCharges: Record<Suit, number> = { S: 0, H: 0, D: 0, C: 0 };
   lastPowerSuit: Suit | null = null;
+  defeatReason: DefeatReason | null = null;
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -209,6 +212,13 @@ export class Game {
     );
   }
 
+  /** 모든 적 스폰이 끝난 뒤부터 흐르는 현재 라운드 제한시간. */
+  get combatTimeRemaining(): number | null {
+    if (this.phase !== 'combat' || this.spawnQueue.length > 0) return null;
+    const limit = this.round >= ROUNDS ? FINAL_BOSS_MAX_TIME : COMBAT_MAX_TIME;
+    return Math.max(0, limit - this.combatTimer);
+  }
+
   chooseRelic(id: RelicId): boolean {
     if (this.phase !== 'prep' || !this.relicChoices.includes(id)) return false;
     this.relics.push(id);
@@ -324,32 +334,58 @@ export class Game {
 
     const alive = aliveEnemies(this.field).length;
     if (alive > this.fieldCap) {
+      this.defeatReason = 'field-cap';
       this.phase = 'defeat';
       return result;
     }
 
     if (this.spawnQueue.length === 0) {
       this.combatTimer += dt;
-      if (alive === 0 || this.combatTimer >= COMBAT_MAX_TIME) this.endRound();
+      const currentBossAlive = this.field.enemies.some(
+        (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === this.round,
+      );
+
+      // 최종전은 보스 처치가 승리 조건이다. 보스를 잡으면 수행원이 남아 있어도
+      // 승리하며, 제한 시간까지 보스가 생존하면 승리 대신 패배한다.
+      if (this.round >= ROUNDS) {
+        if (!currentBossAlive) this.endRound();
+        else if (this.combatTimer >= FINAL_BOSS_MAX_TIME) {
+          this.defeatReason = 'final-boss-timeout';
+          this.phase = 'defeat';
+        }
+      } else if (alive === 0 || this.combatTimer >= COMBAT_MAX_TIME) {
+        this.endRound();
+      }
     }
     return result;
   }
 
   private endRound(): void {
+    const completedRound = this.round;
+    const bossDefeated = completedRound % BOSS_EVERY === 0
+      && !this.field.enemies.some(
+        (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === completedRound,
+      );
+
     // 이번 라운드 스폰분(분열 자식 포함) 전멸 시 클리어 보너스
-    const roundCleared = !this.field.enemies.some((e) => e.round === this.round && e.alive);
+    const roundCleared = !this.field.enemies.some((e) => e.round === completedRound && e.alive);
     if (roundCleared) {
-      this.gold += clearBonus(this.round);
-      this.score += scoreForRoundClear(this.round);
+      this.gold += clearBonus(completedRound);
+      this.score += scoreForRoundClear(completedRound);
     }
 
-    if (this.round >= ROUNDS) {
+    if (completedRound >= ROUNDS) {
+      // tickCombat의 최종전 판정을 우회해도 생존 보스로 승리할 수 없게 방어한다.
+      if (!bossDefeated) {
+        this.defeatReason = 'final-boss-timeout';
+        this.phase = 'defeat';
+        return;
+      }
       this.score += VICTORY_SCORE;
       this.phase = 'victory';
       return;
     }
 
-    const completedRound = this.round;
     this.round++;
     this.gold += this.interestNow;
     this.field.enemies = this.field.enemies.filter((e) => e.alive); // 시체 정리, 생존자는 이월
@@ -357,7 +393,7 @@ export class Game {
     this.holds = [false, false, false, false, false];
     this.exchangesUsed = 0;
     this.handConfirmed = false;
-    if (completedRound % BOSS_EVERY === 0) {
+    if (bossDefeated) {
       this.relicChoices = makeRelicChoices(this.seed, completedRound, this.relics);
     }
     this.phase = 'prep';

@@ -541,11 +541,7 @@ export class PlayScene extends Phaser.Scene {
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = this.add.rectangle(390, 270, 748, 520, 0x06100a, 0.93).setInteractive();
     children.push(dim);
-    const bossSurvived = this.core.field.enemies.some((enemy) => enemy.alive && enemy.kind === 'boss');
-    const rewardTitle = bossSurvived
-      ? '보스 라운드 생존 · 유물을 선택하세요'
-      : '보스 격파 · 유물을 선택하세요';
-    const title = makeText(this, 390, 102, rewardTitle, 28, UI.gold, true).setOrigin(0.5);
+    const title = makeText(this, 390, 102, '보스 격파 · 유물을 선택하세요', 28, UI.gold, true).setOrigin(0.5);
     children.push(title);
     this.core.relicChoices.forEach((id, index) => {
       const def = RELIC_DEFS[id];
@@ -658,6 +654,11 @@ export class PlayScene extends Phaser.Scene {
     this.ended = true;
     this.abandonedTracked = true;
     const won = this.core.phase === 'victory';
+    const endMessage = won
+      ? '최종 보스를 격파하고 왕좌를 지켰습니다'
+      : this.core.defeatReason === 'final-boss-timeout'
+        ? '제한시간 안에 최종 보스를 격파하지 못했습니다'
+        : `라운드 ${this.core.round}에서 필드가 뚫렸습니다`;
     this.audio.play(won ? 'win' : 'lose');
     this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
     saveProfile(localStorage, this.profile);
@@ -670,7 +671,7 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(640, 350, won ? '60라운드를 모두 방어했습니다' : `라운드 ${this.core.round}에서 필드가 뚫렸습니다`, {
+      .text(640, 350, endMessage, {
         fontFamily: FONT, fontSize: '20px', color: UI.text,
       })
       .setOrigin(0.5)
@@ -799,6 +800,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private defeatTip(): string {
+    if (this.core.defeatReason === 'final-boss-timeout') {
+      return 'TIP · 최종전 전에는 보스 피해 시너지와 공격 스킬 충전을 준비하세요';
+    }
     if (this.core.upgradeLevel < 3) {
       return 'TIP · 골드를 공격 강화에 투자하면 누적 적을 더 빨리 정리할 수 있습니다';
     }
