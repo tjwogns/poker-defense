@@ -59,7 +59,18 @@ export class LeaderboardOverlay {
       fill: 0x42544a,
       fontSize: 12,
     });
-    children.push(this.statusText, this.refreshButton.container);
+    children.push(
+      this.statusText,
+      this.refreshButton.container,
+      makeText(
+        scene,
+        640,
+        648,
+        '시크릿 창을 닫으면 이 기기의 개인 기록·지휘관 ID는 초기화됩니다. 이미 등록한 온라인 점수는 유지됩니다.',
+        10,
+        UI.textDim,
+      ).setOrigin(0.5),
+    );
     this.root = scene.add.container(0, 0, children).setDepth(50);
 
     void this.load();

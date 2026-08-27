@@ -24,6 +24,7 @@ import { Analytics, getAnalytics } from '../meta/analytics';
 import { tileCanReachPath } from '../core/map';
 import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
 import { SYNERGY_DEFS, UnitFamily } from '../core/synergies';
+import { safeFrameDelta } from './timing';
 
 const DT = 1 / TICK_RATE;
 
@@ -63,6 +64,10 @@ export class PlayScene extends Phaser.Scene {
   private firstCombatTracked = false;
   private abandonedTracked = false;
   private pageHideHandler!: () => void;
+  private visibilityHandler!: () => void;
+  private windowBlurHandler!: () => void;
+  private windowFocusHandler!: () => void;
+  private backgroundPaused = false;
 
   constructor() {
     super('play');
@@ -95,6 +100,7 @@ export class PlayScene extends Phaser.Scene {
     this.lastTrackedRound = 1;
     this.firstCombatTracked = false;
     this.abandonedTracked = false;
+    this.backgroundPaused = false;
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -115,7 +121,16 @@ export class PlayScene extends Phaser.Scene {
         this.refreshUI();
       },
       onUpgrade: () => {
-        if (this.core.buyUpgrade()) this.audio.play('click');
+        const cost = this.core.upgradeCostNow;
+        if (this.core.buyUpgrade()) {
+          this.audio.play('click');
+          this.analytics.track('upgrade_bought', {
+            round: this.core.round,
+            level: this.core.upgradeLevel,
+            cost,
+            goldAfter: this.core.gold,
+          }, this.runId);
+        }
         this.refreshUI();
       },
       onSell: () => {
@@ -166,8 +181,37 @@ export class PlayScene extends Phaser.Scene {
     }
     this.pageHideHandler = () => this.trackAbandoned('page_hidden');
     window.addEventListener('pagehide', this.pageHideHandler);
+    this.windowBlurHandler = () => {
+      this.acc = 0;
+      if (this.core.phase === 'combat' && !this.paused && !this.backgroundPaused) {
+        this.paused = true;
+        this.backgroundPaused = true;
+        this.analytics.track('background_pause', {
+          round: this.core.round,
+          speed: this.speed,
+        }, this.runId);
+      }
+    };
+    this.windowFocusHandler = () => {
+      this.acc = 0;
+      if (this.backgroundPaused) {
+        this.backgroundPaused = false;
+        this.flashCenter('창을 떠나 게임이 일시정지됐습니다 · SPACE로 계속', 0xe6c84f);
+        this.refreshUI();
+      }
+    };
+    this.visibilityHandler = () => {
+      if (document.hidden) this.windowBlurHandler();
+      else this.windowFocusHandler();
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+    window.addEventListener('blur', this.windowBlurHandler);
+    window.addEventListener('focus', this.windowFocusHandler);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('pagehide', this.pageHideHandler);
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      window.removeEventListener('blur', this.windowBlurHandler);
+      window.removeEventListener('focus', this.windowFocusHandler);
       this.trackAbandoned('scene_left');
     });
     // E2E/디버그용 훅
@@ -175,7 +219,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number): void {
-    const dt = deltaMs / 1000;
+    const dt = safeFrameDelta(deltaMs);
     this.damageLabelShownThisFrame = false;
     this.cameraShakenThisFrame = false;
     if (this.core.phase === 'combat' && !this.paused) this.stepCombat(dt);
