@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 migrations apply royal-siege-leaderboard --local",
-    "db:remote": "wrangler d1 migrations apply royal-siege-leaderboard --remote"
+    "db:remote": "wrangler d1 migrations apply royal-siege-leaderboard --remote",
+    "analytics:summary": "node scripts/analytics-summary.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

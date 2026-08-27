@@ -1,4 +1,5 @@
 export const ANALYTICS_KEY = 'poker-defense:v1:analytics';
+import { CURRENT_VERSION } from './patchNotes';
 
 export type AnalyticsConsent = 'unknown' | 'granted' | 'denied';
 export type AnalyticsValue = string | number | boolean | null | string[] | number[];
@@ -189,7 +190,7 @@ function randomId(): string {
 }
 
 function sendEvent(endpoint: string, event: AnalyticsEvent): void {
-  const body = JSON.stringify({ schema: 'poker-defense-event-v1', event });
+  const body = JSON.stringify({ schema: 'poker-defense-event-v1', gameVersion: CURRENT_VERSION, event });
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
       navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));

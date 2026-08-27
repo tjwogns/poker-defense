@@ -102,9 +102,10 @@ tests/      vitest 단위 테스트 (core 전체)
 - 기록 이벤트: 시작·튜토리얼·족보 확정·첫 전투·주요 라운드·무효 배치·합성·유물·종료·이탈·재도전·공유
 - 이름, 이메일, 실제 카드 내용은 이벤트에 넣지 않는다.
 - 기본 상태에서는 최근 500개 이벤트를 브라우저에만 저장하고 `LOG EXPORT`에 포함한다.
-- 중앙 수집이 필요하면 HTTPS POST 수집 주소를 저장소의 GitHub Actions 변수 `VITE_ANALYTICS_ENDPOINT`로 설정한다. 요청 본문은 `{ schema: "poker-defense-event-v1", event: ... }` 형식이다.
+- 중앙 수집이 필요하면 HTTPS POST 수집 주소를 저장소의 GitHub Actions 변수 `VITE_ANALYTICS_ENDPOINT`로 설정한다. 요청 본문은 `{ schema: "poker-defense-event-v1", gameVersion, event }` 형식이다.
 - 수집 주소는 CORS와 `sendBeacon` 요청을 허용해야 한다. 로컬 개발에서는 `.env.example`을 복사해 같은 변수를 설정할 수 있다.
 - 공개 안내문은 `/privacy.html`에 포함된다.
+- 운영 수집 API는 랭킹 Worker의 `/analytics`이며, D1 원본 이벤트는 최대 90일 보관한다. `cd leaderboard-worker && npm run analytics:summary`로 최근 7일 익명 집계를 확인한다.
 
 ## 온라인 일일 랭킹 서버 연결
 
