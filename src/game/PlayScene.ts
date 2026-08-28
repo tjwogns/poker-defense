@@ -633,6 +633,16 @@ export class PlayScene extends Phaser.Scene {
         }, this.runId);
         this.audio.play('confirm');
       },
+      (id, value) => {
+        this.analytics.track('relic_sold', {
+          round: this.core.round,
+          relic: id,
+          value,
+          goldAfter: this.core.gold,
+          relicCount: this.core.relics.length,
+        }, this.runId);
+        this.audio.play('click');
+      },
       (openDeck) => {
         const round = this.core.round;
         this.maintenanceOverlay?.destroy();

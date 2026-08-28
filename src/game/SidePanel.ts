@@ -5,7 +5,7 @@ import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO } from '../core/cards/types';
 import { HandRank } from '../core/cards/types';
 import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
-import { RELIC_DEFS } from '../core/relics';
+import { RELIC_DEFS, RELIC_SLOT_CAP } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
@@ -263,7 +263,8 @@ export class SidePanel {
       })
       .join('  ·  ');
     this.relicText.setText(
-      `${synergies ? `시너지  ${synergies}` : '시너지  —'}\n${relics ? `유물  ${relics}` : '유물  — 보스 라운드 보상'}`,
+      `${synergies ? `시너지  ${synergies}` : '시너지  —'}\n`
+      + `${relics ? `유물 ${g.relics.length}/${RELIC_SLOT_CAP}  ${relics}` : `유물 0/${RELIC_SLOT_CAP}  — 보스 보상`}`,
     );
   }
 

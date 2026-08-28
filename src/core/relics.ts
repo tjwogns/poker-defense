@@ -54,6 +54,7 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
 };
 
 export const RELIC_IDS = Object.keys(RELIC_DEFS) as RelicId[];
+export const RELIC_SLOT_CAP = 5;
 
 export interface RelicModifiers {
   damageMultiplier: number;

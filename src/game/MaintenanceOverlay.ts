@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { DECK_SEAL_COSTS } from '../core/balance';
+import { DECK_SEAL_COSTS, RELIC_SELL_VALUE } from '../core/balance';
 import { DeckSealId, Game } from '../core/game';
+import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { Button, UI, makeButton, makeText } from './ui';
 
 interface OfferView {
@@ -34,18 +35,20 @@ export class MaintenanceOverlay {
   private goldText: Phaser.GameObjects.Text;
   private finishBtn: Button;
   private offers: OfferView[] = [];
+  private relicButtons: Button[] = [];
   private boughtAny = false;
 
   constructor(
     scene: Phaser.Scene,
     private game: Game,
     private onBought: (id: DeckSealId, cost: number) => void,
+    private onRelicSold: (id: RelicId, value: number) => void,
     private onFinish: (openDeck: boolean) => void,
   ) {
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.92).setInteractive();
-    const shadow = scene.add.rectangle(640, 365, 820, 590, 0x000000, 0.5);
-    const panel = scene.add.rectangle(640, 358, 820, 590, UI.panel, 1)
+    const shadow = scene.add.rectangle(640, 360, 860, 640, 0x000000, 0.5);
+    const panel = scene.add.rectangle(640, 355, 860, 640, UI.panel, 1)
       .setStrokeStyle(2, 0xe6c84f, 0.95);
     children.push(dim, shadow, panel);
 
@@ -99,10 +102,24 @@ export class MaintenanceOverlay {
     });
 
     children.push(
-      makeText(scene, 270, 505, '구매한 인장은 런 동안 보관되며 덱 보기(D)에서 사용할 수 있습니다.', 12, UI.textDim),
-      makeText(scene, 270, 530, '지금은 추방·복제만 판매합니다. 진열 리롤과 유물 상점은 후속 단계입니다.', 11, UI.gold),
+      makeText(scene, 230, 492, '구매한 인장은 런 동안 보관되며 덱 보기(D)에서 사용할 수 있습니다.', 11, UI.textDim),
+      makeText(scene, 230, 515, `RELIC SLOTS · 최대 ${RELIC_SLOT_CAP}칸 · 보유 유물 클릭 시 ${RELIC_SELL_VALUE}G 판매`, 11, UI.gold, true),
     );
-    this.finishBtn = makeButton(scene, 850, 595, 250, 48, '', () => this.finish(), {
+    for (let index = 0; index < RELIC_SLOT_CAP; index++) {
+      const button = makeButton(
+        scene,
+        330 + index * 155,
+        561,
+        142,
+        58,
+        '',
+        () => this.sellRelic(index),
+        { fill: 0x42544a, fontSize: 10 },
+      );
+      this.relicButtons.push(button);
+      children.push(button.container);
+    }
+    this.finishBtn = makeButton(scene, 850, 640, 250, 44, '', () => this.finish(), {
       fill: 0x5cb187,
       fontSize: 14,
     });
@@ -129,6 +146,13 @@ export class MaintenanceOverlay {
     this.onFinish(this.boughtAny);
   }
 
+  private sellRelic(index: number): void {
+    const id = this.game.relics[index];
+    if (!id || !this.game.sellRelic(id)) return;
+    this.onRelicSold(id, RELIC_SELL_VALUE);
+    this.refresh();
+  }
+
   private refresh(): void {
     this.goldText.setText(`G  ${this.game.gold.toLocaleString()}`);
     for (const offer of this.offers) {
@@ -136,6 +160,18 @@ export class MaintenanceOverlay {
       offer.button.setLabel(state.purchased ? '구매 완료' : `구매  ${state.cost}G`);
       offer.button.setEnabled(!state.purchased && state.affordable);
       offer.owned.setText(`보유 ×${this.game.deckSeals[offer.id]}`);
+    }
+    for (let index = 0; index < this.relicButtons.length; index++) {
+      const id = this.game.relics[index];
+      const button = this.relicButtons[index];
+      if (!id) {
+        button.setLabel(`빈 슬롯\n${index + 1} / ${RELIC_SLOT_CAP}`);
+        button.setEnabled(false);
+        continue;
+      }
+      const def = RELIC_DEFS[id];
+      button.setLabel(`${def.glyph} ${def.name}\n판매  ${RELIC_SELL_VALUE}G`);
+      button.setEnabled(true);
     }
     this.finishBtn.setLabel(this.boughtAny ? '정비 완료 · 덱 개조하기' : '이번에는 건너뛰기');
   }

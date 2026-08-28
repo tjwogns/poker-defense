@@ -16,6 +16,7 @@ export type AnalyticsEventName =
   | 'placement_blocked'
   | 'unit_fused'
   | 'relic_selected'
+  | 'relic_sold'
   | 'run_finished'
   | 'run_abandoned'
   | 'retry_clicked'

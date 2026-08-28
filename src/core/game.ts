@@ -4,7 +4,7 @@ import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
-  FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
+  FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS, RELIC_SELL_VALUE,
   FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
@@ -17,6 +17,7 @@ import { isPlaceable, tileCanReachPath } from './map';
 import { UNIT_DEFS } from './units';
 import {
   RelicId,
+  RELIC_SLOT_CAP,
   relicChoices as makeRelicChoices,
   relicModifiers,
 } from './relics';
@@ -104,6 +105,10 @@ export class Game {
       && this.relicChoices.length === 0;
   }
 
+  get relicSlotsRemaining(): number {
+    return Math.max(0, RELIC_SLOT_CAP - this.relics.length);
+  }
+
   maintenanceOffer(id: DeckSealId): { cost: number; purchased: boolean; affordable: boolean } {
     const cost = DECK_SEAL_COSTS[id];
     return {
@@ -128,6 +133,15 @@ export class Game {
     if (!this.maintenancePending) return false;
     this.visitedMaintenanceRounds.add(this.round);
     this.pendingMaintenanceRound = null;
+    return true;
+  }
+
+  sellRelic(id: RelicId): boolean {
+    if (!this.maintenancePending) return false;
+    const index = this.relics.indexOf(id);
+    if (index < 0) return false;
+    this.relics.splice(index, 1);
+    this.gold += RELIC_SELL_VALUE;
     return true;
   }
 
@@ -325,7 +339,11 @@ export class Game {
   }
 
   chooseRelic(id: RelicId): boolean {
-    if (this.phase !== 'prep' || !this.relicChoices.includes(id)) return false;
+    if (
+      this.phase !== 'prep'
+      || this.relics.length >= RELIC_SLOT_CAP
+      || !this.relicChoices.includes(id)
+    ) return false;
     this.relics.push(id);
     if (id === 'frozen_clover') {
       this.powerCharges.C = Math.min(this.powerCharges.C, relicModifiers(this.relics).clubChargeCap);

@@ -3,11 +3,14 @@ import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import {
   RelicId,
+  RELIC_IDS,
+  RELIC_SLOT_CAP,
   relicChoices,
   relicModifiers,
 } from '../src/core/relics';
 import { h } from './helpers';
 import { spawnEnemy } from '../src/core/combat';
+import { RELIC_SELL_VALUE } from '../src/core/balance';
 
 describe('relic offers', () => {
   test('같은 시드와 마일스톤은 중복 없는 동일한 선택지 3개를 만든다', () => {
@@ -54,6 +57,36 @@ describe('relic effects', () => {
 });
 
 describe('Game relic flow', () => {
+  test('보스 보상은 유물 5슬롯 상한을 넘지 않는다', () => {
+    const game = new Game(89);
+    game.relics.push(...RELIC_IDS.slice(0, RELIC_SLOT_CAP));
+    const offered = RELIC_IDS[RELIC_SLOT_CAP];
+    game.relicChoices = [offered];
+
+    expect(game.relicSlotsRemaining).toBe(0);
+    expect(game.chooseRelic(offered)).toBe(false);
+    expect(game.relics).toHaveLength(RELIC_SLOT_CAP);
+    expect(game.relicChoices).toEqual([offered]);
+  });
+
+  test('정비소에서 유물을 판매하면 슬롯과 골드를 돌려받는다', () => {
+    const game = reachMaintenanceWithRelic();
+    const goldBefore = game.gold;
+
+    expect(game.sellRelic('royal_seal')).toBe(true);
+    expect(game.relics).not.toContain('royal_seal');
+    expect(game.relicSlotsRemaining).toBe(RELIC_SLOT_CAP);
+    expect(game.gold).toBe(goldBefore + RELIC_SELL_VALUE);
+    expect(game.sellRelic('royal_seal')).toBe(false);
+  });
+
+  test('정비소 밖에서는 유물을 판매할 수 없다', () => {
+    const game = new Game(88);
+    game.relics.push('royal_seal');
+    expect(game.sellRelic('royal_seal')).toBe(false);
+    expect(game.relics).toEqual(['royal_seal']);
+  });
+
   test('유물 효과가 교환·피해·이자·필드 상한에 반영된다', () => {
     const game = new Game(90);
     game.relics.push('swift_shuffle', 'royal_seal', 'compound_ledger', 'fortified_table');
@@ -216,3 +249,19 @@ describe('Game relic flow', () => {
     expect(game.startCombat()).toBe(true);
   });
 });
+
+function reachMaintenanceWithRelic(): Game {
+  const game = new Game(87);
+  game.round = 9;
+  game.gold = 1000;
+  game.upgradeLevel = 30;
+  game.relics.push('royal_seal');
+  game.pendingUnits.push(HandRank.RoyalFlush);
+  expect(game.placeUnit(8, 5)).toBe(true);
+  game.handConfirmed = true;
+  expect(game.startCombat()).toBe(true);
+  for (let i = 0; i < 5000 && game.phase === 'combat'; i++) game.tickCombat(1 / 30);
+  expect(game.phase).toBe('prep');
+  expect(game.maintenancePending).toBe(true);
+  return game;
+}
