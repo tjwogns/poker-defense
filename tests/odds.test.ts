@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import { newDeck } from '../src/core/cards/deck';
-import { rerollOdds } from '../src/core/cards/odds';
+import { deckEditOdds, deckOdds, rerollOdds } from '../src/core/cards/odds';
 import { h } from './helpers';
 
 describe('exact reroll odds', () => {
@@ -50,5 +50,32 @@ describe('exact reroll odds', () => {
     const odds = rerollOdds(h('TS JS QS KS 2H'), [true, true, true, true, false], deck);
     expect(odds.totalCombinations).toBe(46);
     expect(odds.outcomes[HandRank.RoyalFlush]).toBe(0);
+  });
+
+  test('런 덱의 전체 5장 족보 분포를 정확히 계산한다', () => {
+    const odds = deckOdds(newDeck());
+    expect(odds.totalCombinations).toBe(2_598_960);
+    expect(odds.outcomes.reduce((sum, count) => sum + count, 0)).toBe(odds.totalCombinations);
+    expect(odds.probabilities.reduce((sum, probability) => sum + probability, 0)).toBeCloseTo(1);
+  });
+
+  test('추방 미리보기는 실제 재계산 결과와 일치한다', () => {
+    const deck = newDeck();
+    const card = { rank: 2, suit: 'S' as const };
+    const preview = deckEditOdds(deck, 'banish', card);
+    const actual = deckOdds(deck.filter((candidate) => (
+      candidate.rank !== card.rank || candidate.suit !== card.suit
+    )));
+    expect(preview.after.totalCombinations).toBe(2_349_060);
+    expect(preview.after.outcomes).toEqual(actual.outcomes);
+  });
+
+  test('복제 미리보기는 실제 재계산 결과와 일치한다', () => {
+    const deck = newDeck();
+    const card = { rank: 14, suit: 'S' as const };
+    const preview = deckEditOdds(deck, 'duplicate', card);
+    const actual = deckOdds([...deck, card]);
+    expect(preview.after.totalCombinations).toBe(2_869_685);
+    expect(preview.after.outcomes).toEqual(actual.outcomes);
   });
 });

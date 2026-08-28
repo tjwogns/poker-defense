@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { Card, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
+import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
+import { DeckEditOddsPair, DeckOdds, deckEditOddsPair, deckOdds } from '../core/cards/odds';
 import { DeckEditStatus, DeckSealId, Game } from '../core/game';
 import { Button, UI, makeButton, makeText } from './ui';
 
@@ -29,8 +30,12 @@ export class DeckOverlay {
   private cells: CardCell[] = [];
   private detail: Phaser.GameObjects.Text;
   private status: Phaser.GameObjects.Text;
+  private banishPreview: Phaser.GameObjects.Text;
+  private duplicatePreview: Phaser.GameObjects.Text;
   private banishBtn: Button;
   private duplicateBtn: Button;
+  private baseOdds: DeckOdds;
+  private previewCache = new Map<string, DeckEditOddsPair>();
 
   constructor(
     scene: Phaser.Scene,
@@ -38,6 +43,7 @@ export class DeckOverlay {
     onClose: () => void,
     private onChanged: (id: DeckSealId, card: Card) => void,
   ) {
+    this.baseOdds = deckOdds(game.deckSnapshot());
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.9).setInteractive();
     const shadow = scene.add.rectangle(640, 363, 1120, 650, 0x000000, 0.48);
@@ -78,9 +84,17 @@ export class DeckOverlay {
       });
     });
 
-    this.detail = makeText(scene, 112, 530, '', 14, UI.text, true);
-    this.status = makeText(scene, 112, 560, '', 12, UI.textDim);
-    children.push(this.detail, this.status);
+    this.detail = makeText(scene, 112, 486, '', 14, UI.text, true);
+    this.banishPreview = makeText(scene, 112, 528, '', 11, '#df8d86');
+    this.duplicatePreview = makeText(scene, 112, 551, '', 11, '#c4a2df');
+    this.status = makeText(scene, 112, 578, '', 11, UI.textDim);
+    children.push(
+      this.detail,
+      makeText(scene, 112, 509, '전체 5장 드로우 기준 · 선택 카드 개조 전후 정확 확률', 10, UI.accentText, true),
+      this.banishPreview,
+      this.duplicatePreview,
+      this.status,
+    );
 
     this.banishBtn = makeButton(scene, 810, 610, 174, 42, '', () => this.apply('banish'), {
       fill: UI.danger,
@@ -93,7 +107,7 @@ export class DeckOverlay {
     children.push(this.banishBtn.container, this.duplicateBtn.container);
 
     children.push(
-      makeText(scene, 112, 604, '덱 제한 40–60장', 11, UI.textDim),
+      makeText(scene, 112, 604, '덱 제한 40–60장 · 변화량은 퍼센트포인트(%p)', 11, UI.textDim),
       makeText(scene, 112, 626, '현재 v2 브랜치에서는 정비소 보상 연결 전이라 인장 재고가 0개입니다.', 11, UI.gold),
     );
 
@@ -107,6 +121,8 @@ export class DeckOverlay {
 
   private apply(id: DeckSealId): void {
     if (!this.game.applyDeckSeal(id, this.selected)) return;
+    this.baseOdds = deckOdds(this.game.deckSnapshot());
+    this.previewCache.clear();
     this.onChanged(id, this.selected);
     this.refresh();
   }
@@ -130,6 +146,8 @@ export class DeckOverlay {
 
     const banishStatus = this.game.deckEditStatus('banish', this.selected);
     const duplicateStatus = this.game.deckEditStatus('duplicate', this.selected);
+    this.banishPreview.setText(this.previewLabel('banish'));
+    this.duplicatePreview.setText(this.previewLabel('duplicate'));
     this.banishBtn.setLabel(`추방 인장 ×${this.game.deckSeals.banish}`);
     this.duplicateBtn.setLabel(`복제 인장 ×${this.game.deckSeals.duplicate}`);
     this.banishBtn.setEnabled(banishStatus === 'ready');
@@ -139,6 +157,32 @@ export class DeckOverlay {
       banishStatus === 'ready' || duplicateStatus === 'ready' ? UI.accentText : UI.textDim,
     );
   }
+
+  private previewLabel(action: DeckSealId): string {
+    const actionLabel = action === 'banish' ? '추방 예측' : '복제 예측';
+    const deckCount = this.game.deckCardCount(this.selected);
+    if (deckCount === 0) return `${actionLabel} · 덱에 없는 카드`;
+    if (action === 'banish' && this.game.deckSize <= 40) return `${actionLabel} · 40장 하한`;
+    if (action === 'duplicate' && this.game.deckSize >= 60) return `${actionLabel} · 60장 상한`;
+
+    const key = cardKey(this.selected);
+    let pair = this.previewCache.get(key);
+    if (!pair) {
+      pair = deckEditOddsPair(this.game.deckSnapshot(), this.selected, this.baseOdds);
+      this.previewCache.set(key, pair);
+    }
+    const preview = pair[action];
+    const largest = preview.deltas
+      .map((delta, rank) => ({ delta, rank: rank as HandRank }))
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 2)
+      .map(({ delta, rank }) => `${HAND_NAMES_KO[rank]} ${formatDelta(delta)}`)
+      .join(' · ');
+    const advancedDelta = preview.deltas
+      .slice(HandRank.Trips)
+      .reduce((sum, delta) => sum + delta, 0);
+    return `${actionLabel} · ${largest} · 트리플+ ${formatDelta(advancedDelta)}`;
+  }
 }
 
 function cardKey(card: Card): string {
@@ -147,4 +191,10 @@ function cardKey(card: Card): string {
 
 function suitColor(suit: Suit): string {
   return suit === 'H' || suit === 'D' ? '#e47b72' : UI.text;
+}
+
+export function formatDelta(delta: number): string {
+  const normalized = Math.abs(delta) < 0.0000005 ? 0 : delta;
+  const sign = normalized > 0 ? '+' : normalized < 0 ? '−' : '±';
+  return `${sign}${(Math.abs(normalized) * 100).toFixed(3)}%p`;
 }
