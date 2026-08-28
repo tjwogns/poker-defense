@@ -1,4 +1,4 @@
-export type SoundCue = 'click' | 'card' | 'confirm' | 'fuse' | 'relic' | 'power' | 'boss' | 'win' | 'lose';
+export type SoundCue = 'click' | 'card' | 'confirm' | 'fuse' | 'relic' | 'boss' | 'win' | 'lose';
 
 const CUES: Record<SoundCue, { notes: number[]; duration: number; type: OscillatorType; gain: number }> = {
   click: { notes: [440], duration: 0.05, type: 'sine', gain: 0.025 },
@@ -6,7 +6,6 @@ const CUES: Record<SoundCue, { notes: number[]; duration: number; type: Oscillat
   confirm: { notes: [523, 659, 784], duration: 0.11, type: 'triangle', gain: 0.045 },
   fuse: { notes: [392, 523, 784, 1047], duration: 0.12, type: 'sawtooth', gain: 0.04 },
   relic: { notes: [440, 554, 659, 880], duration: 0.15, type: 'sine', gain: 0.05 },
-  power: { notes: [220, 440, 660, 990], duration: 0.1, type: 'square', gain: 0.04 },
   boss: { notes: [110, 98, 82], duration: 0.24, type: 'sawtooth', gain: 0.055 },
   win: { notes: [523, 659, 784, 1047], duration: 0.22, type: 'triangle', gain: 0.055 },
   lose: { notes: [220, 185, 147], duration: 0.25, type: 'triangle', gain: 0.05 },

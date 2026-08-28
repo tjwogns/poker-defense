@@ -4,7 +4,7 @@
  * core만 import — 렌더링 의존성 없음.
  */
 import { DeckSealId, Game } from '../core/game';
-import { Card, HandRank, HAND_NAMES_KO, Suit } from '../core/cards/types';
+import { Card, HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
 import { GRID_W, GRID_H, isPlaceable, tileCanReachPath } from '../core/map';
 import { UNIT_CAP } from '../core/balance';
@@ -211,26 +211,12 @@ function cardKey(card: Card): string {
   return `${card.rank}${card.suit}`;
 }
 
-/** 액티브는 위기 대응 우선, 다이아는 경제 가치가 사라지기 전에 즉시 사용한다. */
-function playCombat(g: Game, stats: GameStats): void {
-  const alive = g.field.enemies.filter((enemy) => enemy.alive);
-  const hasBoss = alive.some((enemy) => enemy.kind === 'boss');
-  const tryUse = (suit: Suit, condition: boolean) => {
-    if (condition && g.powerCharges[suit] > 0 && g.useSuitPower(suit)) stats.powerUses[suit]++;
-  };
-  tryUse('D', true);
-  tryUse('S', hasBoss || alive.length >= 10);
-  tryUse('H', alive.length >= 45);
-  tryUse('C', hasBoss || alive.length >= 32);
-}
-
 interface GameStats {
   seed: number;
   result: 'victory' | 'defeat';
   roundReached: number;
   upgradeLevel: number;
   handCounts: number[];
-  powerUses: Record<Suit, number>;
   score: number;
   maintenanceVisits: number;
   sealPurchases: Record<DeckSealId, number>;
@@ -250,7 +236,7 @@ function playGame(
   const g = new Game(seed);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
-    handCounts: Array(10).fill(0), powerUses: { S: 0, H: 0, D: 0, C: 0 }, score: 0,
+    handCounts: Array(10).fill(0), score: 0,
     maintenanceVisits: 0, sealPurchases: { banish: 0, duplicate: 0 },
     sealSpend: 0, relicPurchases: 0, relicSpend: 0, deckSize: 52, goldEnd: 0,
     finalBossHpPct: 1,
@@ -260,7 +246,6 @@ function playGame(
   while (g.phase !== 'victory' && g.phase !== 'defeat' && guard++ < 1_000_000) {
     if (g.phase === 'prep') playPrep(g, stats, strategy, relicStrategy);
     else {
-      playCombat(g, stats);
       g.tickCombat(dt);
     }
   }
@@ -358,14 +343,6 @@ function printDetails(all: GameStats[], strategy: MaintenanceStrategy): void {
     Array(10).fill(0),
   );
   const handSum = totalHands.reduce((a, b) => a + b, 0);
-  const powerUses = all.reduce<Record<Suit, number>>(
-    (acc, game) => {
-      for (const suit of ['S', 'H', 'D', 'C'] as Suit[]) acc[suit] += game.powerUses[suit];
-      return acc;
-    },
-    { S: 0, H: 0, D: 0, C: 0 },
-  );
-
   console.log(`\n=== 포커 디펜스 시뮬레이션 (${all.length}판 · 정비소 ${strategy}) ===`);
   console.log(`클리어율      : ${((wins / all.length) * 100).toFixed(1)}% (${wins}/${all.length})`);
   console.log(`평균 도달     : R${avgRound.toFixed(1)} / 중앙값 R${median}`);
@@ -373,7 +350,6 @@ function printDetails(all: GameStats[], strategy: MaintenanceStrategy): void {
   console.log(`평균 점수     : ${Math.round(avgScore).toLocaleString()}`);
   console.log(`평균 정비 지출: ${avgSpend.toFixed(1)}G`);
   console.log(`도달 분포     : ${rounds.join(' ')}`);
-  console.log(`스킬 사용     : ♠ ${powerUses.S} · ♥ ${powerUses.H} · ♦ ${powerUses.D} · ♣ ${powerUses.C}`);
   console.log('\n족보 분포 (교환 1회 포함 실효 확률):');
   for (let tier = 9; tier >= 0; tier--) {
     const pct = handSum > 0 ? ((totalHands[tier] / handSum) * 100).toFixed(2) : '0.00';

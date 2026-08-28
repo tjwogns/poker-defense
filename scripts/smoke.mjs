@@ -29,7 +29,15 @@ page.on('console', (m) => {
 });
 
 await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
-await page.evaluate(() => localStorage.clear());
+await page.evaluate(() => {
+  localStorage.clear();
+  localStorage.setItem('poker-defense:v2-beta:analytics', JSON.stringify({
+    version: 1,
+    consent: 'denied',
+    visitorId: '',
+    events: [],
+  }));
+});
 await page.reload({ waitUntil: 'networkidle0' });
 await new Promise((r) => setTimeout(r, 2000));
 await page.waitForFunction(() => window.__menuReady === true);
@@ -58,7 +66,6 @@ const state = () =>
           relicChoices: g.relicChoices.length,
           relics: g.relics.length,
           score: g.score,
-          powerCharges: { ...g.powerCharges },
         }
       : null;
   });
@@ -70,11 +77,10 @@ await page.mouse.click(694, 640);
 await new Promise((r) => setTimeout(r, 300));
 console.log('확정 후:', JSON.stringify(await state()));
 const charged = await state();
-const suit = Object.entries(charged.powerCharges).find(([, count]) => count > 0)?.[0];
-if (!suit) throw new Error('족보 확정 후 무늬 스킬이 충전되지 않았습니다.');
+if (!charged || charged.pending === 0) throw new Error('족보 확정 후 배치 유닛이 생성되지 않았습니다.');
 
-// 타일 (8,5)에 배치 — 화면 (390, 258)
-await page.mouse.click(390, 258);
+// 추천 초록 타일에 배치 — 화면 상단 중앙의 금빛 추천 칸
+await page.mouse.click(345, 126);
 await new Promise((r) => setTimeout(r, 300));
 console.log('배치 후:', JSON.stringify(await state()));
 await page.screenshot({ path: `${TMP}/shot3-placed.png` });
@@ -86,15 +92,6 @@ const combat = await state();
 console.log('전투 4초:', JSON.stringify(combat));
 await page.screenshot({ path: `${TMP}/shot4-combat.png` });
 
-// 실제 키 입력으로 충전된 무늬 스킬 사용
-const keyForSuit = { S: 'KeyQ', H: 'KeyW', D: 'KeyR', C: 'KeyT' };
-const beforePower = combat.powerCharges[suit];
-await page.keyboard.press(keyForSuit[suit]);
-await new Promise((r) => setTimeout(r, 250));
-const afterPower = await state();
-console.log('스킬 사용 후:', JSON.stringify(afterPower));
-await page.screenshot({ path: `${TMP}/shot4b-power.png` });
-
 // 코어를 결정론적으로 R10 종료까지 진행해 유물 3지선다 확인
 await page.evaluate(() => {
   const g = window.__game;
@@ -103,7 +100,13 @@ await page.evaluate(() => {
   g.field.enemies = [];
   g.handConfirmed = true;
   g.startCombat();
-  for (let i = 0; i < 5000 && g.phase === 'combat'; i++) g.tickCombat(1 / 30);
+  g.tickCombat(1 / 30); // 보스를 실제로 한 번 스폰한다.
+  g.spawnQueue = [];
+  for (const enemy of g.field.enemies) {
+    enemy.hp = 0;
+    enemy.alive = false;
+  }
+  g.tickCombat(1 / 30);
 });
 await new Promise((r) => setTimeout(r, 300));
 const reward = await state();
@@ -117,9 +120,11 @@ console.log('유물 선택 후:', JSON.stringify(chosen));
 // 필드 상한을 넘겨 종료 오버레이와 PNG 결과 카드 버튼 확인
 await page.evaluate(() => {
   const g = window.__game;
+  g.handConfirmed = true;
+  g.startCombat();
+  g.tickCombat(1 / 30);
   const source = g.field.enemies.find((enemy) => enemy.alive);
   if (!source) throw new Error('종료 테스트용 적이 없습니다.');
-  g.phase = 'combat';
   while (g.field.enemies.filter((enemy) => enemy.alive).length <= g.fieldCap) {
     g.field.enemies.push({ ...source, id: g.field.nextId++, alive: true });
   }
@@ -138,10 +143,10 @@ await page.evaluate(() => {
     configurable: true,
   });
 });
-await page.mouse.click(512, 520);
+await page.mouse.click(512, 568);
 await new Promise((r) => setTimeout(r, 150));
 const copiedText = await page.evaluate(() => window.__copiedText);
-await page.mouse.click(768, 520);
+await page.mouse.click(768, 568);
 await new Promise((r) => setTimeout(r, 150));
 
 // 작은 노트북/모바일 가로 크기에서도 캔버스가 비율 유지로 화면 안에 들어오는지 확인
@@ -161,10 +166,6 @@ if (errors.length) {
 }
 if (!combat || combat.phase !== 'combat' || combat.enemies === 0 || combat.units !== 1) {
   console.log('스모크 실패: 상태 불일치');
-  process.exit(1);
-}
-if (afterPower.powerCharges[suit] !== beforePower - 1) {
-  console.log('스모크 실패: 무늬 스킬 키 입력 상태 불일치');
   process.exit(1);
 }
 if (!reward || reward.relicChoices !== 3 || !chosen || chosen.relics !== 1 || chosen.relicChoices !== 0) {

@@ -3,8 +3,7 @@ import { DeckSealId, Game, Phase } from '../core/game';
 import { Enemy, TickResult, enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
-import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
-import { SUIT_POWER_DEFS } from '../core/abilities';
+import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
 import { TICK_RATE } from '../core/balance';
 import { FIELD_X, FIELD_Y, FieldRenderer, Fx, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
@@ -18,7 +17,6 @@ import {
 } from '../meta/profile';
 import { AudioManager } from './AudioManager';
 import { TutorialOverlay } from './TutorialOverlay';
-import { SuitPowerBar } from './SuitPowerBar';
 import { BossHud } from './BossHud';
 import { downloadShareCard, shareRun } from './ShareCard';
 import { GuideOverlay } from './GuideOverlay';
@@ -42,7 +40,6 @@ export class PlayScene extends Phaser.Scene {
   private fieldView!: FieldRenderer;
   private handBar!: HandBar;
   private panel!: SidePanel;
-  private powerBar!: SuitPowerBar;
   private bossHud!: BossHud;
   private firstRunCoach!: FirstRunCoach;
 
@@ -196,7 +193,6 @@ export class PlayScene extends Phaser.Scene {
       onGuide: () => this.openGuide(),
       onDeck: () => this.openDeck(),
     });
-    this.powerBar = new SuitPowerBar(this, this.core, (suit) => this.usePower(suit));
     this.bossHud = new BossHud(this);
     this.firstRunCoach = new FirstRunCoach(this);
 
@@ -374,7 +370,6 @@ export class PlayScene extends Phaser.Scene {
     if (!selected) this.selectedUnitId = null;
     this.handBar.refresh();
     this.panel.refresh(selected, this.speed, this.paused, this.audio.enabled, this.mode);
-    this.powerBar.refresh();
     this.bossHud.refresh(this.core);
     this.firstRunCoach.refresh(this.core, this.firstRunCoachActive);
     this.syncRelicPicker();
@@ -479,12 +474,6 @@ export class PlayScene extends Phaser.Scene {
           this.speed = n;
           this.refreshUI();
         }
-      });
-    }
-    const powers: Array<[string, Suit]> = [['Q', 'S'], ['W', 'H'], ['R', 'D'], ['T', 'C']];
-    for (const [key, suit] of powers) {
-      keyboard.on(`keydown-${key}`, () => {
-      if (!this.maintenanceOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.usePower(suit);
       });
     }
     keyboard.on('keydown-M', () => {
@@ -614,20 +603,6 @@ export class PlayScene extends Phaser.Scene {
     this.guideOverlay = null;
     if (this.core.phase === 'combat') this.paused = this.guideWasPaused;
     this.audio.play('click');
-    this.refreshUI();
-  }
-
-  private usePower(suit: Suit): void {
-    if (this.tutorialActive || this.ended || this.paused) return;
-    const result = this.core.useSuitPower(suit);
-    if (!result) return;
-    const def = SUIT_POWER_DEFS[suit];
-    const suffix = result.goldEarned > 0
-      ? ` +${result.goldEarned}G`
-      : result.affected > 0 ? ` ×${result.affected}` : '';
-    this.audio.play('power');
-    this.flashCenter(`${def.glyph} ${def.name}${suffix}`, def.color);
-    if (!this.reducedMotion()) this.cameras.main.shake(90, 0.0025);
     this.refreshUI();
   }
 
@@ -981,7 +956,6 @@ export class PlayScene extends Phaser.Scene {
       upgradeLevel: this.core.upgradeLevel,
       bestHand: this.core.bestHand,
       relicCount: this.core.relics.length,
-      powerCharges: this.core.powerCharges,
     });
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.72).setDepth(20);
     this.add
@@ -1020,7 +994,6 @@ export class PlayScene extends Phaser.Scene {
         aliveEnemies: analysis.aliveEnemies,
         bossHpPercent: analysis.bossHpPercent,
         activeSynergies: [...analysis.activeSynergyIds],
-        unusedCharges: analysis.unusedCharges,
       } : {}),
     }, this.runId);
     const date = this.runDate;
@@ -1098,13 +1071,10 @@ export class PlayScene extends Phaser.Scene {
     this.add.text(226, 328, `시너지  ${analysis.synergies}`, {
       fontFamily: FONT, fontSize: '14px', color: UI.accentText,
     }).setDepth(22);
-    this.add.text(226, 356, analysis.skills, {
-      fontFamily: FONT, fontSize: '14px', color: UI.textDim,
-    }).setDepth(22);
-    this.add.text(226, 392, '다음 시도', {
+    this.add.text(226, 366, '다음 시도', {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
     }).setDepth(22);
-    this.add.text(226, 419, analysis.tips.map((tip) => `• ${tip}`).join('\n'), {
+    this.add.text(226, 397, analysis.tips.map((tip) => `• ${tip}`).join('\n'), {
       fontFamily: FONT, fontSize: '14px', color: UI.text, lineSpacing: 8,
       wordWrap: { width: 820 },
     }).setDepth(22);

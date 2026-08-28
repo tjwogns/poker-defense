@@ -73,10 +73,10 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'glass_crown', name: '유리 왕관', description: '모든 피해 +35% · 적 상한 −15', glyph: '♕', color: 0xe57b77, rarity: 'legendary',
   },
   frozen_clover: {
-    id: 'frozen_clover', name: '얼어붙은 클로버', description: '♣ 기절 +1.5초 · ♣ 충전 상한 2', glyph: '♣', color: 0x78cde0, rarity: 'rare',
+    id: 'frozen_clover', name: '행운의 클로버', description: '모든 피해 +8% · 필드 적 상한 +5', glyph: '♣', color: 0x78cde0, rarity: 'rare',
   },
   blood_contract: {
-    id: 'blood_contract', name: '피의 계약', description: '♥ 퇴장 대신 전체 현재 HP 피해', glyph: '♥', color: 0xd85c68, rarity: 'rare',
+    id: 'blood_contract', name: '피의 계약', description: '모든 피해 +25% · 처치 골드 −25%', glyph: '♥', color: 0xd85c68, rarity: 'rare',
   },
   underdog_banner: {
     id: 'underdog_banner', name: '언더독 깃발', description: '하이카드·원페어 유닛 피해 ×1.75', glyph: '⚑', color: 0xd8894a, rarity: 'rare',
@@ -176,9 +176,6 @@ export interface RelicModifiers {
   freeExchanges: number;
   bossRankBonus: number;
   exchangeCostMultiplier: number;
-  clubStunDuration: number;
-  clubChargeCap: number;
-  heartStrike: boolean;
   fourSuitGoldBonus: number;
   pairBonusUnit: boolean;
 }
@@ -186,18 +183,20 @@ export interface RelicModifiers {
 export function relicModifiers(owned: readonly RelicId[], deckSize = 52): RelicModifiers {
   const has = (id: RelicId) => owned.includes(id);
   return {
-    damageMultiplier: (has('royal_seal') ? 1.12 : 1) * (has('glass_crown') ? 1.35 : 1),
-    bountyMultiplier: has('war_chest') ? 1.25 : 1,
+    damageMultiplier: (has('royal_seal') ? 1.12 : 1)
+      * (has('glass_crown') ? 1.35 : 1)
+      * (has('frozen_clover') ? 1.08 : 1)
+      * (has('blood_contract') ? 1.25 : 1),
+    bountyMultiplier: (has('war_chest') ? 1.25 : 1) * (has('blood_contract') ? 0.75 : 1),
     interestMultiplier: (has('compound_ledger') ? 1.5 : 1) * (has('greedy_ledger') ? 2 : 1),
     interestCapBonus: has('compound_ledger') ? 20 : 0,
-    fieldCapBonus: (has('fortified_table') ? 10 : 0) - (has('glass_crown') ? 15 : 0),
+    fieldCapBonus: (has('fortified_table') ? 10 : 0)
+      + (has('frozen_clover') ? 5 : 0)
+      - (has('glass_crown') ? 15 : 0),
     freeExchanges: (has('swift_shuffle') ? 2 : 1)
       + (has('compression_enthusiast') && deckSize <= 45 ? 1 : 0),
     bossRankBonus: has('ace_up_sleeve') ? 1 : 0,
     exchangeCostMultiplier: has('greedy_ledger') ? 1.5 : 1,
-    clubStunDuration: has('frozen_clover') ? 4.5 : 3,
-    clubChargeCap: has('frozen_clover') ? 2 : 3,
-    heartStrike: has('blood_contract'),
     fourSuitGoldBonus: has('four_suit_crest') ? 15 : 0,
     pairBonusUnit: has('pair_broker'),
   };

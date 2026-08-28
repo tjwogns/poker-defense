@@ -19,7 +19,7 @@ describe('play UI layout', () => {
     }
   });
 
-  test('상태·유닛·컨트롤·스킬·유물·도움말 영역은 서로 겹치지 않는다', () => {
+  test('상태·유닛·컨트롤·유물·도움말 영역은 서로 겹치지 않는다', () => {
     const entries = Object.entries(PANEL_SECTIONS);
     for (let i = 0; i < entries.length; i++) {
       for (let j = i + 1; j < entries.length; j++) {

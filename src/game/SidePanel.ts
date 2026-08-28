@@ -131,15 +131,15 @@ export class SidePanel {
     this.soundBtn = makeButton(scene, 1200, 414, 88, 34, 'SOUND', cb.onSound, { fill: 0x34463c, fontSize: 10 });
     this.combatText = makeText(scene, PX, 441, '', 11, UI.textDim);
 
-    makeText(scene, PX, 560, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
-    this.relicText = makeText(scene, PX, 578, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
-    this.relicTriggerText = makeText(scene, PX, 607, '', 10, UI.gold, true)
+    makeText(scene, PX, 478, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
+    this.relicText = makeText(scene, PX, 496, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
+    this.relicTriggerText = makeText(scene, PX, 548, '', 10, UI.gold, true)
       .setAlpha(0)
       .setDepth(6);
 
     this.helpText = makeText(
-      scene, PX, 641,
-      'Q/W/R/T 스킬 · 1/2/4 배속 · SPACE 정지\nD 덱 보기 · 카드 → 유닛+스킬 · 동일 3기 → 합성',
+      scene, PX, 596,
+      'E 교환 · ENTER 확정 · 1/2/4 배속 · SPACE 정지\nD 덱 보기 · 카드 → 유닛 · 동일 3기 → 합성',
       10, UI.textDim,
     );
     this.helpText.setLineSpacing(4);
@@ -191,7 +191,7 @@ export class SidePanel {
     this.waveText.setText(
       inPrep
         ? dangerPrep
-          ? `⚠ 적 ${alive}기 누적 · 교환/강화/무늬 스킬 필요`
+          ? `⚠ 적 ${alive}기 누적 · 교환·강화·합성 점검 필요`
           : `다음 웨이브: ${wave.name} ×${wave.count}${wave.kind === 'boss' ? '  ⚠ 보스' : ''}`
         : `웨이브 진행: ${wave.name}`,
     );

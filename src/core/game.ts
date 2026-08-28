@@ -1,4 +1,4 @@
-import { Card, HandRank, Suit } from './cards/types';
+import { Card, HandRank } from './cards/types';
 import { MAX_RUN_DECK_SIZE, MIN_RUN_DECK_SIZE, RunDeck } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
@@ -10,8 +10,7 @@ import {
 } from './balance';
 import { EnemyKindId, ENEMY_KINDS, waveKind } from './enemies';
 import {
-  Field, TickResult, Unit, addUnit, aliveEnemies, banishNewest, createField,
-  spawnEnemy, strikeAll, stunAll, tick,
+  Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
 import { isPlaceable, tileCanReachPath } from './map';
 import { UNIT_DEFS } from './units';
@@ -32,7 +31,6 @@ import {
   scoreForRoundClear,
   VICTORY_SCORE,
 } from './scoring';
-import { dominantSuit, SuitPowerResult } from './abilities';
 import { bossDef } from './bosses';
 import { synergyStatuses, unitSynergyDamageMultiplier } from './synergies';
 
@@ -62,8 +60,6 @@ export class Game {
   score = 0;
   kills = 0;
   bestHand: HandRank = HandRank.HighCard;
-  powerCharges: Record<Suit, number> = { S: 0, H: 0, D: 0, C: 0 };
-  lastPowerSuit: Suit | null = null;
   defeatReason: DefeatReason | null = null;
 
   hand: Card[];
@@ -311,10 +307,6 @@ export class Game {
       this.lastRelicGoldBonus += mods.fourSuitGoldBonus;
       if (mods.fourSuitGoldBonus > 0) this.lastRelicTriggers.push('four_suit_crest');
     }
-    const suit = dominantSuit(this.hand);
-    this.lastPowerSuit = suit;
-    const chargeCap = suit === 'C' ? relicModifiers(this.relics).clubChargeCap : 3;
-    this.powerCharges[suit] = Math.min(chargeCap, this.powerCharges[suit] + 1);
     return rank;
   }
 
@@ -462,36 +454,6 @@ export class Game {
   }
 
   // ── 전투 ──────────────────────────────────────────
-
-  useSuitPower(suit: Suit): SuitPowerResult | null {
-    if (this.phase !== 'combat' || this.powerCharges[suit] <= 0) return null;
-    this.powerCharges[suit]--;
-
-    if (suit === 'S') {
-      return this.resolveStrikePower(suit, 0.22, 0.06);
-    }
-    if (suit === 'H') {
-      if (relicModifiers(this.relics).heartStrike) return this.resolveStrikePower(suit, 0.12, 0.04);
-      return { suit, affected: banishNewest(this.field, 6).length, goldEarned: 0 };
-    }
-    if (suit === 'D') {
-      const goldEarned = 25 + this.round * 3;
-      this.gold += goldEarned;
-      return { suit, affected: 0, goldEarned };
-    }
-    return { suit, affected: stunAll(this.field, relicModifiers(this.relics).clubStunDuration), goldEarned: 0 };
-  }
-
-  private resolveStrikePower(suit: Suit, normalPct: number, bossPct: number): SuitPowerResult {
-    const affected = aliveEnemies(this.field).length;
-    const result = strikeAll(this.field, normalPct, bossPct);
-    const mods = relicModifiers(this.relics);
-    result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
-    this.gold += result.goldEarned;
-    this.kills += result.deaths.length;
-    this.score += scoreForKills(this.round, result.deaths.length);
-    return { suit, affected, goldEarned: result.goldEarned };
-  }
 
   startCombat(): boolean {
     if (
@@ -653,9 +615,6 @@ export class Game {
 
   private addRelic(id: RelicId): void {
     this.relics.push(id);
-    if (id === 'frozen_clover') {
-      this.powerCharges.C = Math.min(this.powerCharges.C, relicModifiers(this.relics).clubChargeCap);
-    }
   }
 
   private removeRelic(id: RelicId): void {

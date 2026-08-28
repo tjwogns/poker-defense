@@ -31,6 +31,6 @@ export function firstRunCoachHint(game: Game): CoachHint | null {
   return {
     step: 3,
     title: '빌드 만들기',
-    body: '우측 BUILD에서 다음 시너지 조건을 확인하고, 무늬 스킬로 위기를 넘기세요.',
+    body: '우측 BUILD에서 다음 시너지 조건을 확인하고, 합성과 유물로 화력을 집중하세요.',
   };
 }

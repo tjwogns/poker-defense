@@ -71,9 +71,6 @@ describe('relic effects', () => {
     expect(mods.freeExchanges).toBe(2);
     expect(mods.bossRankBonus).toBe(1);
     expect(mods.exchangeCostMultiplier).toBe(1);
-    expect(mods.clubStunDuration).toBe(3);
-    expect(mods.clubChargeCap).toBe(3);
-    expect(mods.heartStrike).toBe(false);
     expect(mods.fourSuitGoldBonus).toBe(0);
     expect(mods.pairBonusUnit).toBe(false);
   });
@@ -301,37 +298,19 @@ describe('Game relic flow', () => {
     expect(game.fieldCap).toBe(65);
   });
 
-  test('얼어붙은 클로버는 충전 상한을 2로 낮추고 기절을 4.5초로 늘린다', () => {
+  test('행운의 클로버는 피해와 필드 적 상한을 높인다', () => {
     const game = new Game(96);
     game.relics.push('frozen_clover');
-    game.powerCharges.C = 2;
-    game.hand = h('2C 4C 6C 8C KC');
-    game.confirmHand();
-    expect(game.powerCharges.C).toBe(2);
 
-    const enemy = spawnEnemy(game.field, 'normal', 1);
-    game.phase = 'combat';
-    game.powerCharges.C = 1;
-    game.useSuitPower('C');
-    expect(enemy.stunUntil).toBeCloseTo(4.5);
+    expect(game.dmgMult).toBeCloseTo(1.08);
+    expect(game.fieldCap).toBe(85);
   });
 
-  test('피의 계약은 하트 스킬을 퇴장 대신 전체 현재 HP 피해로 바꾼다', () => {
-    const game = new Game(97);
-    game.relics.push('blood_contract');
-    game.round = 19;
-    game.handConfirmed = true;
-    game.pendingUnits = [];
-    game.startCombat();
-    game.tickCombat(1 / 30);
-    const enemy = game.field.enemies.find((item) => item.alive)!;
-    const hpBefore = enemy.hp;
-    game.powerCharges.H = 1;
+  test('피의 계약은 피해를 높이는 대신 처치 골드를 낮춘다', () => {
+    const mods = relicModifiers(['blood_contract']);
 
-    const result = game.useSuitPower('H');
-    expect(result?.affected).toBeGreaterThan(0);
-    expect(enemy.alive).toBe(true);
-    expect(enemy.hp).toBeCloseTo(hpBefore * 0.88, 3);
+    expect(mods.damageMultiplier).toBeCloseTo(1.25);
+    expect(mods.bountyMultiplier).toBeCloseTo(0.75);
   });
 
   test('보스를 처치하지 못하고 10라운드를 넘기면 아직 유물 선택지가 나오지 않는다', () => {

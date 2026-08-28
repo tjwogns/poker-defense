@@ -117,7 +117,7 @@ export class MenuScene extends Phaser.Scene {
     }, { fill: 0xe6c84f, fontSize: 10 });
     this.input.keyboard?.on('keydown-ESC', closePatchNotes);
 
-    makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
+    makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · D 덱 · H 도감 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
     makeText(
       this,

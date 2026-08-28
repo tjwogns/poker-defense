@@ -12,12 +12,11 @@ function baseInput(): DefeatAnalysisInput {
     upgradeLevel: 3,
     bestHand: HandRank.HighCard,
     relicCount: 1,
-    powerCharges: { S: 0, H: 0, D: 0, C: 0 },
   };
 }
 
 describe('defeat analysis', () => {
-  test('최종 보스의 남은 HP와 사용하지 않은 스킬을 분석한다', () => {
+  test('최종 보스의 남은 HP와 빌드 대응을 분석한다', () => {
     const input = baseInput();
     input.reason = 'final-boss-timeout';
     input.round = 60;
@@ -26,18 +25,13 @@ describe('defeat analysis', () => {
       { kind: 'normal', round: 60, hp: 10, maxHp: 20, alive: true },
     ];
     input.unitTiers = [HandRank.HighCard, HandRank.Pair];
-    input.powerCharges = { S: 2, H: 0, D: 0, C: 1 };
 
     const analysis = analyzeDefeat(input);
 
     expect(analysis.cause).toContain('50초');
     expect(analysis.boss).toBe('생존 보스 R60 · HP 25%');
     expect(analysis.synergies).toContain('군단 1단계');
-    expect(analysis.skills).toContain('남은 스킬 3회');
-    expect(analysis.tips).toEqual([
-      expect.stringContaining('남은 무늬 스킬 3회'),
-      expect.stringContaining('용족 2종'),
-    ]);
+    expect(analysis.tips[0]).toContain('용족 2종');
     expect(analysis.bossHpPercent).toBe(25);
   });
 

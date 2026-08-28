@@ -13,9 +13,8 @@ export const PANEL_SECTIONS = {
   economy: { x: 792, y: 182, width: 460, height: 68 },
   unit: { x: 792, y: 258, width: 460, height: 122 },
   controls: { x: 792, y: 388, width: 460, height: 72 },
-  powers: { x: 792, y: 468, width: 460, height: 76 },
-  relics: { x: 792, y: 552, width: 460, height: 68 },
-  help: { x: 792, y: 628, width: 460, height: 64 },
+  relics: { x: 792, y: 468, width: 460, height: 108 },
+  help: { x: 792, y: 584, width: 460, height: 108 },
 } as const satisfies Record<string, UiRect>;
 
 export const BOSS_HUD_BOUNDS: UiRect = { x: 804, y: 128, width: 436, height: 38 };

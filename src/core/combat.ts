@@ -107,37 +107,6 @@ function emptyResult(): TickResult {
   return { goldEarned: 0, deaths: [], attacks: [], bossEvents: [], relicTriggers: [] };
 }
 
-/** 액티브 스킬용 현재 HP 비례 전체 공격. 방어를 무시하고 정상 처치 보상을 준다. */
-export function strikeAll(field: Field, normalPct: number, bossPct: number): TickResult {
-  const result = emptyResult();
-  for (const enemy of [...field.enemies]) {
-    if (!enemy.alive) continue;
-    const pct = enemy.kind === 'boss' ? bossPct : normalPct;
-    applyDamage(field, enemy, enemy.hp * pct, true, result);
-  }
-  return result;
-}
-
-/** 최근 등장한 비보스 적을 보상·분열 없이 전장에서 제거한다. */
-export function banishNewest(field: Field, count: number): Enemy[] {
-  const targets = field.enemies
-    .filter((enemy) => enemy.alive && enemy.kind !== 'boss')
-    .sort((a, b) => b.id - a.id)
-    .slice(0, count);
-  for (const enemy of targets) enemy.alive = false;
-  return targets;
-}
-
-export function stunAll(field: Field, duration: number): number {
-  let affected = 0;
-  for (const enemy of field.enemies) {
-    if (!enemy.alive) continue;
-    enemy.stunUntil = Math.max(enemy.stunUntil, field.time + duration);
-    affected++;
-  }
-  return affected;
-}
-
 function dist2(a: Pt, b: Pt): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
