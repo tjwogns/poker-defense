@@ -5,6 +5,7 @@
 
 - v1.4 정식판: https://tjwogns.github.io/poker-defense/
 - v2.0 베타판: https://tjwogns.github.io/poker-defense/v2/
+- 두 버전은 브라우저 플레이 기록을 분리하며, v2 베타는 밸런스 검증 중 온라인 랭킹 제출을 비활성화한다.
 
 ## v1.4 Build Synergy
 
