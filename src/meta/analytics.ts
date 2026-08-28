@@ -27,6 +27,8 @@ export type AnalyticsEventName =
   | 'background_pause'
   | 'upgrade_bought'
   | 'odds_opened'
+  | 'deck_opened'
+  | 'deck_modified'
   | 'boss_encountered'
   | 'boss_defeated'
   | 'boss_survived';

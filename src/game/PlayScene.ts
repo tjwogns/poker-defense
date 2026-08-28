@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { Game, Phase } from '../core/game';
+import { DeckSealId, Game, Phase } from '../core/game';
 import { Enemy, TickResult, enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
-import { HAND_NAMES_KO, HandRank, Suit } from '../core/cards/types';
+import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
 import { SUIT_POWER_DEFS } from '../core/abilities';
 import { TICK_RATE } from '../core/balance';
 import { FIELD_X, FIELD_Y, FieldRenderer, Fx, tileAtScreen } from './FieldRenderer';
@@ -28,6 +28,7 @@ import { safeFrameDelta } from './timing';
 import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
 import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
+import { DeckOverlay } from './DeckOverlay';
 
 const DT = 1 / TICK_RATE;
 
@@ -57,7 +58,9 @@ export class PlayScene extends Phaser.Scene {
   private relicOverlay: Phaser.GameObjects.Container | null = null;
   private guideOverlay: GuideOverlay | null = null;
   private oddsOverlay: OddsOverlay | null = null;
+  private deckOverlay: DeckOverlay | null = null;
   private guideWasPaused = false;
+  private deckWasPaused = false;
   private exitOverlay: ExitConfirmOverlay | null = null;
   private exitWasPaused = false;
   private synergyLevels = new Map<UnitFamily, number>();
@@ -103,7 +106,9 @@ export class PlayScene extends Phaser.Scene {
     this.relicOverlay = null;
     this.guideOverlay = null;
     this.oddsOverlay = null;
+    this.deckOverlay = null;
     this.guideWasPaused = false;
+    this.deckWasPaused = false;
     this.exitOverlay = null;
     this.exitWasPaused = false;
     this.synergyLevels.clear();
@@ -175,6 +180,7 @@ export class PlayScene extends Phaser.Scene {
       onSound: () => this.toggleSound(),
       onHome: () => this.requestExit(),
       onGuide: () => this.openGuide(),
+      onDeck: () => this.openDeck(),
     });
     this.powerBar = new SuitPowerBar(this, this.core, (suit) => this.usePower(suit));
     this.bossHud = new BossHud(this);
@@ -425,15 +431,15 @@ export class PlayScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     keyboard.on('keydown-E', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.doExchange()) this.onHandAction('exchange');
     });
     keyboard.on('keydown-ENTER', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.confirmHand() !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
         this.trackCombatStarted();
@@ -443,7 +449,7 @@ export class PlayScene extends Phaser.Scene {
     });
     for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
       keyboard.on(`keydown-${key}`, () => {
-        if (this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+        if (this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
@@ -453,26 +459,32 @@ export class PlayScene extends Phaser.Scene {
     const powers: Array<[string, Suit]> = [['Q', 'S'], ['W', 'H'], ['R', 'D'], ['T', 'C']];
     for (const [key, suit] of powers) {
       keyboard.on(`keydown-${key}`, () => {
-      if (!this.oddsOverlay && !this.exitOverlay) this.usePower(suit);
+      if (!this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.usePower(suit);
       });
     }
     keyboard.on('keydown-M', () => {
-      if (!this.guideOverlay && !this.oddsOverlay && !this.exitOverlay) this.toggleSound();
+      if (!this.guideOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.toggleSound();
     });
     keyboard.on('keydown-H', () => {
-      if (this.tutorialActive || this.ended || this.relicOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.relicOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.guideOverlay) this.closeGuide();
       else this.openGuide();
+    });
+    keyboard.on('keydown-D', () => {
+      if (this.tutorialActive || this.ended || this.relicOverlay || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.deckOverlay) this.closeDeck();
+      else this.openDeck();
     });
     keyboard.on('keydown-ESC', () => {
       if (this.exitOverlay) this.closeExitConfirm();
       else if (this.oddsOverlay) this.closeOdds();
+      else if (this.deckOverlay) this.closeDeck();
       else if (this.guideOverlay) this.closeGuide();
     });
   }
 
   private openOdds(odds: RerollOdds): void {
-    if (this.oddsOverlay || this.core.phase !== 'prep' || this.core.handConfirmed) return;
+    if (this.oddsOverlay || this.deckOverlay || this.core.phase !== 'prep' || this.core.handConfirmed) return;
     this.oddsOverlay = new OddsOverlay(this, odds, () => this.closeOdds());
     this.analytics.track('odds_opened', {
       drawCount: odds.drawCount,
@@ -486,8 +498,53 @@ export class PlayScene extends Phaser.Scene {
     this.oddsOverlay = null;
   }
 
+  private openDeck(): void {
+    if (
+      this.deckOverlay || this.tutorialActive || this.ended || this.relicOverlay
+      || this.guideOverlay || this.oddsOverlay || this.exitOverlay
+    ) return;
+    this.deckWasPaused = this.paused;
+    if (this.core.phase === 'combat') this.paused = true;
+    this.deckOverlay = new DeckOverlay(
+      this,
+      this.core,
+      () => this.closeDeck(),
+      (id, card) => this.onDeckChanged(id, card),
+    );
+    this.analytics.track('deck_opened', {
+      round: this.core.round,
+      deckSize: this.core.deckSize,
+    }, this.runId);
+    this.audio.play('click');
+    this.refreshUI();
+  }
+
+  private closeDeck(): void {
+    if (!this.deckOverlay) return;
+    this.deckOverlay.destroy();
+    this.deckOverlay = null;
+    if (this.core.phase === 'combat') this.paused = this.deckWasPaused;
+    this.audio.play('click');
+    this.refreshUI();
+  }
+
+  private onDeckChanged(id: DeckSealId, card: Card): void {
+    this.analytics.track('deck_modified', {
+      round: this.core.round,
+      action: id,
+      card: `${card.rank}${card.suit}`,
+      deckSize: this.core.deckSize,
+    }, this.runId);
+    this.audio.play('confirm');
+    this.flashCenter(
+      `${SUIT_GLYPHS[card.suit]} ${RANK_LABELS[card.rank]} ${id === 'banish' ? '추방' : '복제'}`,
+      id === 'banish' ? 0xd06258 : 0x9f74cf,
+    );
+    this.refreshUI();
+  }
+
   private requestExit(): void {
-    if (this.ended || this.exitOverlay) return;
+    if (this.ended || this.exitOverlay || this.deckOverlay) return;
     const hasProgress = this.core.phase === 'combat'
       || this.core.round > 1
       || this.core.handConfirmed
@@ -518,7 +575,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private openGuide(): void {
-    if (this.guideOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
+    if (this.guideOverlay || this.deckOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
     this.guideWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
     this.guideOverlay = new GuideOverlay(this, () => this.closeGuide());

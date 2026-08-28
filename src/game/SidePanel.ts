@@ -25,6 +25,7 @@ export interface PanelCallbacks {
   onSound(): void;
   onHome(): void;
   onGuide(): void;
+  onDeck(): void;
 }
 
 function traitLabel(def: UnitDef): string {
@@ -129,11 +130,15 @@ export class SidePanel {
 
     this.helpText = makeText(
       scene, PX, 641,
-      'Q/W/R/T 스킬 · 1/2/4 배속 · SPACE 정지\n카드 → 유닛+스킬 · 동일 3기 → 상위 합성',
+      'Q/W/R/T 스킬 · 1/2/4 배속 · SPACE 정지\nD 덱 보기 · 카드 → 유닛+스킬 · 동일 3기 → 합성',
       10, UI.textDim,
     );
     this.helpText.setLineSpacing(4);
-    makeButton(scene, 1178, 660, 132, 38, '족보 · 유닛 도감', cb.onGuide, {
+    makeButton(scene, 1098, 660, 116, 38, '덱 보기  D', cb.onDeck, {
+      fill: 0x425f50,
+      fontSize: 10,
+    });
+    makeButton(scene, 1222, 660, 116, 38, '도감  H', cb.onGuide, {
       fill: 0x78612b,
       fontSize: 10,
     });

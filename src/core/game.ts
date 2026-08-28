@@ -1,5 +1,5 @@
 import { Card, HandRank, Suit } from './cards/types';
-import { RunDeck } from './cards/deck';
+import { MAX_RUN_DECK_SIZE, MIN_RUN_DECK_SIZE, RunDeck } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
@@ -33,6 +33,16 @@ import { synergyStatuses, unitSynergyDamageMultiplier } from './synergies';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 export type DefeatReason = 'field-cap' | 'final-boss-timeout';
+export type DeckSealId = 'banish' | 'duplicate';
+export type DeckEditStatus =
+  | 'ready'
+  | 'wrong_phase'
+  | 'hand_locked'
+  | 'exchange_started'
+  | 'no_seal'
+  | 'card_missing'
+  | 'hand_copy_protected'
+  | 'size_limit';
 
 /**
  * 게임 상태 머신: prep(카드/배치/경제) ⇄ combat(고정 틱) → victory/defeat.
@@ -57,13 +67,14 @@ export class Game {
   lastHandRank: HandRank | null = null;
   relics: RelicId[] = [];
   relicChoices: RelicId[] = [];
+  readonly deckSeals: Record<DeckSealId, number> = { banish: 0, duplicate: 0 };
 
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
   field: Field = createField();
 
   readonly seed: number;
-  readonly runDeck: RunDeck;
+  private readonly runDeck: RunDeck;
   private rng: Rng;
   private spawnQueue: EnemyKindId[] = [];
   private spawnTimer = 0;
@@ -81,6 +92,54 @@ export class Game {
   }
 
   // ── 준비 페이즈: 카드 ──────────────────────────────
+
+  get deckSize(): number {
+    return this.runDeck.size;
+  }
+
+  deckSnapshot(): Card[] {
+    return this.runDeck.snapshot();
+  }
+
+  deckCardCount(card: Card): number {
+    return this.runDeck.count(card);
+  }
+
+  /** 추후 정비소 보상에서 호출할 덱 개조 인장 지급 진입점. */
+  grantDeckSeal(id: DeckSealId, count = 1): void {
+    if (!Number.isInteger(count) || count <= 0) throw new Error('seal count must be a positive integer');
+    this.deckSeals[id] += count;
+  }
+
+  /** 현재 패의 교환 가능성을 깨뜨리지 않는 범위에서만 덱 개조를 허용한다. */
+  deckEditStatus(id: DeckSealId, card: Card): DeckEditStatus {
+    if (this.phase !== 'prep') return 'wrong_phase';
+    if (this.handConfirmed) return 'hand_locked';
+    if (this.exchangesUsed > 0) return 'exchange_started';
+    if (this.deckSeals[id] <= 0) return 'no_seal';
+
+    const deckCount = this.runDeck.count(card);
+    if (deckCount === 0) return 'card_missing';
+    if (id === 'duplicate') {
+      return this.runDeck.size >= MAX_RUN_DECK_SIZE ? 'size_limit' : 'ready';
+    }
+
+    if (this.runDeck.size <= MIN_RUN_DECK_SIZE) return 'size_limit';
+    const handCount = this.hand.filter(
+      (candidate) => candidate.rank === card.rank && candidate.suit === card.suit,
+    ).length;
+    return deckCount > handCount ? 'ready' : 'hand_copy_protected';
+  }
+
+  applyDeckSeal(id: DeckSealId, card: Card): boolean {
+    if (this.deckEditStatus(id, card) !== 'ready') return false;
+    const changed = id === 'banish'
+      ? this.runDeck.banish(card)
+      : this.runDeck.duplicate(card);
+    if (!changed) return false;
+    this.deckSeals[id]--;
+    return true;
+  }
 
   toggleHold(i: number): void {
     if (this.phase !== 'prep' || this.handConfirmed) return;
