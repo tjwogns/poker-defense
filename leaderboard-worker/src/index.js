@@ -1,7 +1,7 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NAME_RE = /^[가-힣A-Za-z0-9 ]{3,30}$/;
 const ID_RE = /^[A-Za-z0-9_-]{8,100}$/;
-const VERSION_RE = /^v\d+\.\d+(?:\.\d+)?$/;
+const VERSION_RE = /^v\d+\.\d+(?:\.\d+)?(?:-[A-Za-z0-9.-]+)?$/;
 const ANALYTICS_RETENTION_DAYS = 90;
 const ANALYTICS_EVENT_NAMES = new Set([
   'menu_view', 'consent_granted', 'run_started', 'tutorial_finished', 'hand_confirmed',
@@ -9,6 +9,8 @@ const ANALYTICS_EVENT_NAMES = new Set([
   'run_finished', 'run_abandoned', 'retry_clicked', 'result_shared', 'leaderboard_viewed',
   'leaderboard_submitted', 'synergy_activated', 'patch_notes_viewed', 'background_pause',
   'upgrade_bought', 'odds_opened', 'boss_encountered', 'boss_defeated', 'boss_survived',
+  'deck_opened', 'deck_modified', 'maintenance_opened', 'maintenance_purchase',
+  'maintenance_relic_purchase', 'maintenance_closed', 'relic_sold', 'relic_triggered',
 ]);
 
 export default {
@@ -247,6 +249,7 @@ function corsHeaders(origin, allowedOrigin) {
     'access-control-allow-origin': allowed ? origin : allowedOrigin,
     'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
+    'access-control-allow-credentials': 'true',
     'cache-control': 'no-store',
     'content-type': 'application/json; charset=utf-8',
     'vary': 'Origin',

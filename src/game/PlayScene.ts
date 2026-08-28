@@ -33,6 +33,7 @@ import { RerollOdds } from '../core/cards/odds';
 import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
 import { DeckOverlay } from './DeckOverlay';
 import { MaintenanceOverlay } from './MaintenanceOverlay';
+import { FirstRunCoach } from './FirstRunCoach';
 
 const DT = 1 / TICK_RATE;
 
@@ -43,6 +44,7 @@ export class PlayScene extends Phaser.Scene {
   private panel!: SidePanel;
   private powerBar!: SuitPowerBar;
   private bossHud!: BossHud;
+  private firstRunCoach!: FirstRunCoach;
 
   private seedValue = 1;
   private speed = 1;
@@ -59,6 +61,7 @@ export class PlayScene extends Phaser.Scene {
   private profile!: Profile;
   private audio!: AudioManager;
   private tutorialActive = false;
+  private firstRunCoachActive = false;
   private relicOverlay: Phaser.GameObjects.Container | null = null;
   private guideOverlay: GuideOverlay | null = null;
   private oddsOverlay: OddsOverlay | null = null;
@@ -110,6 +113,7 @@ export class PlayScene extends Phaser.Scene {
     this.moving = false;
     this.ended = false;
     this.paused = false;
+    this.firstRunCoachActive = false;
     this.relicOverlay = null;
     this.guideOverlay = null;
     this.oddsOverlay = null;
@@ -194,6 +198,7 @@ export class PlayScene extends Phaser.Scene {
     });
     this.powerBar = new SuitPowerBar(this, this.core, (suit) => this.usePower(suit));
     this.bossHud = new BossHud(this);
+    this.firstRunCoach = new FirstRunCoach(this);
 
     this.input.on(
       'pointerdown',
@@ -209,10 +214,12 @@ export class PlayScene extends Phaser.Scene {
       this.tutorialActive = true;
       new TutorialOverlay(this, (result) => {
         this.tutorialActive = false;
+        this.firstRunCoachActive = result === 'completed';
         this.profile.tutorialDone = true;
         saveProfile(localStorage, this.profile);
         this.analytics.track('tutorial_finished', { result }, this.runId);
         this.audio.play('confirm');
+        this.refreshUI();
       });
     }
     this.pageHideHandler = () => this.trackAbandoned('page_hidden');
@@ -369,6 +376,7 @@ export class PlayScene extends Phaser.Scene {
     this.panel.refresh(selected, this.speed, this.paused, this.audio.enabled, this.mode);
     this.powerBar.refresh();
     this.bossHud.refresh(this.core);
+    this.firstRunCoach.refresh(this.core, this.firstRunCoachActive);
     this.syncRelicPicker();
     this.syncMaintenance();
   }

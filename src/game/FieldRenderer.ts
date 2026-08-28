@@ -4,7 +4,9 @@ import { HandRank } from '../core/cards/types';
 import { enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
-import { GRID_W, GRID_H, TILE, isPathTile, isPlaceable, tileCanReachPath, tileCenter } from '../core/map';
+import {
+  GRID_W, GRID_H, TILE, isPathTile, isPlaceable, recommendedPlacementTiles, tileCanReachPath, tileCenter,
+} from '../core/map';
 import { UI, FONT } from './ui';
 
 export const FIELD_X = 16;
@@ -178,7 +180,7 @@ export class FieldRenderer {
     this.highlightG = scene.add.graphics().setDepth(1);
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
-    this.placementHint = scene.add.text(390, 29, '초록: 공격 가능  ·  붉은색: 경로가 사거리 밖', {
+    this.placementHint = scene.add.text(390, 29, '◆ 추천 3칸  ·  ✓ 배치 가능  ·  × 사거리 밖', {
       fontFamily: FONT,
       fontSize: '12px',
       fontStyle: 'bold',
@@ -338,12 +340,34 @@ export class FieldRenderer {
     this.placementHint.setVisible(placingTier !== null);
     if (placingTier === null) return;
     const range = UNIT_DEFS[placingTier].range;
+    const recommended = new Set(
+      recommendedPlacementTiles(
+        range,
+        game.field.units.map((unit) => ({ x: unit.tx, y: unit.ty })),
+      ).map((point) => `${point.x},${point.y}`),
+    );
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
         if (isPlaceable(x, y) && !game.unitAt(x, y)) {
           const canReach = tileCanReachPath(x, y, range);
+          const sx = FIELD_X + x * TILE;
+          const sy = FIELD_Y + y * TILE;
           this.highlightG.fillStyle(canReach ? UI.placeable : UI.danger, canReach ? 0.19 : 0.1);
-          this.highlightG.fillRect(FIELD_X + x * TILE, FIELD_Y + y * TILE, TILE - 1, TILE - 1);
+          this.highlightG.fillRect(sx, sy, TILE - 1, TILE - 1);
+          if (!canReach) {
+            this.highlightG.lineStyle(1.4, UI.danger, 0.65);
+            this.highlightG.lineBetween(sx + 14, sy + 14, sx + 29, sy + 29);
+            this.highlightG.lineBetween(sx + 29, sy + 14, sx + 14, sy + 29);
+          } else if (recommended.has(`${x},${y}`)) {
+            this.highlightG.lineStyle(2.2, 0xe6c84f, 0.95);
+            this.highlightG.strokeRect(sx + 3, sy + 3, TILE - 7, TILE - 7);
+            this.highlightG.fillStyle(0xe6c84f, 0.95);
+            this.highlightG.fillCircle(sx + TILE / 2, sy + TILE / 2, 4);
+          } else {
+            this.highlightG.lineStyle(1.4, UI.accent, 0.7);
+            this.highlightG.lineBetween(sx + 15, sy + 23, sx + 20, sy + 28);
+            this.highlightG.lineBetween(sx + 20, sy + 28, sx + 30, sy + 16);
+          }
         }
       }
     }

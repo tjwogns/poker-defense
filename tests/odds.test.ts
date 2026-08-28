@@ -45,6 +45,24 @@ describe('exact reroll odds', () => {
     expect(odds.probabilities[HandRank.RoyalFlush]).toBeCloseTo(2 / 48);
   });
 
+  test('같은 카드가 손에 여러 장 잡혀도 실제 런 덱 기준으로 계산한다', () => {
+    const deck = newDeck();
+    deck.push(
+      { rank: 14, suit: 'S' },
+      { rank: 14, suit: 'S' },
+      { rank: 14, suit: 'S' },
+    );
+    const odds = rerollOdds(
+      h('AS AS AS AS 4H'),
+      [true, true, true, true, false],
+      deck,
+    );
+
+    expect(odds.drawCount).toBe(1);
+    expect(odds.totalCombinations).toBe(50);
+    expect(odds.outcomes.reduce((sum, count) => sum + count, 0)).toBe(50);
+  });
+
   test('추방된 카드는 리롤 결과에 등장하지 않는다', () => {
     const deck = newDeck().filter((card) => !(card.rank === 14 && card.suit === 'S'));
     const odds = rerollOdds(h('TS JS QS KS 2H'), [true, true, true, true, false], deck);

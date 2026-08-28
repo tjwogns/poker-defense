@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   GRID_W, GRID_H, TILE, PATH_LENGTH,
-  pointAt, tileCenter, isPathTile, isPlaceable, tileCanReachPath,
+  pointAt, recommendedPlacementTiles, tileCenter, isPathTile, isPlaceable, tileCanReachPath,
 } from '../src/core/map';
 
 describe('map & path', () => {
@@ -49,5 +49,18 @@ describe('unit path reachability', () => {
 
   test('장거리 유닛은 중앙에서도 경로에 닿는다', () => {
     expect(tileCanReachPath(6, 6, 6)).toBe(true);
+  });
+});
+
+describe('추천 배치 타일', () => {
+  test('사거리 안의 빈 타일만 최대 3개 추천한다', () => {
+    const occupied = [{ x: 8, y: 2 }];
+    const result = recommendedPlacementTiles(3, occupied);
+    expect(result).toHaveLength(3);
+    expect(result).not.toContainEqual(occupied[0]);
+    for (const tile of result) {
+      expect(isPlaceable(tile.x, tile.y)).toBe(true);
+      expect(tileCanReachPath(tile.x, tile.y, 3)).toBe(true);
+    }
   });
 });

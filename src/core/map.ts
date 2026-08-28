@@ -74,6 +74,36 @@ export function distanceToPathTiles(x: number, y: number): number {
   return Math.min(...SEGMENTS.map((segment) => distanceToSegment(point, segment.a, segment.b))) / TILE;
 }
 
+/** 현재 사거리에서 경로에 닿는 빈 타일 중 중앙에 가까운 추천 후보를 반환한다. */
+export function recommendedPlacementTiles(
+  rangeTiles: number,
+  occupied: readonly Pt[],
+  limit = 3,
+): Pt[] {
+  const blocked = new Set(occupied.map((point) => `${point.x},${point.y}`));
+  const centerX = (GRID_W - 1) / 2;
+  const centerY = (GRID_H - 1) / 2;
+  const candidates: Array<Pt & { pathDistance: number; centerDistance: number }> = [];
+  for (let x = 0; x < GRID_W; x++) {
+    for (let y = 0; y < GRID_H; y++) {
+      if (!isPlaceable(x, y) || blocked.has(`${x},${y}`) || !tileCanReachPath(x, y, rangeTiles)) continue;
+      candidates.push({
+        x,
+        y,
+        pathDistance: distanceToPathTiles(x, y),
+        centerDistance: Math.hypot(x - centerX, y - centerY),
+      });
+    }
+  }
+  return candidates
+    .sort((a, b) => a.pathDistance - b.pathDistance
+      || a.centerDistance - b.centerDistance
+      || a.y - b.y
+      || a.x - b.x)
+    .slice(0, Math.max(0, limit))
+    .map(({ x, y }) => ({ x, y }));
+}
+
 function distanceToSegment(point: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;

@@ -159,10 +159,18 @@ export class HandBar {
     this.oddsText.setVisible(visible);
     this.oddsBtn.container.setVisible(visible);
     if (!visible) return;
-    const signature = `${this.game.hand.map((card) => `${card.rank}${card.suit}`).join(',')}|${this.game.holds.map(Number).join('')}`;
+    const deck = this.game.deckSnapshot();
+    const signature = [
+      this.game.hand.map((card) => `${card.rank}${card.suit}`).join(','),
+      this.game.holds.map(Number).join(''),
+      deck.map((card) => `${card.rank}${card.suit}`).join(','),
+    ].join('|');
     if (signature !== this.oddsSignature) {
       this.oddsSignature = signature;
-      this.cachedOdds = rerollOdds(this.game.hand, this.game.holds);
+      // 덱 개조로 같은 카드가 여러 장 존재할 수 있으므로 표준 52장이 아니라
+      // 실제 런 덱을 기준으로 계산해야 한다. 그렇지 않으면 복제된 카드가 두 장
+      // 이상 손에 잡혔을 때 remainingCards가 예외를 던져 게임 루프까지 멈춘다.
+      this.cachedOdds = rerollOdds(this.game.hand, this.game.holds, deck);
     }
     const odds = this.cachedOdds!;
     const likely = odds.probabilities
@@ -174,7 +182,7 @@ export class HandBar {
       .join(' · ');
     const action = odds.drawCount === 0 ? '교환 없음' : `${odds.drawCount}장 교체`;
     this.oddsText.setText(
-      `${action} · 상승 ${formatOddsPercent(odds.improveProbability)}\n${likely}`,
+      `HOLD 기준 · 다음 1회 교환\n${action} · 상승 ${formatOddsPercent(odds.improveProbability)}\n${likely}`,
     );
   }
 }

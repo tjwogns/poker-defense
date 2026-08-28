@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { validateAnalyticsSubmission } from '../leaderboard-worker/src/index.js';
+import worker, { validateAnalyticsSubmission } from '../leaderboard-worker/src/index.js';
 
 function validBody() {
   return {
@@ -28,6 +28,25 @@ describe('analytics ingestion validation', () => {
       combatSecondsSinceSpawn: 51, units: 10, upgradeLevel: 4, relicCount: 0,
     };
     expect(validateAnalyticsSubmission(boss)).toBe('');
+
+    const beta = validBody();
+    beta.gameVersion = 'v2.0-beta';
+    beta.event.name = 'deck_modified';
+    expect(validateAnalyticsSubmission(beta)).toBe('');
+  });
+
+  test('허용된 웹 주소의 preflight에 자격 증명 CORS 헤더를 반환한다', async () => {
+    const response = await worker.fetch(
+      new Request('https://worker.example/analytics', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://tjwogns.github.io' },
+      }),
+      { ALLOWED_ORIGIN: 'https://tjwogns.github.io' },
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://tjwogns.github.io');
+    expect(response.headers.get('access-control-allow-credentials')).toBe('true');
   });
 
   test('알 수 없는 이벤트와 중첩 속성을 거부한다', () => {

@@ -11,14 +11,25 @@
       html, body { margin: 0; padding: 0; background: #07130c; height: 100%; overflow: hidden; }
       #app { display: flex; justify-content: center; align-items: center; height: 100%; }
       canvas { box-shadow: 0 20px 80px rgba(0,0,0,.55); }
-      #rotate { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 32px; text-align: center; color: #e6ebe5; background: #07130c; font: 700 18px/1.6 system-ui, sans-serif; }
+      #rotate, #mobile-gate { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 32px; text-align: center; color: #e6ebe5; background: #07130c; font: 700 18px/1.6 system-ui, sans-serif; box-sizing: border-box; }
+      .screen-guide { max-width: 440px; }
+      .screen-guide strong { display: block; margin-bottom: 10px; color: #e6c84f; font-size: 22px; }
+      .screen-guide span { display: block; color: #94a698; font-size: 15px; font-weight: 500; }
+      #fullscreen { min-width: 180px; min-height: 48px; margin-top: 22px; border: 1px solid rgba(255,255,255,.22); border-radius: 4px; background: #5cb187; color: #09130d; font: 700 16px system-ui, sans-serif; }
       @media (orientation: portrait) and (max-width: 820px) { #rotate { display: flex; } }
+      @media (orientation: landscape) and (max-width: 959px), (orientation: landscape) and (max-height: 519px) { #mobile-gate { display: flex; } }
       @media (prefers-reduced-motion: reduce) { canvas { box-shadow: none; } }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <div id="rotate">화면을 가로로 돌려주세요<br />가로 모드에서 게임을 플레이할 수 있습니다.</div>
+    <div id="rotate"><div class="screen-guide"><strong>화면을 가로로 돌려주세요</strong><span>가로 모드에서 게임을 플레이할 수 있습니다.</span></div></div>
+    <div id="mobile-gate"><div class="screen-guide"><strong>조금 더 넓은 화면이 필요합니다</strong><span>정확한 카드·전투 조작을 위해 가로 960px 이상 또는 PC를 권장합니다.</span><button id="fullscreen" type="button">전체 화면 시도</button></div></div>
+    <script>
+      document.getElementById('fullscreen')?.addEventListener('click', () => {
+        document.documentElement.requestFullscreen?.().catch(() => undefined);
+      });
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

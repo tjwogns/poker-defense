@@ -10,6 +10,7 @@ import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
 import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
+import { threatBand, threatLabel } from './threat';
 
 const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
@@ -66,6 +67,8 @@ export class SidePanel {
   private waveText: Phaser.GameObjects.Text;
   private gaugeFg: Phaser.GameObjects.Rectangle;
   private gaugeText: Phaser.GameObjects.Text;
+  private threatTitle: Phaser.GameObjects.Text;
+  private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
   private goldText: Phaser.GameObjects.Text;
   private scoreText: Phaser.GameObjects.Text;
   private upgradeText: Phaser.GameObjects.Text;
@@ -100,10 +103,10 @@ export class SidePanel {
     this.waveText = makeText(scene, PX, 65, '', 13, UI.textDim);
     makeButton(scene, 1208, 42, 72, 28, 'EXIT', cb.onHome, { fill: 0x34463c, fontSize: 10 });
 
-    makeText(scene, PX, 92, 'THREAT', 10, UI.textDim, true);
+    this.threatTitle = makeText(scene, PX, 92, '필드 위험도 · 80기 도달 시 패배', 10, UI.textDim, true);
     scene.add.rectangle(PX, 114, 370, 12, UI.panelDeep, 0.95).setOrigin(0, 0.5);
     this.gaugeFg = scene.add.rectangle(PX, 114, 0, 12, UI.accent).setOrigin(0, 0.5);
-    this.gaugeText = makeText(scene, 1190, 105, '', 13, UI.text, true);
+    this.gaugeText = makeText(scene, 1198, 103, '', 12, UI.text, true).setOrigin(1, 0);
 
     this.goldText = makeText(scene, PX, 191, '', 19, UI.gold, true);
     this.scoreText = makeText(scene, 970, 194, '', 14, UI.text, true);
@@ -183,6 +186,7 @@ export class SidePanel {
     const wave = g.nextWave();
     const alive = aliveEnemies(g.field).length;
     const ratio = Math.min(1, alive / g.fieldCap);
+    const band = threatBand(alive, g.fieldCap);
     const dangerPrep = inPrep && ratio >= 0.7;
     this.waveText.setText(
       inPrep
@@ -193,9 +197,18 @@ export class SidePanel {
     );
     this.waveText.setColor(dangerPrep ? UI.dangerText : UI.textDim);
 
+    const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? 0xe0a33c : UI.accent;
+    const threatTextColor = band === 'critical' ? UI.dangerText : band === 'warning' ? '#e0a33c' : UI.text;
     this.gaugeFg.width = 370 * ratio;
-    this.gaugeFg.setFillStyle(ratio > 0.75 ? UI.danger : ratio > 0.5 ? 0xe0a33c : UI.accent);
-    this.gaugeText.setText(`${alive} / ${g.fieldCap}`);
+    this.gaugeFg.setFillStyle(threatColor);
+    this.gaugeText.setText(threatLabel(alive, g.fieldCap)).setColor(threatTextColor);
+    this.threatTitle.setColor(band === 'safe' ? UI.textDim : threatTextColor);
+    if (band !== this.lastThreatBand && band !== 'safe') {
+      this.scene.tweens.killTweensOf(this.gaugeText);
+      this.gaugeText.setScale(1.12);
+      this.scene.tweens.add({ targets: this.gaugeText, scale: 1, duration: 260, ease: 'Back.Out' });
+    }
+    this.lastThreatBand = band;
 
     this.goldText.setText(`G  ${g.gold.toLocaleString()}`);
     this.scoreText.setText(`SCORE  ${g.score.toLocaleString()}`);
