@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { Card } from '../src/core/cards/types';
+import { Card, HandRank } from '../src/core/cards/types';
 import { Game } from '../src/core/game';
+import { DECK_SEAL_COSTS } from '../src/core/balance';
 
 function key(card: Card): string {
   return `${card.rank}${card.suit}`;
@@ -75,4 +76,70 @@ describe('덱 개조 인장', () => {
     expect(() => game.grantDeckSeal('banish', 0)).toThrow('positive integer');
     expect(() => game.grantDeckSeal('banish', 1.5)).toThrow('positive integer');
   });
+
+  test('9라운드 종료 후 10라운드 보스전 전에 정비소가 한 번 열린다', () => {
+    const game = reachFirstMaintenance();
+    expect(game.round).toBe(10);
+    expect(game.maintenancePending).toBe(true);
+    expect(game.confirmHand()).toBeNull();
+    expect(game.startCombat()).toBe(false);
+
+    expect(game.leaveMaintenance()).toBe(true);
+    expect(game.maintenancePending).toBe(false);
+    expect(game.leaveMaintenance()).toBe(false);
+    expect(game.confirmHand()).not.toBeNull();
+  });
+
+  test('정비소는 여섯 보스전 직전에만 예약된다', () => {
+    for (const roundBefore of [9, 19, 29, 39, 49, 59]) {
+      const game = reachMaintenance(roundBefore);
+      expect(game.round).toBe(roundBefore + 1);
+      expect(game.maintenancePending).toBe(true);
+      expect(game.leaveMaintenance()).toBe(true);
+      expect(game.maintenancePending).toBe(false);
+    }
+  });
+
+  test('정비소에서는 각 인장을 한 번만 구매하고 골드를 정확히 지불한다', () => {
+    const game = reachFirstMaintenance();
+    game.gold = 100;
+
+    expect(game.maintenanceOffer('banish')).toEqual({
+      cost: DECK_SEAL_COSTS.banish,
+      purchased: false,
+      affordable: true,
+    });
+    expect(game.buyMaintenanceSeal('banish')).toBe(true);
+    expect(game.buyMaintenanceSeal('banish')).toBe(false);
+    expect(game.buyMaintenanceSeal('duplicate')).toBe(true);
+    expect(game.gold).toBe(100 - DECK_SEAL_COSTS.banish - DECK_SEAL_COSTS.duplicate);
+    expect(game.deckSeals).toEqual({ banish: 1, duplicate: 1 });
+    expect(game.maintenanceOffer('banish').purchased).toBe(true);
+  });
+
+  test('골드가 부족한 정비소 구매는 상태를 바꾸지 않는다', () => {
+    const game = reachFirstMaintenance();
+    game.gold = DECK_SEAL_COSTS.duplicate - 1;
+    expect(game.buyMaintenanceSeal('duplicate')).toBe(false);
+    expect(game.deckSeals.duplicate).toBe(0);
+    expect(game.gold).toBe(DECK_SEAL_COSTS.duplicate - 1);
+  });
 });
+
+function reachFirstMaintenance(): Game {
+  return reachMaintenance(9);
+}
+
+function reachMaintenance(roundBefore: number): Game {
+  const game = new Game(109);
+  game.round = roundBefore;
+  game.gold = 1000;
+  game.upgradeLevel = 30;
+  game.pendingUnits.push(HandRank.RoyalFlush);
+  expect(game.placeUnit(8, 5)).toBe(true);
+  game.handConfirmed = true;
+  expect(game.startCombat()).toBe(true);
+  for (let i = 0; i < 5000 && game.phase === 'combat'; i++) game.tickCombat(1 / 30);
+  expect(game.phase).toBe('prep');
+  return game;
+}

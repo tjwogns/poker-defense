@@ -14,6 +14,7 @@ export const FINAL_BOSS_MAX_TIME = 50; // 최종 보스전: 스폰 완료 후 �
 export const FIELD_CAP = 80;          // 필드 적 누적 상한 (초과 = 패배)
 export const UNIT_CAP = 30;           // 배치 상한
 export const BOSS_EVERY = 10;
+export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;
 
 // ── 적 ────────────────────────────────────────────────
 export const ENEMY_BASE_HP = 18;

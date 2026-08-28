@@ -29,6 +29,7 @@ import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
 import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
 import { DeckOverlay } from './DeckOverlay';
+import { MaintenanceOverlay } from './MaintenanceOverlay';
 
 const DT = 1 / TICK_RATE;
 
@@ -59,6 +60,7 @@ export class PlayScene extends Phaser.Scene {
   private guideOverlay: GuideOverlay | null = null;
   private oddsOverlay: OddsOverlay | null = null;
   private deckOverlay: DeckOverlay | null = null;
+  private maintenanceOverlay: MaintenanceOverlay | null = null;
   private guideWasPaused = false;
   private deckWasPaused = false;
   private exitOverlay: ExitConfirmOverlay | null = null;
@@ -107,6 +109,7 @@ export class PlayScene extends Phaser.Scene {
     this.guideOverlay = null;
     this.oddsOverlay = null;
     this.deckOverlay = null;
+    this.maintenanceOverlay = null;
     this.guideWasPaused = false;
     this.deckWasPaused = false;
     this.exitOverlay = null;
@@ -254,6 +257,7 @@ export class PlayScene extends Phaser.Scene {
     this.fieldView.update(this.core, this.selectedUnitId, this.placementTier(), this.fx, dt);
     this.bossHud.refresh(this.core);
     this.syncRelicPicker();
+    this.syncMaintenance();
   }
 
   private stepCombat(dt: number): void {
@@ -358,6 +362,7 @@ export class PlayScene extends Phaser.Scene {
     this.powerBar.refresh();
     this.bossHud.refresh(this.core);
     this.syncRelicPicker();
+    this.syncMaintenance();
   }
 
   private onHandAction(action: 'hold' | 'exchange' | 'confirm'): void {
@@ -431,15 +436,15 @@ export class PlayScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     keyboard.on('keydown-E', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.doExchange()) this.onHandAction('exchange');
     });
     keyboard.on('keydown-ENTER', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.confirmHand() !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
-      if (this.tutorialActive || this.ended || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
         this.trackCombatStarted();
@@ -449,7 +454,7 @@ export class PlayScene extends Phaser.Scene {
     });
     for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
       keyboard.on(`keydown-${key}`, () => {
-        if (this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+        if (this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
@@ -459,19 +464,19 @@ export class PlayScene extends Phaser.Scene {
     const powers: Array<[string, Suit]> = [['Q', 'S'], ['W', 'H'], ['R', 'D'], ['T', 'C']];
     for (const [key, suit] of powers) {
       keyboard.on(`keydown-${key}`, () => {
-      if (!this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.usePower(suit);
+      if (!this.maintenanceOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.usePower(suit);
       });
     }
     keyboard.on('keydown-M', () => {
-      if (!this.guideOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.toggleSound();
+      if (!this.maintenanceOverlay && !this.guideOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.toggleSound();
     });
     keyboard.on('keydown-H', () => {
-      if (this.tutorialActive || this.ended || this.relicOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.relicOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.guideOverlay) this.closeGuide();
       else this.openGuide();
     });
     keyboard.on('keydown-D', () => {
-      if (this.tutorialActive || this.ended || this.relicOverlay || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.relicOverlay || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
       if (this.deckOverlay) this.closeDeck();
       else this.openDeck();
     });
@@ -484,7 +489,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private openOdds(odds: RerollOdds): void {
-    if (this.oddsOverlay || this.deckOverlay || this.core.phase !== 'prep' || this.core.handConfirmed) return;
+    if (this.maintenanceOverlay || this.oddsOverlay || this.deckOverlay || this.core.phase !== 'prep' || this.core.handConfirmed) return;
     this.oddsOverlay = new OddsOverlay(this, odds, () => this.closeOdds());
     this.analytics.track('odds_opened', {
       drawCount: odds.drawCount,
@@ -500,7 +505,7 @@ export class PlayScene extends Phaser.Scene {
 
   private openDeck(): void {
     if (
-      this.deckOverlay || this.tutorialActive || this.ended || this.relicOverlay
+      this.deckOverlay || this.maintenanceOverlay || this.tutorialActive || this.ended || this.relicOverlay
       || this.guideOverlay || this.oddsOverlay || this.exitOverlay
     ) return;
     this.deckWasPaused = this.paused;
@@ -544,7 +549,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private requestExit(): void {
-    if (this.ended || this.exitOverlay || this.deckOverlay) return;
+    if (this.ended || this.maintenanceOverlay || this.exitOverlay || this.deckOverlay) return;
     const hasProgress = this.core.phase === 'combat'
       || this.core.round > 1
       || this.core.handConfirmed
@@ -575,7 +580,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private openGuide(): void {
-    if (this.guideOverlay || this.deckOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
+    if (this.guideOverlay || this.deckOverlay || this.maintenanceOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
     this.guideWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
     this.guideOverlay = new GuideOverlay(this, () => this.closeGuide());
@@ -606,8 +611,48 @@ export class PlayScene extends Phaser.Scene {
     this.refreshUI();
   }
 
+  private syncMaintenance(): void {
+    if (
+      !this.core.maintenancePending || this.maintenanceOverlay
+      || this.tutorialActive || this.ended || this.relicOverlay
+    ) return;
+    this.analytics.track('maintenance_opened', {
+      round: this.core.round,
+      gold: this.core.gold,
+      deckSize: this.core.deckSize,
+    }, this.runId);
+    this.maintenanceOverlay = new MaintenanceOverlay(
+      this,
+      this.core,
+      (id, cost) => {
+        this.analytics.track('maintenance_purchase', {
+          round: this.core.round,
+          item: id,
+          cost,
+          goldAfter: this.core.gold,
+        }, this.runId);
+        this.audio.play('confirm');
+      },
+      (openDeck) => {
+        const round = this.core.round;
+        this.maintenanceOverlay?.destroy();
+        this.maintenanceOverlay = null;
+        this.analytics.track('maintenance_closed', {
+          round,
+          gold: this.core.gold,
+          boughtBanish: this.core.deckSeals.banish,
+          boughtDuplicate: this.core.deckSeals.duplicate,
+        }, this.runId);
+        this.audio.play('click');
+        this.refreshUI();
+        if (openDeck) this.openDeck();
+      },
+    );
+    this.audio.play('boss');
+  }
+
   private syncRelicPicker(): void {
-    if (this.core.relicChoices.length === 0 || this.relicOverlay || this.ended) return;
+    if (this.core.relicChoices.length === 0 || this.relicOverlay || this.maintenanceOverlay || this.ended) return;
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = this.add.rectangle(390, 270, 748, 520, 0x06100a, 0.93).setInteractive();
     children.push(dim);

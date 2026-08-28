@@ -29,6 +29,9 @@ export type AnalyticsEventName =
   | 'odds_opened'
   | 'deck_opened'
   | 'deck_modified'
+  | 'maintenance_opened'
+  | 'maintenance_purchase'
+  | 'maintenance_closed'
   | 'boss_encountered'
   | 'boss_defeated'
   | 'boss_survived';

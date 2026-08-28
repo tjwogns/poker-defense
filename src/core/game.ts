@@ -4,7 +4,7 @@ import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
-  FINAL_BOSS_MAX_TIME,
+  FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
@@ -37,6 +37,7 @@ export type DeckSealId = 'banish' | 'duplicate';
 export type DeckEditStatus =
   | 'ready'
   | 'wrong_phase'
+  | 'maintenance_pending'
   | 'hand_locked'
   | 'exchange_started'
   | 'no_seal'
@@ -83,6 +84,9 @@ export class Game {
   private nextBossSummonAt = Infinity;
   private pendingBossRewardRounds: number[] = [];
   private queuedBossRewardRounds = new Set<number>();
+  private visitedMaintenanceRounds = new Set<number>();
+  private purchasedMaintenanceOffers = new Set<string>();
+  private pendingMaintenanceRound: number | null = null;
 
   constructor(seed: number) {
     this.seed = seed;
@@ -92,6 +96,40 @@ export class Game {
   }
 
   // ── 준비 페이즈: 카드 ──────────────────────────────
+
+  get maintenancePending(): boolean {
+    return this.phase === 'prep'
+      && this.pendingMaintenanceRound === this.round
+      && !this.visitedMaintenanceRounds.has(this.round)
+      && this.relicChoices.length === 0;
+  }
+
+  maintenanceOffer(id: DeckSealId): { cost: number; purchased: boolean; affordable: boolean } {
+    const cost = DECK_SEAL_COSTS[id];
+    return {
+      cost,
+      purchased: this.purchasedMaintenanceOffers.has(`${this.round}:${id}`),
+      affordable: this.gold >= cost,
+    };
+  }
+
+  buyMaintenanceSeal(id: DeckSealId): boolean {
+    if (!this.maintenancePending) return false;
+    const key = `${this.round}:${id}`;
+    const cost = DECK_SEAL_COSTS[id];
+    if (this.purchasedMaintenanceOffers.has(key) || this.gold < cost) return false;
+    this.gold -= cost;
+    this.grantDeckSeal(id);
+    this.purchasedMaintenanceOffers.add(key);
+    return true;
+  }
+
+  leaveMaintenance(): boolean {
+    if (!this.maintenancePending) return false;
+    this.visitedMaintenanceRounds.add(this.round);
+    this.pendingMaintenanceRound = null;
+    return true;
+  }
 
   get deckSize(): number {
     return this.runDeck.size;
@@ -114,6 +152,7 @@ export class Game {
   /** 현재 패의 교환 가능성을 깨뜨리지 않는 범위에서만 덱 개조를 허용한다. */
   deckEditStatus(id: DeckSealId, card: Card): DeckEditStatus {
     if (this.phase !== 'prep') return 'wrong_phase';
+    if (this.maintenancePending) return 'maintenance_pending';
     if (this.handConfirmed) return 'hand_locked';
     if (this.exchangesUsed > 0) return 'exchange_started';
     if (this.deckSeals[id] <= 0) return 'no_seal';
@@ -142,7 +181,7 @@ export class Game {
   }
 
   toggleHold(i: number): void {
-    if (this.phase !== 'prep' || this.handConfirmed) return;
+    if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return;
     this.holds[i] = !this.holds[i];
   }
 
@@ -155,7 +194,7 @@ export class Game {
   }
 
   doExchange(): boolean {
-    if (this.phase !== 'prep' || this.handConfirmed) return false;
+    if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return false;
     const cost = this.exchangeCostNow;
     if (this.gold < cost) return false;
     this.gold -= cost;
@@ -166,7 +205,7 @@ export class Game {
 
   /** 족보 확정 → 해당 등급 유닛 1기 획득 (배치 대기). 하이카드도 유닛 지급. */
   confirmHand(): HandRank | null {
-    if (this.phase !== 'prep' || this.handConfirmed) return null;
+    if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return null;
     this.handConfirmed = true;
     const baseRank = evaluateHand(this.hand);
     const bonus = this.round % BOSS_EVERY === 0
@@ -191,7 +230,7 @@ export class Game {
   }
 
   placeUnit(tx: number, ty: number): boolean {
-    if (this.phase !== 'prep') return false;
+    if (this.phase !== 'prep' || this.maintenancePending) return false;
     if (this.pendingUnits.length === 0) return false;
     if (this.field.units.length >= UNIT_CAP) return false;
     const tier = this.pendingUnits[0];
@@ -202,7 +241,7 @@ export class Game {
   }
 
   moveUnit(unitId: number, tx: number, ty: number): boolean {
-    if (this.phase !== 'prep') return false;
+    if (this.phase !== 'prep' || this.maintenancePending) return false;
     const unit = this.field.units.find((u) => u.id === unitId);
     if (!unit) return false;
     if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
@@ -221,7 +260,10 @@ export class Game {
   }
 
   fuseUnits(unitIds: number[]): boolean {
-    if (this.phase !== 'prep' || unitIds.length !== 3 || new Set(unitIds).size !== 3) return false;
+    if (
+      this.phase !== 'prep' || this.maintenancePending
+      || unitIds.length !== 3 || new Set(unitIds).size !== 3
+    ) return false;
     const materials = unitIds.map((id) => this.field.units.find((unit) => unit.id === id));
     if (materials.some((unit) => !unit)) return false;
     const units = materials as Unit[];
@@ -236,7 +278,7 @@ export class Game {
   }
 
   sellUnit(unitId: number): boolean {
-    if (this.phase !== 'prep') return false;
+    if (this.phase !== 'prep' || this.maintenancePending) return false;
     const idx = this.field.units.findIndex((u) => u.id === unitId);
     if (idx < 0) return false;
     this.gold += SELL_REFUND[this.field.units[idx].tier];
@@ -294,7 +336,7 @@ export class Game {
   }
 
   buyUpgrade(): boolean {
-    if (this.phase !== 'prep') return false;
+    if (this.phase !== 'prep' || this.maintenancePending) return false;
     const cost = this.upgradeCostNow;
     if (this.gold < cost) return false;
     this.gold -= cost;
@@ -348,6 +390,7 @@ export class Game {
       || !this.handConfirmed
       || this.pendingUnits.length > 0
       || this.relicChoices.length > 0
+      || this.maintenancePending
     ) return false;
     const { kind } = this.nextWave();
     this.spawnQueue =
@@ -455,6 +498,7 @@ export class Game {
     }
 
     this.round++;
+    if (this.round % BOSS_EVERY === 0) this.pendingMaintenanceRound = this.round;
     this.gold += this.interestNow;
     this.field.enemies = this.field.enemies.filter((e) => e.alive); // 시체 정리, 생존자는 이월
     this.hand = this.runDeck.draw(this.rng);

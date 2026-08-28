@@ -10,6 +10,7 @@ const RANKS = Array.from({ length: 13 }, (_, index) => index + 2);
 const STATUS_LABELS: Record<DeckEditStatus, string> = {
   ready: '사용 가능',
   wrong_phase: '준비 단계에서만 개조할 수 있습니다',
+  maintenance_pending: '정비소 이용을 먼저 완료하세요',
   hand_locked: '족보를 확정하기 전에만 개조할 수 있습니다',
   exchange_started: '이번 라운드의 첫 교환 전에만 개조할 수 있습니다',
   no_seal: '정비소에서 해당 인장을 획득하세요',
