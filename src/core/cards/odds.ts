@@ -1,4 +1,4 @@
-import { newDeck } from './deck';
+import { newDeck, remainingCards } from './deck';
 import { evaluateHand } from './evaluator';
 import { Card, HandRank, Suit } from './types';
 
@@ -14,7 +14,11 @@ export interface RerollOdds {
 const SUIT_INDEX: Record<Suit, number> = { S: 0, H: 1, D: 2, C: 3 };
 
 /** 현재 패 5장을 제외한 47장에서 비홀드 카드를 다시 뽑는 정확한 족보 분포. */
-export function rerollOdds(hand: readonly Card[], holds: readonly boolean[]): RerollOdds {
+export function rerollOdds(
+  hand: readonly Card[],
+  holds: readonly boolean[],
+  deck: readonly Card[] = newDeck(),
+): RerollOdds {
   if (hand.length !== 5 || holds.length !== 5) throw new Error('hand and holds must contain 5 items');
   const drawCount = holds.filter((held) => !held).length;
   const currentRank = evaluateHand([...hand]);
@@ -25,8 +29,7 @@ export function rerollOdds(hand: readonly Card[], holds: readonly boolean[]): Re
     return result(drawCount, currentRank, outcomes, 1);
   }
 
-  const excluded = new Set(hand.map(cardKey));
-  const pool = newDeck().filter((card) => !excluded.has(cardKey(card)));
+  const pool = remainingCards(deck, hand);
   const rankCounts = new Uint8Array(15);
   const suitCounts = new Uint8Array(4);
   for (let index = 0; index < hand.length; index++) {
@@ -98,8 +101,4 @@ function evaluateCounts(rankCounts: Uint8Array, suitCounts: Uint8Array): HandRan
   if (pairs === 2) return HandRank.TwoPair;
   if (pairs === 1) return HandRank.Pair;
   return HandRank.HighCard;
-}
-
-function cardKey(card: Card): string {
-  return `${card.rank}${card.suit}`;
 }

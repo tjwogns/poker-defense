@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { mulberry32 } from '../src/core/rng';
-import { newDeck, drawHand, exchange } from '../src/core/cards/deck';
+import {
+  MAX_RUN_DECK_SIZE, MIN_RUN_DECK_SIZE, RunDeck, newDeck, drawHand, exchange, remainingCards,
+} from '../src/core/cards/deck';
 
 const key = (c: { rank: number; suit: string }) => `${c.rank}${c.suit}`;
 
@@ -59,5 +61,41 @@ describe('deck', () => {
       expect(before.has(key(after[0]))).toBe(false);
       expect(before.has(key(after[1]))).toBe(false);
     }
+  });
+
+  test('RunDeck은 라운드 드로우 후에도 덱 구성을 유지한다', () => {
+    const deck = new RunDeck();
+    const before = deck.snapshot().map(key);
+    deck.draw(mulberry32(11));
+    deck.draw(mulberry32(12));
+    expect(deck.size).toBe(52);
+    expect(deck.snapshot().map(key)).toEqual(before);
+  });
+
+  test('추방은 40장 바닥을, 복제는 기본 덱 +8장 상한을 지킨다', () => {
+    const deck = new RunDeck();
+    for (const card of newDeck().slice(0, 12)) expect(deck.banish(card)).toBe(true);
+    expect(deck.size).toBe(MIN_RUN_DECK_SIZE);
+    expect(deck.banish(deck.snapshot()[0])).toBe(false);
+
+    const ace = deck.snapshot().find((card) => card.rank === 14)!;
+    while (deck.size < MAX_RUN_DECK_SIZE) expect(deck.duplicate(ace)).toBe(true);
+    expect(deck.count(ace)).toBeGreaterThan(1);
+    expect(deck.duplicate(ace)).toBe(false);
+  });
+
+  test('복제 카드가 있어도 현재 패의 사본만 한 장씩 제외한다', () => {
+    const cards = newDeck();
+    cards.push({ rank: 14, suit: 'S' });
+    const hand = [
+      { rank: 14, suit: 'S' as const },
+      { rank: 13, suit: 'H' as const },
+      { rank: 12, suit: 'D' as const },
+      { rank: 11, suit: 'C' as const },
+      { rank: 10, suit: 'S' as const },
+    ];
+    const remaining = remainingCards(cards, hand);
+    expect(remaining).toHaveLength(48);
+    expect(remaining.filter((card) => key(card) === '14S')).toHaveLength(1);
   });
 });

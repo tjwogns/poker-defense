@@ -1,5 +1,5 @@
 import { Card, HandRank, Suit } from './cards/types';
-import { drawHand, exchange } from './cards/deck';
+import { RunDeck } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
@@ -63,6 +63,7 @@ export class Game {
   field: Field = createField();
 
   readonly seed: number;
+  readonly runDeck: RunDeck;
   private rng: Rng;
   private spawnQueue: EnemyKindId[] = [];
   private spawnTimer = 0;
@@ -75,7 +76,8 @@ export class Game {
   constructor(seed: number) {
     this.seed = seed;
     this.rng = mulberry32(seed);
-    this.hand = drawHand(this.rng);
+    this.runDeck = new RunDeck();
+    this.hand = this.runDeck.draw(this.rng);
   }
 
   // ── 준비 페이즈: 카드 ──────────────────────────────
@@ -98,7 +100,7 @@ export class Game {
     const cost = this.exchangeCostNow;
     if (this.gold < cost) return false;
     this.gold -= cost;
-    this.hand = exchange(this.hand, this.holds, this.rng);
+    this.hand = this.runDeck.exchange(this.hand, this.holds, this.rng);
     this.exchangesUsed++;
     return true;
   }
@@ -396,7 +398,7 @@ export class Game {
     this.round++;
     this.gold += this.interestNow;
     this.field.enemies = this.field.enemies.filter((e) => e.alive); // 시체 정리, 생존자는 이월
-    this.hand = drawHand(this.rng);
+    this.hand = this.runDeck.draw(this.rng);
     this.holds = [false, false, false, false, false];
     this.exchangesUsed = 0;
     this.handConfirmed = false;

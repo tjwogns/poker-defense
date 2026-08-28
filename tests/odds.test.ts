@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
+import { newDeck } from '../src/core/cards/deck';
 import { rerollOdds } from '../src/core/cards/odds';
 import { h } from './helpers';
 
@@ -33,5 +34,21 @@ describe('exact reroll odds', () => {
     expect(odds.improveProbability).toBeGreaterThan(0);
     expect(odds.outcomes[HandRank.TwoPair]).toBeGreaterThan(0);
     expect(odds.outcomes[HandRank.Trips]).toBeGreaterThan(0);
+  });
+
+  test('복제된 실제 카드 장수를 확률 조합에 반영한다', () => {
+    const deck = newDeck();
+    deck.push({ rank: 14, suit: 'S' });
+    const odds = rerollOdds(h('TS JS QS KS 2H'), [true, true, true, true, false], deck);
+    expect(odds.totalCombinations).toBe(48);
+    expect(odds.outcomes[HandRank.RoyalFlush]).toBe(2);
+    expect(odds.probabilities[HandRank.RoyalFlush]).toBeCloseTo(2 / 48);
+  });
+
+  test('추방된 카드는 리롤 결과에 등장하지 않는다', () => {
+    const deck = newDeck().filter((card) => !(card.rank === 14 && card.suit === 'S'));
+    const odds = rerollOdds(h('TS JS QS KS 2H'), [true, true, true, true, false], deck);
+    expect(odds.totalCombinations).toBe(46);
+    expect(odds.outcomes[HandRank.RoyalFlush]).toBe(0);
   });
 });
