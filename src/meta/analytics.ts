@@ -32,10 +32,12 @@ export type AnalyticsEventName =
   | 'deck_modified'
   | 'maintenance_opened'
   | 'maintenance_purchase'
+  | 'maintenance_relic_purchase'
   | 'maintenance_closed'
   | 'boss_encountered'
   | 'boss_defeated'
-  | 'boss_survived';
+  | 'boss_survived'
+  | 'relic_triggered';
 
 export interface AnalyticsEvent {
   id: string;

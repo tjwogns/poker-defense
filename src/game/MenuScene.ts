@@ -8,6 +8,7 @@ import { AnalyticsConsentOverlay } from './AnalyticsConsentOverlay';
 import { UI, makeButton, makeText } from './ui';
 import { LeaderboardOverlay } from './LeaderboardOverlay';
 import { PatchNotesOverlay } from './PatchNotesOverlay';
+import { CURRENT_VERSION, PATCH_NOTES } from '../meta/patchNotes';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -110,13 +111,21 @@ export class MenuScene extends Phaser.Scene {
     makeButton(this, 1160, 232, 150, 34, 'PATCH NOTES · NEW', () => {
       if (patchNotesOverlay) return;
       patchNotesOverlay = new PatchNotesOverlay(this, closePatchNotes);
-      analytics.track('patch_notes_viewed', { version: 'v1.4' });
+      analytics.track('patch_notes_viewed', { version: CURRENT_VERSION });
     }, { fill: 0xe6c84f, fontSize: 10 });
     this.input.keyboard?.on('keydown-ESC', closePatchNotes);
 
     makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · Q/W/R/T 스킬 · M 음소거', 13, UI.textDim)
       .setOrigin(0.5);
-    makeText(this, 640, 610, 'v1.4  ·  BUILD SYNERGY', 11, '#60746a', true).setOrigin(0.5);
+    makeText(
+      this,
+      640,
+      610,
+      `${CURRENT_VERSION}  ·  ${PATCH_NOTES[0].title}`,
+      11,
+      CURRENT_VERSION.includes('beta') ? UI.gold : '#60746a',
+      true,
+    ).setOrigin(0.5);
     analytics.track('menu_view', { challenge: hasChallenge });
     if (analytics.consent === 'unknown') {
       new AnalyticsConsentOverlay(this, (allowed) => {

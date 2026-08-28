@@ -5,6 +5,7 @@ import { ENEMY_BASE_SPEED, enemyHp, killGold, bossGold } from './balance';
 import { TILE, Pt, pointAt, tileCenter } from './map';
 import { bossModifiers } from './bosses';
 import { SynergyStatus, unitSynergyDamageMultiplier } from './synergies';
+import type { RelicId } from './relics';
 
 export interface Enemy {
   id: number;
@@ -26,6 +27,7 @@ export interface Unit {
   tx: number;
   ty: number;
   cooldown: number; // 남은 초 (0 이하 = 공격 가능)
+  pristine: boolean; // 교환 없이 확정한 패에서 생성됐는지
 }
 
 export interface AttackEvent {
@@ -39,6 +41,7 @@ export interface TickResult {
   deaths: Enemy[];
   attacks: AttackEvent[];
   bossEvents: BossEvent[];
+  relicTriggers: RelicId[];
 }
 
 export type BossEvent =
@@ -82,8 +85,8 @@ export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts:
   return enemy;
 }
 
-export function addUnit(field: Field, tier: HandRank, tx: number, ty: number): Unit {
-  const unit: Unit = { id: field.nextId++, tier, tx, ty, cooldown: 0 };
+export function addUnit(field: Field, tier: HandRank, tx: number, ty: number, pristine = false): Unit {
+  const unit: Unit = { id: field.nextId++, tier, tx, ty, cooldown: 0, pristine };
   field.units.push(unit);
   return unit;
 }
@@ -101,7 +104,7 @@ export function aliveEnemies(field: Field): Enemy[] {
 }
 
 function emptyResult(): TickResult {
-  return { goldEarned: 0, deaths: [], attacks: [], bossEvents: [] };
+  return { goldEarned: 0, deaths: [], attacks: [], bossEvents: [], relicTriggers: [] };
 }
 
 /** 액티브 스킬용 현재 HP 비례 전체 공격. 방어를 무시하고 정상 처치 보상을 준다. */
@@ -198,6 +201,7 @@ function performAttack(
   def: UnitDef,
   globalMult: number,
   synergies: readonly SynergyStatus[],
+  relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number,
   result: TickResult,
 ): boolean {
   const origin = unitPos(unit);
@@ -214,7 +218,8 @@ function performAttack(
 
   const targetPos = enemyPos(target);
   const damageAgainst = (enemy: Enemy, amount: number) => amount
-    * unitSynergyDamageMultiplier(unit.tier, synergies, enemy.kind === 'boss');
+    * unitSynergyDamageMultiplier(unit.tier, synergies, enemy.kind === 'boss')
+    * relicDamageMultiplier(unit, enemy, field);
   const targetDamage = damageAgainst(target, base);
   result.attacks.push({ unitId: unit.id, targetId: target.id, damage: targetDamage });
 
@@ -272,6 +277,7 @@ export function tick(
   dt: number,
   globalDmgMult: number,
   synergies: readonly SynergyStatus[] = [],
+  relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number = () => 1,
 ): TickResult {
   const result = emptyResult();
   field.time += dt;
@@ -296,7 +302,7 @@ export function tick(
     const def = UNIT_DEFS[unit.tier];
     unit.cooldown -= dt;
     while (unit.cooldown <= 0) {
-      if (!performAttack(field, unit, def, globalDmgMult, synergies, result)) {
+      if (!performAttack(field, unit, def, globalDmgMult, synergies, relicDamageMultiplier, result)) {
         unit.cooldown = 0;
         break;
       }

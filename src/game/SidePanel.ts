@@ -5,7 +5,7 @@ import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO } from '../core/cards/types';
 import { HandRank } from '../core/cards/types';
 import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
-import { RELIC_DEFS, RELIC_SLOT_CAP } from '../core/relics';
+import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
@@ -60,6 +60,7 @@ function panelCard(scene: Phaser.Scene, rect: UiRect): void {
 
 /** 우측 정보/컨트롤 패널 */
 export class SidePanel {
+  private scene: Phaser.Scene;
   private game: Game;
   private roundText: Phaser.GameObjects.Text;
   private waveText: Phaser.GameObjects.Text;
@@ -80,10 +81,12 @@ export class SidePanel {
   private pauseBtn: Button;
   private soundBtn: Button;
   private relicText: Phaser.GameObjects.Text;
+  private relicTriggerText: Phaser.GameObjects.Text;
   private combatText: Phaser.GameObjects.Text;
   private helpText: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, game: Game, cb: PanelCallbacks) {
+    this.scene = scene;
     this.game = game;
 
     const backdrop = scene.add.graphics();
@@ -127,6 +130,9 @@ export class SidePanel {
 
     makeText(scene, PX, 560, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
     this.relicText = makeText(scene, PX, 578, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
+    this.relicTriggerText = makeText(scene, PX, 607, '', 10, UI.gold, true)
+      .setAlpha(0)
+      .setDepth(6);
 
     this.helpText = makeText(
       scene, PX, 641,
@@ -141,6 +147,25 @@ export class SidePanel {
     makeButton(scene, 1222, 660, 116, 38, '도감  H', cb.onGuide, {
       fill: 0x78612b,
       fontSize: 10,
+    });
+  }
+
+  pulseRelics(ids: readonly RelicId[]): void {
+    if (ids.length === 0) return;
+    const names = ids.slice(0, 2).map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`);
+    const extra = ids.length > 2 ? ` 외 ${ids.length - 2}` : '';
+    this.scene.tweens.killTweensOf(this.relicTriggerText);
+    this.relicTriggerText
+      .setText(`⚡ ${names.join(' · ')}${extra} 발동`)
+      .setAlpha(1)
+      .setScale(1.04);
+    this.scene.tweens.add({
+      targets: this.relicTriggerText,
+      alpha: 0,
+      scale: 1,
+      delay: 650,
+      duration: 450,
+      ease: 'Cubic.Out',
     });
   }
 

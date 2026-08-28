@@ -9,14 +9,42 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v1.4';
+export const CURRENT_VERSION = 'v2.0-beta';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.0-beta',
+    title: 'DECK FOUNDATION',
+    date: '2026-08-28',
+    current: true,
+    sections: [
+      {
+        heading: '영속 덱과 정비소',
+        items: [
+          '런 동안 유지되는 덱에서 카드를 추방하거나 복제해 확률을 직접 설계',
+          '보스전 직전 정비소에서 인장과 유물을 구매하고 5슬롯 빌드를 교체',
+          '덱 뷰어에서 카드별 보유량과 개조 전후 족보 확률 변화 확인',
+        ],
+      },
+      {
+        heading: '유물 확장',
+        items: [
+          '일반·희귀·전설 등급과 조건부 신규 유물 8종 추가',
+          '실제 조건을 만족한 유물을 BUILD 패널에서 즉시 점등',
+        ],
+      },
+      {
+        heading: '베타 운영',
+        items: [
+          'v1.4 정식판과 별도 주소에서 운영하며 밸런스와 사용성을 검증',
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.4',
     title: 'BUILD SYNERGY',
     date: '2026-08-27',
-    current: true,
     sections: [
       {
         heading: '새로운 빌드',

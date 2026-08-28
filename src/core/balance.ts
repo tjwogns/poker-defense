@@ -15,7 +15,6 @@ export const FIELD_CAP = 80;          // 필드 적 누적 상한 (초과 = 패�
 export const UNIT_CAP = 30;           // 배치 상한
 export const BOSS_EVERY = 10;
 export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;
-export const RELIC_SELL_VALUE = 30;
 
 // ── 적 ────────────────────────────────────────────────
 export const ENEMY_BASE_HP = 18;

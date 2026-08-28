@@ -68,6 +68,12 @@ export function tileCanReachPath(x: number, y: number, rangeTiles: number): bool
   return SEGMENTS.some((segment) => distanceToSegment(point, segment.a, segment.b) <= rangePx);
 }
 
+/** 타일 중심에서 가장 가까운 경로까지의 거리(타일 단위). */
+export function distanceToPathTiles(x: number, y: number): number {
+  const point = tileCenter(x, y);
+  return Math.min(...SEGMENTS.map((segment) => distanceToSegment(point, segment.a, segment.b))) / TILE;
+}
+
 function distanceToSegment(point: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;

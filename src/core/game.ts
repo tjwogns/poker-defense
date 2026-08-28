@@ -4,7 +4,7 @@ import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
-  FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS, RELIC_SELL_VALUE,
+  FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
@@ -19,7 +19,11 @@ import {
   RelicId,
   RELIC_SLOT_CAP,
   relicChoices as makeRelicChoices,
+  relicBuyPrice,
   relicModifiers,
+  relicSellPrice,
+  relicShopChoice,
+  relicUnitDamageResult,
 } from './relics';
 import {
   RunSummary,
@@ -73,6 +77,10 @@ export class Game {
 
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
+  private pendingUnitPristine: boolean[] = [];
+  lastRelicGoldBonus = 0;
+  lastPairBrokerBonus = false;
+  lastRelicTriggers: RelicId[] = [];
   field: Field = createField();
 
   readonly seed: number;
@@ -87,6 +95,7 @@ export class Game {
   private queuedBossRewardRounds = new Set<number>();
   private visitedMaintenanceRounds = new Set<number>();
   private purchasedMaintenanceOffers = new Set<string>();
+  private maintenanceRelics = new Map<number, RelicId | null>();
   private pendingMaintenanceRound: number | null = null;
 
   constructor(seed: number) {
@@ -118,6 +127,37 @@ export class Game {
     };
   }
 
+  maintenanceRelicOffer(replaceId?: RelicId): {
+    id: RelicId;
+    cost: number;
+    refund: number;
+    netCost: number;
+    purchased: boolean;
+    affordable: boolean;
+    requiresReplacement: boolean;
+  } | null {
+    if (!this.maintenancePending) return null;
+    if (!this.maintenanceRelics.has(this.round)) {
+      this.maintenanceRelics.set(this.round, relicShopChoice(this.seed, this.round, this.relics));
+    }
+    const id = this.maintenanceRelics.get(this.round);
+    if (!id) return null;
+    const cost = relicBuyPrice(id);
+    const requiresReplacement = this.relics.length >= RELIC_SLOT_CAP;
+    const validReplacement = replaceId !== undefined && this.relics.includes(replaceId);
+    const refund = requiresReplacement && validReplacement ? relicSellPrice(replaceId) : 0;
+    const netCost = cost - refund;
+    return {
+      id,
+      cost,
+      refund,
+      netCost,
+      purchased: this.purchasedMaintenanceOffers.has(`${this.round}:relic`),
+      affordable: this.gold >= Math.max(0, netCost),
+      requiresReplacement,
+    };
+  }
+
   buyMaintenanceSeal(id: DeckSealId): boolean {
     if (!this.maintenancePending) return false;
     const key = `${this.round}:${id}`;
@@ -126,6 +166,19 @@ export class Game {
     this.gold -= cost;
     this.grantDeckSeal(id);
     this.purchasedMaintenanceOffers.add(key);
+    return true;
+  }
+
+  buyMaintenanceRelic(replaceId?: RelicId): boolean {
+    const offer = this.maintenanceRelicOffer(replaceId);
+    if (!offer || offer.purchased) return false;
+    if (!offer.requiresReplacement && replaceId) return false;
+    if (offer.requiresReplacement && (!replaceId || !this.relics.includes(replaceId))) return false;
+    if (!offer.affordable) return false;
+    if (replaceId) this.removeRelic(replaceId);
+    this.gold += offer.refund - offer.cost;
+    this.addRelic(offer.id);
+    this.purchasedMaintenanceOffers.add(`${this.round}:relic`);
     return true;
   }
 
@@ -138,10 +191,9 @@ export class Game {
 
   sellRelic(id: RelicId): boolean {
     if (!this.maintenancePending) return false;
-    const index = this.relics.indexOf(id);
-    if (index < 0) return false;
-    this.relics.splice(index, 1);
-    this.gold += RELIC_SELL_VALUE;
+    if (!this.relics.includes(id)) return false;
+    this.removeRelic(id);
+    this.gold += relicSellPrice(id);
     return true;
   }
 
@@ -200,7 +252,7 @@ export class Game {
   }
 
   get exchangeCostNow(): number {
-    const mods = relicModifiers(this.relics);
+    const mods = relicModifiers(this.relics, this.deckSize);
     return Math.ceil(
       exchangeCost(Math.max(0, this.exchangesUsed - (mods.freeExchanges - 1)))
       * mods.exchangeCostMultiplier,
@@ -211,6 +263,12 @@ export class Game {
     if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return false;
     const cost = this.exchangeCostNow;
     if (this.gold < cost) return false;
+    const baseFreeExchanges = this.relics.includes('swift_shuffle') ? 2 : 1;
+    const compressionTriggered = this.relics.includes('compression_enthusiast')
+      && this.deckSize <= 45
+      && this.exchangesUsed >= baseFreeExchanges
+      && cost === 0;
+    this.lastRelicTriggers = compressionTriggered ? ['compression_enthusiast'] : [];
     this.gold -= cost;
     this.hand = this.runDeck.exchange(this.hand, this.holds, this.rng);
     this.exchangesUsed++;
@@ -221,6 +279,10 @@ export class Game {
   confirmHand(): HandRank | null {
     if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return null;
     this.handConfirmed = true;
+    this.lastRelicGoldBonus = 0;
+    this.lastPairBrokerBonus = false;
+    this.lastRelicTriggers = [];
+    if (this.pendingUnits.length === 0) this.pendingUnitPristine = [];
     const baseRank = evaluateHand(this.hand);
     const bonus = this.round % BOSS_EVERY === 0
       ? relicModifiers(this.relics).bossRankBonus
@@ -229,7 +291,26 @@ export class Game {
     this.lastHandRank = rank;
     this.bestHand = Math.max(this.bestHand, rank) as HandRank;
     this.score += scoreForHand(rank);
+    const pristine = this.exchangesUsed === 0;
     this.pendingUnits.push(rank);
+    this.pendingUnitPristine.push(pristine);
+    const mods = relicModifiers(this.relics, this.deckSize);
+    if (mods.pairBonusUnit && rank === HandRank.Pair) {
+      if (this.field.units.length + this.pendingUnits.length < UNIT_CAP) {
+        this.pendingUnits.push(rank);
+        this.pendingUnitPristine.push(pristine);
+        this.lastPairBrokerBonus = true;
+      } else {
+        this.gold += 15;
+        this.lastRelicGoldBonus += 15;
+      }
+      this.lastRelicTriggers.push('pair_broker');
+    }
+    if (new Set(this.hand.map((card) => card.suit)).size === 4) {
+      this.gold += mods.fourSuitGoldBonus;
+      this.lastRelicGoldBonus += mods.fourSuitGoldBonus;
+      if (mods.fourSuitGoldBonus > 0) this.lastRelicTriggers.push('four_suit_crest');
+    }
     const suit = dominantSuit(this.hand);
     this.lastPowerSuit = suit;
     const chargeCap = suit === 'C' ? relicModifiers(this.relics).clubChargeCap : 3;
@@ -250,7 +331,14 @@ export class Game {
     const tier = this.pendingUnits[0];
     if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
     if (!tileCanReachPath(tx, ty, UNIT_DEFS[tier].range)) return false;
-    addUnit(this.field, this.pendingUnits.shift()!, tx, ty);
+    addUnit(this.field, this.pendingUnits.shift()!, tx, ty, this.pendingUnitPristine.shift() ?? false);
+    return true;
+  }
+
+  discardPendingUnit(): boolean {
+    if (this.pendingUnits.length === 0) return false;
+    this.pendingUnits.shift();
+    this.pendingUnitPristine.shift();
     return true;
   }
 
@@ -338,16 +426,19 @@ export class Game {
     return Math.max(0, limit - this.combatTimer);
   }
 
-  chooseRelic(id: RelicId): boolean {
+  chooseRelic(id: RelicId, replaceId?: RelicId): boolean {
     if (
       this.phase !== 'prep'
-      || this.relics.length >= RELIC_SLOT_CAP
       || !this.relicChoices.includes(id)
     ) return false;
-    this.relics.push(id);
-    if (id === 'frozen_clover') {
-      this.powerCharges.C = Math.min(this.powerCharges.C, relicModifiers(this.relics).clubChargeCap);
+    const full = this.relics.length >= RELIC_SLOT_CAP;
+    if (!full && replaceId) return false;
+    if (full && (!replaceId || !this.relics.includes(replaceId))) return false;
+    if (replaceId) {
+      this.removeRelic(replaceId);
+      this.gold += relicSellPrice(replaceId);
     }
+    this.addRelic(id);
     this.relicChoices = [];
     this.openNextBossReward();
     return true;
@@ -436,7 +527,19 @@ export class Game {
       this.spawnTimer += SPAWN_INTERVAL;
     }
 
-    const result = tick(this.field, dt, this.dmgMult, this.synergies);
+    const triggeredRelics = new Set<RelicId>();
+    const result = tick(
+      this.field,
+      dt,
+      this.dmgMult,
+      this.synergies,
+      (unit, enemy, field) => {
+        const relicDamage = relicUnitDamageResult(this.relics, unit, enemy, field);
+        for (const id of relicDamage.active) triggeredRelics.add(id);
+        return relicDamage.multiplier;
+      },
+    );
+    result.relicTriggers = [...triggeredRelics];
     const mods = relicModifiers(this.relics);
     result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
     this.gold += result.goldEarned;
@@ -546,6 +649,18 @@ export class Game {
       const bossRound = this.pendingBossRewardRounds.shift()!;
       this.relicChoices = makeRelicChoices(this.seed, bossRound, this.relics);
     }
+  }
+
+  private addRelic(id: RelicId): void {
+    this.relics.push(id);
+    if (id === 'frozen_clover') {
+      this.powerCharges.C = Math.min(this.powerCharges.C, relicModifiers(this.relics).clubChargeCap);
+    }
+  }
+
+  private removeRelic(id: RelicId): void {
+    const index = this.relics.indexOf(id);
+    if (index >= 0) this.relics.splice(index, 1);
   }
 
   summary(): RunSummary {

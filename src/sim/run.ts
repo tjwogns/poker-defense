@@ -14,6 +14,15 @@ import { UNIT_DEFS } from '../core/units';
 const GOLD_RESERVE = 300; // 이자용으로 남길 골드
 const MAINTENANCE_STRATEGIES = ['skip', 'banish', 'duplicate', 'both'] as const;
 type MaintenanceStrategy = typeof MAINTENANCE_STRATEGIES[number];
+const RELIC_STRATEGIES = ['skip', 'always', 'targeted'] as const;
+type RelicStrategy = typeof RELIC_STRATEGIES[number];
+
+const RELIC_PRIORITY: RelicId[] = [
+  'pair_broker', 'underdog_banner', 'pristine_oath', 'compression_enthusiast',
+  'delay_tactics', 'four_suit_crest', 'royal_seal', 'war_chest', 'compound_ledger',
+  'swift_shuffle', 'rear_position', 'fortified_table', 'ace_up_sleeve',
+  'royal_bloodline', 'glass_crown', 'frozen_clover', 'blood_contract', 'greedy_ledger',
+];
 
 /** 경로에 가까운 타일부터 선호하는 배치 순서 */
 function placementOrder(): Array<[number, number]> {
@@ -61,16 +70,18 @@ function clearHolds(g: Game): void {
   });
 }
 
-function playPrep(g: Game, stats: GameStats, strategy: MaintenanceStrategy): void {
+function playPrep(
+  g: Game,
+  stats: GameStats,
+  strategy: MaintenanceStrategy,
+  relicStrategy: RelicStrategy,
+): void {
   if (g.relicChoices.length > 0) {
-    const priority: RelicId[] = [
-      'royal_seal', 'compound_ledger', 'war_chest',
-      'swift_shuffle', 'fortified_table', 'ace_up_sleeve',
-    ];
-    const chosen = priority.find((id) => g.relicChoices.includes(id)) ?? g.relicChoices[0];
-    g.chooseRelic(chosen);
+    const chosen = RELIC_PRIORITY.find((id) => g.relicChoices.includes(id)) ?? g.relicChoices[0];
+    const replacement = g.relicSlotsRemaining === 0 ? weakestOwnedRelic(g) : undefined;
+    g.chooseRelic(chosen, replacement);
   }
-  if (g.maintenancePending) playMaintenance(g, stats, strategy);
+  if (g.maintenancePending) playMaintenance(g, stats, strategy, relicStrategy);
   // 이미 트리플 이상이면 그대로 확정, 아니면 무료 교환 1회
   if (evaluateHand(g.hand) < HandRank.Trips) {
     chooseHolds(g);
@@ -95,7 +106,7 @@ function playPrep(g: Game, stats: GameStats, strategy: MaintenanceStrategy): voi
     if (g.field.units.length >= UNIT_CAP) {
       const weakest = [...g.field.units].sort((a, b) => a.tier - b.tier)[0];
       if (weakest.tier >= tier) {
-        g.pendingUnits.shift(); // 새 유닛이 더 약함 → 버림
+        g.discardPendingUnit(); // 새 유닛이 더 약함 → 버림
         continue;
       }
       g.sellUnit(weakest.id);
@@ -126,7 +137,12 @@ function playPrep(g: Game, stats: GameStats, strategy: MaintenanceStrategy): voi
   g.startCombat();
 }
 
-function playMaintenance(g: Game, stats: GameStats, strategy: MaintenanceStrategy): void {
+function playMaintenance(
+  g: Game,
+  stats: GameStats,
+  strategy: MaintenanceStrategy,
+  relicStrategy: RelicStrategy,
+): void {
   stats.maintenanceVisits++;
   const wanted: DeckSealId[] = strategy === 'both'
     ? ['banish', 'duplicate']
@@ -137,8 +153,27 @@ function playMaintenance(g: Game, stats: GameStats, strategy: MaintenanceStrateg
     stats.sealPurchases[id]++;
     stats.sealSpend += cost;
   }
+  const relicOffer = g.maintenanceRelicOffer();
+  if (relicOffer && shouldBuyRelic(relicOffer.id, relicStrategy)) {
+    const replacement = relicOffer.requiresReplacement ? weakestOwnedRelic(g) : undefined;
+    const priced = g.maintenanceRelicOffer(replacement);
+    if (priced && g.buyMaintenanceRelic(replacement)) {
+      stats.relicPurchases++;
+      stats.relicSpend += priced.cost - priced.refund;
+    }
+  }
   g.leaveMaintenance();
   useOwnedSeals(g, strategy);
+}
+
+function shouldBuyRelic(id: RelicId, strategy: RelicStrategy): boolean {
+  if (strategy === 'skip') return false;
+  if (strategy === 'always') return true;
+  return RELIC_PRIORITY.indexOf(id) <= RELIC_PRIORITY.indexOf('four_suit_crest');
+}
+
+function weakestOwnedRelic(g: Game): RelicId {
+  return [...g.relics].sort((a, b) => RELIC_PRIORITY.indexOf(b) - RELIC_PRIORITY.indexOf(a))[0];
 }
 
 function useOwnedSeals(g: Game, strategy: MaintenanceStrategy): void {
@@ -200,22 +235,30 @@ interface GameStats {
   maintenanceVisits: number;
   sealPurchases: Record<DeckSealId, number>;
   sealSpend: number;
+  relicPurchases: number;
+  relicSpend: number;
   deckSize: number;
   goldEnd: number;
+  finalBossHpPct: number;
 }
 
-function playGame(seed: number, strategy: MaintenanceStrategy): GameStats {
+function playGame(
+  seed: number,
+  strategy: MaintenanceStrategy,
+  relicStrategy: RelicStrategy = 'skip',
+): GameStats {
   const g = new Game(seed);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
     handCounts: Array(10).fill(0), powerUses: { S: 0, H: 0, D: 0, C: 0 }, score: 0,
     maintenanceVisits: 0, sealPurchases: { banish: 0, duplicate: 0 },
-    sealSpend: 0, deckSize: 52, goldEnd: 0,
+    sealSpend: 0, relicPurchases: 0, relicSpend: 0, deckSize: 52, goldEnd: 0,
+    finalBossHpPct: 1,
   };
   const dt = 1 / 30;
   let guard = 0;
   while (g.phase !== 'victory' && g.phase !== 'defeat' && guard++ < 1_000_000) {
-    if (g.phase === 'prep') playPrep(g, stats, strategy);
+    if (g.phase === 'prep') playPrep(g, stats, strategy, relicStrategy);
     else {
       playCombat(g, stats);
       g.tickCombat(dt);
@@ -227,6 +270,8 @@ function playGame(seed: number, strategy: MaintenanceStrategy): GameStats {
   stats.score = g.score;
   stats.deckSize = g.deckSize;
   stats.goldEnd = g.gold;
+  const finalBoss = g.field.enemies.find((enemy) => enemy.kind === 'boss' && enemy.round === 60);
+  stats.finalBossHpPct = finalBoss ? Math.max(0, finalBoss.hp / finalBoss.maxHp) : 0;
   return stats;
 }
 
@@ -234,6 +279,7 @@ function playGame(seed: number, strategy: MaintenanceStrategy): GameStats {
 const games = Number(process.argv[2] ?? 30);
 const strategyArg = process.argv[3] ?? 'skip';
 if (strategyArg === 'compare') printComparison(games);
+else if (strategyArg === 'relic-compare') printRelicComparison(games);
 else if (MAINTENANCE_STRATEGIES.includes(strategyArg as MaintenanceStrategy)) {
   printDetails(runGames(games, strategyArg as MaintenanceStrategy), strategyArg as MaintenanceStrategy);
 } else {
@@ -242,6 +288,10 @@ else if (MAINTENANCE_STRATEGIES.includes(strategyArg as MaintenanceStrategy)) {
 
 function runGames(count: number, strategy: MaintenanceStrategy): GameStats[] {
   return Array.from({ length: count }, (_, index) => playGame(index + 1, strategy));
+}
+
+function runRelicGames(count: number, strategy: RelicStrategy): GameStats[] {
+  return Array.from({ length: count }, (_, index) => playGame(index + 1, 'both', strategy));
 }
 
 function printComparison(count: number): void {
@@ -270,6 +320,27 @@ function printComparison(count: number): void {
       + `${`${banish}/${duplicate}`.padStart(11)} `
       + `${avg((game) => game.deckSize).toFixed(1).padStart(6)} `
       + `${avg((game) => game.goldEnd).toFixed(0).padStart(6)}`,
+    );
+  }
+}
+
+function printRelicComparison(count: number): void {
+  console.log(`\n=== v2 유물 구매 전략 비교 (인장 both · 동일 시드 각 ${count}판) ===`);
+  console.log('전략       승률   평균R  강화Lv  구매수  유물G  종료G  최종보스HP');
+  for (const strategy of RELIC_STRATEGIES) {
+    const all = runRelicGames(count, strategy);
+    const wins = all.filter((game) => game.result === 'victory').length;
+    const avg = (value: (game: GameStats) => number) => (
+      all.reduce((sum, game) => sum + value(game), 0) / all.length
+    );
+    console.log(
+      `${strategy.padEnd(10)} ${((wins / count) * 100).toFixed(1).padStart(5)}% `
+      + `${avg((game) => game.roundReached).toFixed(1).padStart(6)} `
+      + `${avg((game) => game.upgradeLevel).toFixed(1).padStart(7)} `
+      + `${avg((game) => game.relicPurchases).toFixed(1).padStart(6)} `
+      + `${avg((game) => game.relicSpend).toFixed(1).padStart(6)} `
+      + `${avg((game) => game.goldEnd).toFixed(0).padStart(6)} `
+      + `${(avg((game) => game.finalBossHpPct) * 100).toFixed(1).padStart(10)}%`,
     );
   }
 }

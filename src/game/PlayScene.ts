@@ -9,7 +9,9 @@ import { FIELD_X, FIELD_Y, FieldRenderer, Fx, tileAtScreen } from './FieldRender
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
 import { FONT, UI, makeButton, makeText } from './ui';
-import { RELIC_DEFS } from '../core/relics';
+import {
+  RELIC_DEFS, RELIC_RARITY_LABELS, RELIC_SLOT_CAP, RelicId, relicSellPrice,
+} from '../core/relics';
 import {
   dailyDate, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
 } from '../meta/profile';
@@ -82,6 +84,8 @@ export class PlayScene extends Phaser.Scene {
   private windowFocusHandler!: () => void;
   private backgroundPaused = false;
   private backgroundSpeed = 1;
+  private trackedRelicTriggers = new Set<string>();
+  private lastRelicFeedbackAt = -Infinity;
 
   constructor() {
     super('play');
@@ -124,6 +128,8 @@ export class PlayScene extends Phaser.Scene {
     this.abandonedTracked = false;
     this.backgroundPaused = false;
     this.backgroundSpeed = 1;
+    this.trackedRelicTriggers.clear();
+    this.lastRelicFeedbackAt = -Infinity;
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -377,6 +383,10 @@ export class PlayScene extends Phaser.Scene {
         rank: this.core.lastHandRank,
         exchanges: this.core.exchangesUsed,
       }, this.runId);
+      this.showRelicTriggers(this.core.lastRelicTriggers, 'hand');
+      if (this.core.lastRelicGoldBonus > 0) this.flashCenter(`유물 보상  +${this.core.lastRelicGoldBonus}G`, 0xe6c84f, 17);
+    } else if (action === 'exchange') {
+      this.showRelicTriggers(this.core.lastRelicTriggers, 'exchange');
     }
     this.refreshUI();
   }
@@ -633,6 +643,18 @@ export class PlayScene extends Phaser.Scene {
         }, this.runId);
         this.audio.play('confirm');
       },
+      (id, cost, replaced, refund) => {
+        this.analytics.track('maintenance_relic_purchase', {
+          round: this.core.round,
+          relic: id,
+          cost,
+          replaced,
+          refund,
+          goldAfter: this.core.gold,
+          relicCount: this.core.relics.length,
+        }, this.runId);
+        this.audio.play('relic');
+      },
       (id, value) => {
         this.analytics.track('relic_sold', {
           round: this.core.round,
@@ -666,8 +688,35 @@ export class PlayScene extends Phaser.Scene {
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = this.add.rectangle(390, 270, 748, 520, 0x06100a, 0.93).setInteractive();
     children.push(dim);
-    const title = makeText(this, 390, 102, '보스 격파 · 유물을 선택하세요', 28, UI.gold, true).setOrigin(0.5);
+    const full = this.core.relics.length >= RELIC_SLOT_CAP;
+    let selectedNew: RelicId | null = null;
+    const title = makeText(
+      this,
+      390,
+      102,
+      full ? '보상 유물 선택 · 교체할 유물을 고르세요' : '보스 격파 · 유물을 선택하세요',
+      full ? 23 : 28,
+      UI.gold,
+      true,
+    ).setOrigin(0.5);
     children.push(title);
+    const replacementButtons: ReturnType<typeof makeButton>[] = [];
+    const finishSelection = (id: RelicId, replaceId?: RelicId) => {
+      if (!this.core.chooseRelic(id, replaceId)) return;
+      const refund = replaceId ? relicSellPrice(replaceId) : 0;
+      this.analytics.track('relic_selected', {
+        round: this.core.round,
+        relic: id,
+        replaced: replaceId ?? null,
+        refund,
+        relicCount: this.core.relics.length,
+      }, this.runId);
+      this.audio.play('relic');
+      this.relicOverlay?.destroy(true);
+      this.relicOverlay = null;
+      this.flashCenter(`${RELIC_DEFS[id].name} 획득${refund ? ` · +${refund}G` : ''}`, RELIC_DEFS[id].color);
+      this.refreshUI();
+    };
     this.core.relicChoices.forEach((id, index) => {
       const def = RELIC_DEFS[id];
       const x = 176 + index * 214;
@@ -677,21 +726,39 @@ export class PlayScene extends Phaser.Scene {
       const name = makeText(this, x, 278, def.name, 17, UI.text, true).setOrigin(0.5);
       const desc = makeText(this, x, 318, def.description, 13, UI.textDim).setOrigin(0.5).setAlign('center');
       desc.setWordWrapWidth(154, true);
+      const rarity = makeText(this, x, 367, RELIC_RARITY_LABELS[def.rarity], 11, UI.accentText, true).setOrigin(0.5);
       card.on('pointerdown', () => {
-        if (!this.core.chooseRelic(id)) return;
-        this.analytics.track('relic_selected', {
-          round: this.core.round,
-          relic: id,
-          relicCount: this.core.relics.length,
-        }, this.runId);
-        this.audio.play('relic');
-        this.relicOverlay?.destroy(true);
-        this.relicOverlay = null;
-        this.flashCenter(`${def.name} 획득`, def.color);
-        this.refreshUI();
+        if (!full) {
+          finishSelection(id);
+          return;
+        }
+        selectedNew = id;
+        title.setText(`${def.name} 선택 · 교체할 기존 유물을 누르세요`);
+        replacementButtons.forEach((button) => button.setEnabled(true));
       });
-      children.push(card, glyph, name, desc);
+      children.push(card, glyph, name, desc, rarity);
     });
+    if (full) {
+      this.core.relics.forEach((id, index) => {
+        const def = RELIC_DEFS[id];
+        const value = relicSellPrice(id);
+        const button = makeButton(
+          this,
+          110 + index * 140,
+          466,
+          126,
+          54,
+          `${def.glyph} ${def.name}\n교체 +${value}G`,
+          () => {
+            if (selectedNew) finishSelection(selectedNew, id);
+          },
+          { fill: 0x42544a, fontSize: 10 },
+        );
+        button.setEnabled(false);
+        replacementButtons.push(button);
+        children.push(button.container);
+      });
+    }
     this.relicOverlay = this.add.container(0, 0, children).setDepth(18);
   }
 
@@ -729,6 +796,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectFx(result: TickResult): void {
+    this.showRelicTriggers(result.relicTriggers, 'combat');
     for (const event of result.bossEvents) {
       if (event.type === 'tax') {
         this.flashCenter(`황금 폭군  −${event.amount}G`, UI.danger);
@@ -771,6 +839,24 @@ export class PlayScene extends Phaser.Scene {
       this.cameraShakenThisFrame = true;
       this.cameras.main.shake(Math.min(130, 45 + result.deaths.length * 5), 0.0014);
     }
+  }
+
+  private showRelicTriggers(ids: readonly RelicId[], context: 'hand' | 'exchange' | 'combat'): void {
+    if (ids.length === 0) return;
+    for (const id of ids) {
+      const key = `${this.core.round}:${id}`;
+      if (this.trackedRelicTriggers.has(key)) continue;
+      this.trackedRelicTriggers.add(key);
+      this.analytics.track('relic_triggered', {
+        round: this.core.round,
+        relic: id,
+        context,
+      }, this.runId);
+    }
+    const now = performance.now();
+    if (now - this.lastRelicFeedbackAt < 1200) return;
+    this.lastRelicFeedbackAt = now;
+    this.panel.pulseRelics(ids);
   }
 
   private trackBossAnalytics(result: TickResult, roundBefore: number): void {
