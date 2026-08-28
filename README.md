@@ -62,6 +62,7 @@ npm install
 npm run dev        # 개발 서버 (http://localhost:5173)
 npm test           # 코어 로직 단위 테스트 (vitest)
 npm run sim -- 30  # 헤드리스 밸런스 시뮬레이션 30판
+npm run sim -- 30 compare  # 같은 시드로 정비소 4전략 경제 비교
 npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
 SINGLEFILE=1 npm run build  # 단일 HTML 파일 빌드 (배포/공유용)
 node scripts/smoke.mjs      # E2E 스모크 (Chrome 필요, 프리뷰 서버 선행)
