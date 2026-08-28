@@ -1,4 +1,4 @@
-export const ANALYTICS_KEY = 'poker-defense:v1:analytics';
+export const ANALYTICS_KEY = 'poker-defense:v2-beta:analytics';
 import { CURRENT_VERSION } from './patchNotes';
 
 export type AnalyticsConsent = 'unknown' | 'granted' | 'denied';

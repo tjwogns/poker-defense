@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  dailyDate, dailySeed, defaultProfile, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, recordRun, saveProfile,
+  PROFILE_KEY, dailyDate, dailySeed, defaultProfile, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, recordRun, saveProfile,
 } from '../src/meta/profile';
 
 class MemoryStorage {
@@ -24,14 +24,14 @@ const victory = {
 describe('profile persistence', () => {
   test('손상된 저장 데이터는 예외 없이 기본 프로필로 복구한다', () => {
     const storage = new MemoryStorage();
-    storage.setItem('poker-defense:v1:profile', '{broken');
+    storage.setItem(PROFILE_KEY, '{broken');
 
     expect(loadProfile(storage)).toEqual(defaultProfile());
   });
 
-  test('v1 프로필은 기록을 보존하며 v2와 빈 최근 런으로 마이그레이션한다', () => {
+  test('이전 형식의 베타 프로필은 기록을 보존하며 최신 형식으로 마이그레이션한다', () => {
     const storage = new MemoryStorage();
-    storage.setItem('poker-defense:v1:profile', JSON.stringify({
+    storage.setItem(PROFILE_KEY, JSON.stringify({
       version: 1, totalRuns: 4, wins: 1, bestScore: 5000, bestRound: 33,
       tutorialDone: true, soundEnabled: false, achievements: ['first_run'], daily: null,
     }));
@@ -39,6 +39,15 @@ describe('profile persistence', () => {
     expect(loadProfile(storage)).toMatchObject({
       version: 3, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [],
     });
+  });
+
+  test('v1 정식판 프로필은 v2 베타 기록에 섞이지 않는다', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('poker-defense:v1:profile', JSON.stringify({
+      version: 3, totalRuns: 9, wins: 2, bestScore: 99_999,
+    }));
+
+    expect(loadProfile(storage)).toEqual(defaultProfile());
   });
 
   test('저장 후 다시 읽으면 기록과 설정을 보존한다', () => {

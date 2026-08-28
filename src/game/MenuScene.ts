@@ -9,6 +9,7 @@ import { UI, makeButton, makeText } from './ui';
 import { LeaderboardOverlay } from './LeaderboardOverlay';
 import { PatchNotesOverlay } from './PatchNotesOverlay';
 import { CURRENT_VERSION, PATCH_NOTES } from '../meta/patchNotes';
+import { leaderboardConfigured } from '../meta/leaderboard';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -68,7 +69,8 @@ export class MenuScene extends Phaser.Scene {
       leaderboardOverlay?.destroy();
       leaderboardOverlay = null;
     };
-    makeButton(this, 770, 449, 250, 38, '온라인 일일 랭킹', () => {
+    const onlineRankingEnabled = leaderboardConfigured();
+    makeButton(this, 770, 449, 250, 38, onlineRankingEnabled ? '온라인 일일 랭킹' : 'v2 베타 · 랭킹 비활성', () => {
       if (leaderboardOverlay) return;
       leaderboardOverlay = new LeaderboardOverlay(
         this,
@@ -78,7 +80,7 @@ export class MenuScene extends Phaser.Scene {
         closeLeaderboard,
       );
       analytics.track('leaderboard_viewed', { date: challengeDate });
-    }, { fill: 0x6ca4d9, fontSize: 13 });
+    }, { fill: onlineRankingEnabled ? 0x6ca4d9 : 0x42544a, fontSize: 13 });
     this.input.keyboard?.on('keydown-ESC', closeLeaderboard);
 
     const sound = makeButton(this, 1160, 54, 150, 36, profile.soundEnabled ? 'SOUND ON' : 'SOUND OFF', () => {

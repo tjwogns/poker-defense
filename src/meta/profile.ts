@@ -1,7 +1,7 @@
 import { HandRank } from '../core/cards/types';
 import { RunSummary } from '../core/scoring';
 
-export const PROFILE_KEY = 'poker-defense:v1:profile';
+export const PROFILE_KEY = 'poker-defense:v2-beta:profile';
 
 export type RunMode = 'standard' | 'daily';
 export type AchievementId =

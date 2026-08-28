@@ -70,7 +70,6 @@ jobs:
         working-directory: releases/v2
         env:
           VITE_ANALYTICS_ENDPOINT: ${{ vars.VITE_ANALYTICS_ENDPOINT }}
-          VITE_LEADERBOARD_ENDPOINT: ${{ vars.VITE_LEADERBOARD_ENDPOINT }}
 
       - name: Assemble v1 and v2 site
         run: |
