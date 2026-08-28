@@ -3,6 +3,9 @@
 포커 족보로 유닛을 뽑아 순환 경로를 도는 적을 막는 웹 디펜스 게임.
 카드 조합, 군단 성장, 순환형 전장을 결합한 독립 오리지널 프로젝트다.
 
+- v1.4 정식판: https://tjwogns.github.io/poker-defense/
+- v2.0 베타판: https://tjwogns.github.io/poker-defense/v2/
+
 ## v1.4 Build Synergy
 
 - 필드의 서로 다른 유닛 종류로 활성화하는 군단·정밀·마도·왕실·용족 시너지
