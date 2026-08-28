@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { DeckSealId, Game, Phase } from '../core/game';
 import { Enemy, TickResult, enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
+import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
 import { SUIT_POWER_DEFS } from '../core/abilities';
 import { TICK_RATE } from '../core/balance';
@@ -814,9 +815,15 @@ export class PlayScene extends Phaser.Scene {
       const from = unitPos(unit);
       const to = enemyPos(enemy);
       this.fx.push({
+        kind: 'attack',
+        unitId: unit.id,
         x1: from.x, y1: from.y, x2: to.x, y2: to.y,
-        ttl: 0.08,
+        ttl: 0.2,
+        duration: 0.2,
         color: UNIT_DEFS[unit.tier].color,
+        tier: unit.tier,
+        targetKind: enemy.kind,
+        seed: atk.targetId * 31 + atk.unitId,
       });
       if (!this.damageLabelShownThisFrame) {
         this.damageLabelShownThisFrame = true;
@@ -834,6 +841,20 @@ export class PlayScene extends Phaser.Scene {
           onComplete: () => damage.destroy(),
         });
       }
+    }
+    for (const enemy of result.deaths) {
+      if (this.fx.length >= 60) break;
+      const at = enemyPos(enemy);
+      this.fx.push({
+        kind: 'death',
+        x1: at.x, y1: at.y, x2: at.x, y2: at.y,
+        ttl: enemy.kind === 'boss' ? 0.8 : 0.46,
+        duration: enemy.kind === 'boss' ? 0.8 : 0.46,
+        color: ENEMY_KINDS[enemy.kind].color,
+        tier: HandRank.HighCard,
+        targetKind: enemy.kind,
+        seed: enemy.id * 47,
+      });
     }
     if (result.deaths.length > 0 && !this.cameraShakenThisFrame && !this.reducedMotion()) {
       this.cameraShakenThisFrame = true;
