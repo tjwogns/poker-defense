@@ -27,6 +27,7 @@ import { SYNERGY_DEFS, UnitFamily } from '../core/synergies';
 import { safeFrameDelta } from './timing';
 import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
+import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
 
 const DT = 1 / TICK_RATE;
 
@@ -743,31 +744,38 @@ export class PlayScene extends Phaser.Scene {
     this.audio.play(won ? 'win' : 'lose');
     this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
     saveProfile(localStorage, this.profile);
+    const analysis = won ? null : analyzeDefeat({
+      reason: this.core.defeatReason,
+      round: this.core.round,
+      fieldCap: this.core.fieldCap,
+      enemies: this.core.field.enemies,
+      unitTiers: this.core.field.units.map((unit) => unit.tier),
+      upgradeLevel: this.core.upgradeLevel,
+      bestHand: this.core.bestHand,
+      relicCount: this.core.relics.length,
+      powerCharges: this.core.powerCharges,
+    });
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.72).setDepth(20);
     this.add
-      .text(640, 280, won ? '승리!' : '패배…', {
-        fontFamily: FONT, fontSize: '56px', fontStyle: 'bold',
+      .text(640, won ? 280 : 96, won ? '승리!' : '패배 분석', {
+        fontFamily: FONT, fontSize: won ? '56px' : '42px', fontStyle: 'bold',
         color: won ? UI.gold : UI.dangerText,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(640, 350, endMessage, {
+      .text(640, won ? 350 : 154, endMessage, {
         fontFamily: FONT, fontSize: '20px', color: UI.text,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(640, 392, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
+      .text(640, won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
         fontFamily: FONT, fontSize: '18px', color: UI.gold,
       })
       .setOrigin(0.5)
       .setDepth(21);
-    if (!won) {
-      this.add.text(640, 423, this.defeatTip(), {
-        fontFamily: FONT, fontSize: '14px', color: UI.accentText,
-      }).setOrigin(0.5).setDepth(21);
-    }
+    if (analysis) this.renderDefeatAnalysis(analysis);
     const summary = this.core.summary();
     this.analytics.track('run_finished', {
       mode: this.mode,
@@ -779,15 +787,22 @@ export class PlayScene extends Phaser.Scene {
       upgradeLevel: summary.upgradeLevel,
       relics: [...summary.relics],
       durationSeconds: this.elapsedSeconds(),
+      ...(analysis ? {
+        defeatCause: this.core.defeatReason ?? 'unknown',
+        aliveEnemies: analysis.aliveEnemies,
+        bossHpPercent: analysis.bossHpPercent,
+        activeSynergies: [...analysis.activeSynergyIds],
+        unusedCharges: analysis.unusedCharges,
+      } : {}),
     }, this.runId);
     const date = this.runDate;
-    const btn = makeButton(this, 640, won ? 452 : 470, 220, 52, '다시 시작', () => {
+    const btn = makeButton(this, 640, won ? 452 : 510, 220, 52, '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
     }, { fontSize: 18 });
     btn.container.setDepth(22);
-    const actionY = won ? 520 : 535;
+    const actionY = won ? 520 : 568;
     if (this.mode === 'daily') {
       const ranking = makeButton(this, 384, actionY, 220, 42, '일일 랭킹 등록', async () => {
         ranking.setEnabled(false);
@@ -835,8 +850,36 @@ export class PlayScene extends Phaser.Scene {
       this.flashCenter('PNG 카드를 저장했습니다', 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
     card.container.setDepth(22);
-    const home = makeButton(this, 640, won ? 578 : 592, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
+    const home = makeButton(this, 640, won ? 578 : 626, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
     home.container.setDepth(22);
+  }
+
+  private renderDefeatAnalysis(analysis: DefeatAnalysis): void {
+    this.add.rectangle(640, 342, 900, 250, UI.panelDeep, 0.98)
+      .setStrokeStyle(1, UI.panelLine, 1)
+      .setDepth(21);
+    this.add.text(226, 232, '전투 리포트', {
+      fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
+    }).setDepth(22);
+    this.add.text(226, 264, analysis.cause, {
+      fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: UI.text,
+    }).setDepth(22);
+    this.add.text(226, 298, `${analysis.boss}   ·   ${analysis.build}`, {
+      fontFamily: FONT, fontSize: '14px', color: UI.textDim,
+    }).setDepth(22);
+    this.add.text(226, 328, `시너지  ${analysis.synergies}`, {
+      fontFamily: FONT, fontSize: '14px', color: UI.accentText,
+    }).setDepth(22);
+    this.add.text(226, 356, analysis.skills, {
+      fontFamily: FONT, fontSize: '14px', color: UI.textDim,
+    }).setDepth(22);
+    this.add.text(226, 392, '다음 시도', {
+      fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
+    }).setDepth(22);
+    this.add.text(226, 419, analysis.tips.map((tip) => `• ${tip}`).join('\n'), {
+      fontFamily: FONT, fontSize: '14px', color: UI.text, lineSpacing: 8,
+      wordWrap: { width: 820 },
+    }).setDepth(22);
   }
 
   private reducedMotion(): boolean {
@@ -878,21 +921,6 @@ export class PlayScene extends Phaser.Scene {
 
   private elapsedSeconds(): number {
     return Math.max(0, Math.round((performance.now() - this.runStartedAt) / 1000));
-  }
-
-  private defeatTip(): string {
-    if (this.core.defeatReason === 'final-boss-timeout') {
-      return 'TIP · 최종전 전에는 보스 피해 시너지와 공격 스킬 충전을 준비하세요';
-    }
-    if (this.core.upgradeLevel < 3) {
-      return 'TIP · 골드를 공격 강화에 투자하면 누적 적을 더 빨리 정리할 수 있습니다';
-    }
-    if (this.core.bestHand <= HandRank.Pair) {
-      return 'TIP · 같은 숫자와 무늬를 HOLD해 투페어 이상의 유닛을 노려보세요';
-    }
-    const charges = Object.values(this.core.powerCharges).reduce((sum, count) => sum + count, 0);
-    if (charges > 0) return 'TIP · 남은 무늬 스킬을 Q/W/R/T로 사용해 위기를 넘겨보세요';
-    return 'TIP · 위협도 60 전에 합성과 재배치로 경로 화력을 집중하세요';
   }
 
 }
