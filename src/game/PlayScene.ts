@@ -27,7 +27,7 @@ import { Analytics, getAnalytics } from '../meta/analytics';
 import { tileCanReachPath } from '../core/map';
 import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
 import { SYNERGY_DEFS, UnitFamily } from '../core/synergies';
-import { safeFrameDelta } from './timing';
+import { pauseStateAfterFocus, safeFrameDelta } from './timing';
 import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
 import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
@@ -233,8 +233,9 @@ export class PlayScene extends Phaser.Scene {
       this.acc = 0;
       this.speed = this.backgroundSpeed;
       if (this.backgroundPaused) {
+        this.paused = pauseStateAfterFocus(this.paused, this.backgroundPaused);
         this.backgroundPaused = false;
-        this.flashCenter(`게임 일시정지 · ×${this.speed} 유지 · SPACE로 계속`, 0xe6c84f);
+        this.flashCenter(`게임 재개 · ×${this.speed} 유지`, 0xe6c84f);
         this.refreshUI();
       }
     };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { MAX_FRAME_DELTA_SECONDS, safeFrameDelta } from '../src/game/timing';
+import { MAX_FRAME_DELTA_SECONDS, pauseStateAfterFocus, safeFrameDelta } from '../src/game/timing';
 
 describe('frame timing', () => {
   test('일반 프레임 시간은 초 단위로 변환한다', () => {
@@ -13,5 +13,13 @@ describe('frame timing', () => {
   test('잘못된 델타는 무시한다', () => {
     expect(safeFrameDelta(-1)).toBe(0);
     expect(safeFrameDelta(Number.NaN)).toBe(0);
+  });
+
+  test('창 전환으로 자동 정지된 전투는 포커스 복귀 시 재개한다', () => {
+    expect(pauseStateAfterFocus(true, true)).toBe(false);
+  });
+
+  test('사용자가 직접 정지한 전투는 포커스 복귀 후에도 유지한다', () => {
+    expect(pauseStateAfterFocus(true, false)).toBe(true);
   });
 });
