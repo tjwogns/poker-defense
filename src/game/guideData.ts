@@ -12,9 +12,12 @@ const HAND_RULES: Record<HandRank, string> = {
   [HandRank.FourKind]: '같은 숫자 4장',
   [HandRank.StraightFlush]: '같은 무늬의 연속 숫자 5장',
   [HandRank.RoyalFlush]: '같은 무늬의 10-J-Q-K-A',
+  [HandRank.FiveKind]: '같은 숫자 5장 · 복제 필요',
+  [HandRank.FlushHouse]: '같은 무늬의 트리플 + 페어',
+  [HandRank.FlushFive]: '완전히 같은 카드 5장',
 };
 
-function traitLabel(def: UnitDef): string {
+export function traitLabel(def: UnitDef): string {
   const trait = def.traits;
   if (trait.splash) return `범위 피해 · 반경 ${trait.splash}칸`;
   if (trait.chain) return `연쇄 공격 · 최대 ${trait.chain.count}기`;

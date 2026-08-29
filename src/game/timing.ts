@@ -10,3 +10,8 @@ export function safeFrameDelta(deltaMs: number): number {
 export function pauseStateAfterFocus(paused: boolean, backgroundPaused: boolean): boolean {
   return backgroundPaused ? false : paused;
 }
+
+/** 복귀 이벤트가 중복·역순으로 와도 사용자가 고른 배속은 절대 덮어쓰지 않는다. */
+export function speedAfterFocus(selectedSpeed: number): number {
+  return selectedSpeed;
+}

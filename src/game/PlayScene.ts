@@ -3,7 +3,7 @@ import { DeckSealId, Game, Phase } from '../core/game';
 import { Enemy, TickResult, enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
-import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
+import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
 import { TICK_RATE } from '../core/balance';
 import { FIELD_X, FIELD_Y, FieldRenderer, Fx, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
@@ -13,7 +13,7 @@ import {
   RELIC_DEFS, RELIC_RARITY_LABELS, RELIC_SLOT_CAP, RelicId, relicSellPrice,
 } from '../core/relics';
 import {
-  dailyDate, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
+  dailyDate, discoverHiddenHand, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
 } from '../meta/profile';
 import { AudioManager } from './AudioManager';
 import { TutorialOverlay } from './TutorialOverlay';
@@ -25,7 +25,7 @@ import { Analytics, getAnalytics } from '../meta/analytics';
 import { tileCanReachPath } from '../core/map';
 import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
 import { SYNERGY_DEFS, UnitFamily } from '../core/synergies';
-import { pauseStateAfterFocus, safeFrameDelta } from './timing';
+import { pauseStateAfterFocus, safeFrameDelta, speedAfterFocus } from './timing';
 import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
 import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
@@ -84,7 +84,6 @@ export class PlayScene extends Phaser.Scene {
   private windowBlurHandler!: () => void;
   private windowFocusHandler!: () => void;
   private backgroundPaused = false;
-  private backgroundSpeed = 1;
   private trackedRelicTriggers = new Set<string>();
   private lastRelicFeedbackAt = -Infinity;
 
@@ -129,7 +128,6 @@ export class PlayScene extends Phaser.Scene {
     this.bossFirstSeenAt.clear();
     this.abandonedTracked = false;
     this.backgroundPaused = false;
-    this.backgroundSpeed = 1;
     this.trackedRelicTriggers.clear();
     this.lastRelicFeedbackAt = -Infinity;
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
@@ -154,6 +152,9 @@ export class PlayScene extends Phaser.Scene {
       },
       onSpeed: (n) => {
         this.speed = n;
+        // 포커스 복귀 이벤트가 누락된 Windows Chrome에서도 배속 버튼 입력은
+        // 자동 정지를 해제하고 즉시 선택 배속으로 재개해야 한다.
+        if (this.backgroundPaused && !document.hidden) this.resumeFromBackground();
         this.refreshUI();
       },
       onUpgrade: () => {
@@ -222,7 +223,6 @@ export class PlayScene extends Phaser.Scene {
     window.addEventListener('pagehide', this.pageHideHandler);
     this.windowBlurHandler = () => {
       this.acc = 0;
-      this.backgroundSpeed = this.speed;
       if (this.core.phase === 'combat' && !this.paused && !this.backgroundPaused) {
         this.paused = true;
         this.backgroundPaused = true;
@@ -233,14 +233,7 @@ export class PlayScene extends Phaser.Scene {
       }
     };
     this.windowFocusHandler = () => {
-      this.acc = 0;
-      this.speed = this.backgroundSpeed;
-      if (this.backgroundPaused) {
-        this.paused = pauseStateAfterFocus(this.paused, this.backgroundPaused);
-        this.backgroundPaused = false;
-        this.flashCenter(`게임 재개 · ×${this.speed} 유지`, 0xe6c84f);
-        this.refreshUI();
-      }
+      this.resumeFromBackground();
     };
     this.visibilityHandler = () => {
       if (document.hidden) this.windowBlurHandler();
@@ -257,10 +250,28 @@ export class PlayScene extends Phaser.Scene {
       this.trackAbandoned('scene_left');
     });
     // E2E/디버그용 훅
-    (window as unknown as { __game?: Game }).__game = this.core;
+    const debugWindow = window as unknown as {
+      __game?: Game;
+      __playDebug?: {
+        speed(): number;
+        paused(): boolean;
+        backgroundPaused(): boolean;
+      };
+    };
+    debugWindow.__game = this.core;
+    debugWindow.__playDebug = {
+      speed: () => this.speed,
+      paused: () => this.paused,
+      backgroundPaused: () => this.backgroundPaused,
+    };
   }
 
   update(_time: number, deltaMs: number): void {
+    // 일부 Windows Chrome 환경은 탭 복귀 시 focus 이벤트를 누락한다.
+    // 실제로 보이는 활성 문서라면 게임 루프에서 한 번 더 자동 정지를 복구한다.
+    if (this.backgroundPaused && !document.hidden && document.hasFocus()) {
+      this.resumeFromBackground();
+    }
     const dt = safeFrameDelta(deltaMs);
     this.damageLabelShownThisFrame = false;
     this.cameraShakenThisFrame = false;
@@ -269,6 +280,18 @@ export class PlayScene extends Phaser.Scene {
     this.bossHud.refresh(this.core);
     this.syncRelicPicker();
     this.syncMaintenance();
+  }
+
+  private resumeFromBackground(): void {
+    this.acc = 0;
+    // Chrome/Windows는 focus와 visibilitychange를 중복·역순으로 보낼 수 있다.
+    // 복귀 이벤트가 사용자가 고른 배속을 과거 값(주로 ×1)으로 덮어쓰지 않게 한다.
+    this.speed = speedAfterFocus(this.speed);
+    if (!this.backgroundPaused) return;
+    this.paused = pauseStateAfterFocus(this.paused, this.backgroundPaused);
+    this.backgroundPaused = false;
+    this.flashCenter(`게임 재개 · ×${this.speed} 유지`, 0xe6c84f);
+    this.refreshUI();
   }
 
   private stepCombat(dt: number): void {
@@ -379,14 +402,25 @@ export class PlayScene extends Phaser.Scene {
   private onHandAction(action: 'hold' | 'exchange' | 'confirm'): void {
     this.audio.play(action === 'confirm' ? 'confirm' : action === 'exchange' ? 'card' : 'click');
     const rank = this.core.lastHandRank;
+    let newlyDiscovered = false;
+    if (action === 'confirm' && rank !== null) {
+      const discovery = discoverHiddenHand(this.profile, rank);
+      newlyDiscovered = discovery.discovered;
+      if (newlyDiscovered) {
+        this.profile = discovery.profile;
+        saveProfile(localStorage, this.profile);
+      }
+    }
     if (this.core.handConfirmed && rank !== null && rank >= HandRank.FullHouse) {
-      this.celebrate(rank);
+      this.celebrate(rank, newlyDiscovered);
     }
     if (action === 'confirm' && this.core.lastHandRank !== null) {
       this.analytics.track('hand_confirmed', {
         round: this.core.round,
         rank: this.core.lastHandRank,
         exchanges: this.core.exchangesUsed,
+        hidden: isHiddenHand(this.core.lastHandRank),
+        newlyDiscovered,
       }, this.runId);
       this.showRelicTriggers(this.core.lastRelicTriggers, 'hand');
       if (this.core.lastRelicGoldBonus > 0) this.flashCenter(`유물 보상  +${this.core.lastRelicGoldBonus}G`, 0xe6c84f, 17);
@@ -592,7 +626,7 @@ export class PlayScene extends Phaser.Scene {
     if (this.guideOverlay || this.deckOverlay || this.maintenanceOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
     this.guideWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
-    this.guideOverlay = new GuideOverlay(this, () => this.closeGuide());
+    this.guideOverlay = new GuideOverlay(this, this.profile.discoveredHands, () => this.closeGuide());
     this.audio.play('click');
     this.refreshUI();
   }
@@ -756,9 +790,13 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private celebrate(rank: HandRank): void {
-    const label = makeText(this, 390, 280, HAND_NAMES_KO[rank] + '!', 44, UI.gold, true)
+  private celebrate(rank: HandRank, newlyDiscovered = false): void {
+    const text = newlyDiscovered
+      ? `${HAND_NAMES_KO[rank]}!\nHIDDEN DISCOVERED`
+      : `${HAND_NAMES_KO[rank]}!`;
+    const label = makeText(this, 390, 280, text, newlyDiscovered ? 34 : 44, newlyDiscovered ? '#ffe27a' : UI.gold, true)
       .setOrigin(0.5)
+      .setAlign('center')
       .setDepth(10)
       .setScale(0.4)
       .setShadow(0, 3, '#000000', 8);

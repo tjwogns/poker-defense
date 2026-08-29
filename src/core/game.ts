@@ -283,7 +283,11 @@ export class Game {
     const bonus = this.round % BOSS_EVERY === 0
       ? relicModifiers(this.relics).bossRankBonus
       : 0;
-    const rank = Math.min(HandRank.RoyalFlush, baseRank + bonus) as HandRank;
+    // 히든 족보는 실제 카드 조합으로만 얻는다. 보스 유물의 +1 승급은
+    // 표준 족보 안에서만 적용하며, 이미 완성한 히든 족보는 낮추지 않는다.
+    const rank = baseRank > HandRank.RoyalFlush
+      ? baseRank
+      : Math.min(HandRank.RoyalFlush, baseRank + bonus) as HandRank;
     this.lastHandRank = rank;
     this.bestHand = Math.max(this.bestHand, rank) as HandRank;
     this.score += scoreForHand(rank);

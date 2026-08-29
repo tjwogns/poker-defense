@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sim": "tsx src/sim/run.ts"
+    "sim": "tsx src/sim/run.ts",
+    "smoke:hidden": "node scripts/hidden-smoke.mjs",
+    "smoke:focus": "node scripts/focus-smoke.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1"

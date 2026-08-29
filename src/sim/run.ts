@@ -12,7 +12,7 @@ import { RelicId } from '../core/relics';
 import { UNIT_DEFS } from '../core/units';
 
 const GOLD_RESERVE = 300; // 이자용으로 남길 골드
-const MAINTENANCE_STRATEGIES = ['skip', 'banish', 'duplicate', 'both'] as const;
+const MAINTENANCE_STRATEGIES = ['skip', 'banish', 'duplicate', 'both', 'hidden'] as const;
 type MaintenanceStrategy = typeof MAINTENANCE_STRATEGIES[number];
 const RELIC_STRATEGIES = ['skip', 'always', 'targeted'] as const;
 type RelicStrategy = typeof RELIC_STRATEGIES[number];
@@ -44,7 +44,20 @@ function placementOrder(): Array<[number, number]> {
 const PLACEMENT = placementOrder();
 
 /** 홀드 전략: 페어 이상 랭크 그룹 유지, 없으면 4장 플러시 드로우 유지 */
-function chooseHolds(g: Game): void {
+function chooseHolds(g: Game, strategy: MaintenanceStrategy): void {
+  if (strategy === 'hidden') {
+    const rankCounts = new Map<number, number>();
+    for (const card of g.deckSnapshot()) rankCounts.set(card.rank, (rankCounts.get(card.rank) ?? 0) + 1);
+    const targetRank = [...rankCounts.entries()]
+      .filter(([, count]) => count > 4)
+      .sort((a, b) => b[1] - a[1] || b[0] - a[0])[0]?.[0];
+    if (targetRank !== undefined && g.hand.some((card) => card.rank === targetRank)) {
+      g.hand.forEach((card, index) => {
+        if (card.rank === targetRank && !g.holds[index]) g.toggleHold(index);
+      });
+      return;
+    }
+  }
   const counts = new Map<number, number>();
   for (const c of g.hand) counts.set(c.rank, (counts.get(c.rank) ?? 0) + 1);
   const hasGroup = [...counts.values()].some((n) => n >= 2);
@@ -84,7 +97,7 @@ function playPrep(
   if (g.maintenancePending) playMaintenance(g, stats, strategy, relicStrategy);
   // 이미 트리플 이상이면 그대로 확정, 아니면 무료 교환 1회
   if (evaluateHand(g.hand) < HandRank.Trips) {
-    chooseHolds(g);
+    chooseHolds(g, strategy);
     g.doExchange();
   }
   // 부유하면 유료 교환으로 고족보 도박 (설계 의도: 도박 vs 확정 강화)
@@ -94,7 +107,7 @@ function playPrep(
     evaluateHand(g.hand) < HandRank.FullHouse
   ) {
     clearHolds(g);
-    chooseHolds(g);
+    chooseHolds(g, strategy);
     if (!g.doExchange()) break;
   }
   const rank = g.confirmHand();
@@ -146,7 +159,8 @@ function playMaintenance(
   stats.maintenanceVisits++;
   const wanted: DeckSealId[] = strategy === 'both'
     ? ['banish', 'duplicate']
-    : strategy === 'skip' ? [] : [strategy];
+    : strategy === 'skip' ? []
+      : strategy === 'hidden' ? ['duplicate'] : [strategy];
   for (const id of wanted) {
     const cost = g.maintenanceOffer(id).cost;
     if (!g.buyMaintenanceSeal(id)) continue;
@@ -183,7 +197,7 @@ function useOwnedSeals(g: Game, strategy: MaintenanceStrategy): void {
       if (!target || !g.applyDeckSeal('banish', target)) break;
     }
   }
-  if (strategy === 'duplicate' || strategy === 'both') {
+  if (strategy === 'duplicate' || strategy === 'both' || strategy === 'hidden') {
     const target = duplicateTarget(g);
     while (target && g.deckSeals.duplicate > 0 && g.applyDeckSeal('duplicate', target)) {
       // 한 방문에서 산 재고를 모두 같은 핵심 카드에 집중한다.
@@ -236,7 +250,7 @@ function playGame(
   const g = new Game(seed);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
-    handCounts: Array(10).fill(0), score: 0,
+    handCounts: Array(HandRank.FlushFive + 1).fill(0), score: 0,
     maintenanceVisits: 0, sealPurchases: { banish: 0, duplicate: 0 },
     sealSpend: 0, relicPurchases: 0, relicSpend: 0, deckSize: 52, goldEnd: 0,
     finalBossHpPct: 1,
@@ -265,6 +279,7 @@ const games = Number(process.argv[2] ?? 30);
 const strategyArg = process.argv[3] ?? 'skip';
 if (strategyArg === 'compare') printComparison(games);
 else if (strategyArg === 'relic-compare') printRelicComparison(games);
+else if (strategyArg === 'hidden-compare') printHiddenComparison(games);
 else if (MAINTENANCE_STRATEGIES.includes(strategyArg as MaintenanceStrategy)) {
   printDetails(runGames(games, strategyArg as MaintenanceStrategy), strategyArg as MaintenanceStrategy);
 } else {
@@ -330,6 +345,29 @@ function printRelicComparison(count: number): void {
   }
 }
 
+function printHiddenComparison(count: number): void {
+  console.log(`\n=== v2 히든 족보 전략 비교 (동일 시드 각 ${count}판) ===`);
+  console.log('전략       승률   평균R  복제수  히든패  파이브/하우스/플러시5');
+  for (const strategy of ['skip', 'duplicate', 'hidden'] as MaintenanceStrategy[]) {
+    const all = runGames(count, strategy);
+    const wins = all.filter((game) => game.result === 'victory').length;
+    const avgRound = all.reduce((sum, game) => sum + game.roundReached, 0) / all.length;
+    const duplicates = all.reduce((sum, game) => sum + game.sealPurchases.duplicate, 0);
+    const hidden = all.reduce(
+      (sum, game) => sum + game.handCounts.slice(HandRank.FiveKind).reduce((a, b) => a + b, 0),
+      0,
+    );
+    const byRank = [HandRank.FiveKind, HandRank.FlushHouse, HandRank.FlushFive]
+      .map((rank) => all.reduce((sum, game) => sum + game.handCounts[rank], 0));
+    console.log(
+      `${strategy.padEnd(10)} ${((wins / count) * 100).toFixed(1).padStart(5)}% `
+      + `${avgRound.toFixed(1).padStart(6)} `
+      + `${(duplicates / count).toFixed(1).padStart(6)} `
+      + `${String(hidden).padStart(6)}  ${byRank.join('/')}`,
+    );
+  }
+}
+
 function printDetails(all: GameStats[], strategy: MaintenanceStrategy): void {
   const wins = all.filter((game) => game.result === 'victory').length;
   const avgRound = all.reduce((sum, game) => sum + game.roundReached, 0) / all.length;
@@ -340,7 +378,7 @@ function printDetails(all: GameStats[], strategy: MaintenanceStrategy): void {
   const median = rounds[Math.floor(rounds.length / 2)];
   const totalHands = all.reduce<number[]>(
     (acc, game) => acc.map((value, index) => value + game.handCounts[index]),
-    Array(10).fill(0),
+    Array(HandRank.FlushFive + 1).fill(0),
   );
   const handSum = totalHands.reduce((a, b) => a + b, 0);
   console.log(`\n=== 포커 디펜스 시뮬레이션 (${all.length}판 · 정비소 ${strategy}) ===`);
@@ -351,7 +389,7 @@ function printDetails(all: GameStats[], strategy: MaintenanceStrategy): void {
   console.log(`평균 정비 지출: ${avgSpend.toFixed(1)}G`);
   console.log(`도달 분포     : ${rounds.join(' ')}`);
   console.log('\n족보 분포 (교환 1회 포함 실효 확률):');
-  for (let tier = 9; tier >= 0; tier--) {
+  for (let tier = HandRank.FlushFive; tier >= HandRank.HighCard; tier--) {
     const pct = handSum > 0 ? ((totalHands[tier] / handSum) * 100).toFixed(2) : '0.00';
     console.log(
       `  ${HAND_NAMES_KO[tier as HandRank].padEnd(12)} `

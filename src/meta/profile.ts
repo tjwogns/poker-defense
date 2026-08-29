@@ -1,4 +1,4 @@
-import { HandRank } from '../core/cards/types';
+import { HandRank, isHiddenHand } from '../core/cards/types';
 import { RunSummary } from '../core/scoring';
 
 export const PROFILE_KEY = 'poker-defense:v2-beta:profile';
@@ -22,7 +22,7 @@ export const ACHIEVEMENTS: Record<AchievementId, { name: string; description: st
 };
 
 export interface Profile {
-  version: 3;
+  version: 4;
   totalRuns: number;
   wins: number;
   bestScore: number;
@@ -34,6 +34,7 @@ export interface Profile {
   recentRuns: RunLog[];
   leaderboardPlayerId: string;
   leaderboardName: string;
+  discoveredHands: HandRank[];
 }
 
 export interface RunLog {
@@ -55,7 +56,7 @@ export interface StorageLike {
 
 export function defaultProfile(): Profile {
   return {
-    version: 3,
+    version: 4,
     totalRuns: 0,
     wins: 0,
     bestScore: 0,
@@ -67,6 +68,7 @@ export function defaultProfile(): Profile {
     recentRuns: [],
     leaderboardPlayerId: '',
     leaderboardName: '',
+    discoveredHands: [],
   };
 }
 
@@ -93,10 +95,23 @@ export function loadProfile(storage: StorageLike): Profile {
         : [],
       leaderboardPlayerId: safeIdentityPart(parsed.leaderboardPlayerId, 100),
       leaderboardName: safeIdentityPart(parsed.leaderboardName, 30),
+      discoveredHands: Array.isArray(parsed.discoveredHands)
+        ? parsed.discoveredHands.filter(isHiddenHandValue)
+        : [],
     };
   } catch {
     return defaultProfile();
   }
+}
+
+export function discoverHiddenHand(profile: Profile, rank: HandRank): { profile: Profile; discovered: boolean } {
+  if (!isHiddenHand(rank) || profile.discoveredHands.includes(rank)) {
+    return { profile, discovered: false };
+  }
+  return {
+    profile: { ...profile, discoveredHands: [...profile.discoveredHands, rank] },
+    discovered: true,
+  };
 }
 
 const COMMANDER_ADJECTIVES = ['고요한', '황금빛', '용감한', '날쌘', '푸른', '붉은', '은빛', '영리한'];
@@ -214,6 +229,10 @@ function randomIdentity(): string {
 
 function isAchievement(value: unknown): value is AchievementId {
   return typeof value === 'string' && value in ACHIEVEMENTS;
+}
+
+function isHiddenHandValue(value: unknown): value is HandRank {
+  return typeof value === 'number' && isHiddenHand(value as HandRank);
 }
 
 function isDaily(value: unknown): value is { date: string; bestScore: number } {

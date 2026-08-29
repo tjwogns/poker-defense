@@ -4,6 +4,18 @@ import { evaluateHand } from '../src/core/cards/evaluator';
 import { h } from './helpers';
 
 describe('evaluateHand', () => {
+  test('복제로 만든 플러시 파이브', () => {
+    expect(evaluateHand(h('AS AS AS AS AS'))).toBe(HandRank.FlushFive);
+  });
+
+  test('같은 무늬의 트리플과 페어는 플러시 하우스', () => {
+    expect(evaluateHand(h('KS KS KS 2S 2S'))).toBe(HandRank.FlushHouse);
+  });
+
+  test('무늬가 섞인 같은 숫자 5장은 파이브 카드', () => {
+    expect(evaluateHand(h('9S 9H 9D 9C 9S'))).toBe(HandRank.FiveKind);
+  });
+
   test('로열 스트레이트 플러시', () => {
     expect(evaluateHand(h('AS KS QS JS TS'))).toBe(HandRank.RoyalFlush);
   });

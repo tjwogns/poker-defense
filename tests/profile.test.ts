@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  PROFILE_KEY, dailyDate, dailySeed, defaultProfile, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, recordRun, saveProfile,
+  PROFILE_KEY, dailyDate, dailySeed, defaultProfile, discoverHiddenHand, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, recordRun, saveProfile,
 } from '../src/meta/profile';
 
 class MemoryStorage {
@@ -37,7 +37,7 @@ describe('profile persistence', () => {
     }));
 
     expect(loadProfile(storage)).toMatchObject({
-      version: 3, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [],
+      version: 4, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [], discoveredHands: [],
     });
   });
 
@@ -56,6 +56,23 @@ describe('profile persistence', () => {
 
     expect(saveProfile(storage, profile)).toBe(true);
     expect(loadProfile(storage)).toMatchObject({ bestScore: 12345, soundEnabled: false });
+  });
+
+  test('저장 데이터에서는 실제 히든 족보 값만 복원한다', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PROFILE_KEY, JSON.stringify({
+      ...defaultProfile(),
+      discoveredHands: [HandRank.FiveKind, 999, HandRank.Pair],
+    }));
+    expect(loadProfile(storage).discoveredHands).toEqual([HandRank.FiveKind]);
+  });
+
+  test('히든 족보는 처음 발견할 때만 영구 해금한다', () => {
+    const first = discoverHiddenHand(defaultProfile(), HandRank.FlushFive);
+    expect(first.discovered).toBe(true);
+    expect(first.profile.discoveredHands).toEqual([HandRank.FlushFive]);
+    expect(discoverHiddenHand(first.profile, HandRank.FlushFive).discovered).toBe(false);
+    expect(discoverHiddenHand(first.profile, HandRank.Pair).discovered).toBe(false);
   });
 
   test('승리 기록은 최고 기록과 업적 및 데일리 최고점을 갱신한다', () => {

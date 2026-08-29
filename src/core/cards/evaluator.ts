@@ -26,8 +26,10 @@ export function evaluateHand(cards: Card[]): HandRank {
 
   const sizes = [...counts.values()].sort((a, b) => b - a);
 
+  if (sizes[0] === 5 && isFlush) return HandRank.FlushFive;
+  if (sizes[0] === 3 && sizes[1] === 2 && isFlush) return HandRank.FlushHouse;
+  if (sizes[0] === 5) return HandRank.FiveKind;
   if (isStraight && isFlush) return isRoyal ? HandRank.RoyalFlush : HandRank.StraightFlush;
-  // 히든 '파이브 카드' 유닛 도입 전에는 5중복도 기존 최고 중복 족보로 취급한다.
   if (sizes[0] >= 4) return HandRank.FourKind;
   if (sizes[0] === 3 && sizes[1] === 2) return HandRank.FullHouse;
   if (isFlush) return HandRank.Flush;

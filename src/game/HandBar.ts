@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { Game } from '../core/game';
 import { evaluateHand } from '../core/cards/evaluator';
-import { HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
+import { HAND_NAMES_KO, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
 import { UNIT_DEFS } from '../core/units';
 import { HAND_PREVIEW_BOUNDS } from './layout';
 import { Button, FONT, UI, makeButton, makeText } from './ui';
 import { rerollOdds, RerollOdds } from '../core/cards/odds';
 import { formatOddsPercent } from './OddsOverlay';
+import { rerollGuidance } from './rerollGuidance';
 
 const CARD_W = 74;
 const CARD_H = 104;
@@ -92,20 +93,20 @@ export class HandBar {
       .setWordWrapWidth(HAND_PREVIEW_BOUNDS.width, true)
       .setLineSpacing(1)
       .setDepth(2);
-    this.oddsText = makeText(scene, 460, 584, '', 10, UI.accentText, true)
-      .setWordWrapWidth(190, true)
-      .setLineSpacing(2)
+    this.oddsText = makeText(scene, 456, 584, '', 11, UI.text, true)
+      .setWordWrapWidth(210, true)
+      .setLineSpacing(3)
       .setDepth(3);
-    this.oddsBtn = makeButton(scene, 704, 594, 96, 26, '전체 확률', () => {
+    this.oddsBtn = makeButton(scene, 710, 574, 104, 28, '확률 자세히', () => {
       if (this.cachedOdds && this.game.phase === 'prep' && !this.game.handConfirmed) onOdds(this.cachedOdds);
     }, { fill: 0x42544a, fontSize: 10 });
     this.oddsBtn.container.setDepth(3);
 
-    this.exchangeBtn = makeButton(scene, 542, 640, 160, 44, '교환 (무료)', () => {
+    this.exchangeBtn = makeButton(scene, 542, 650, 160, 44, '교환 (무료)', () => {
       this.game.doExchange();
       onAction('exchange');
     });
-    this.confirmBtn = makeButton(scene, 694, 640, 120, 44, '족보 확정 ▶', () => {
+    this.confirmBtn = makeButton(scene, 694, 650, 120, 44, '족보 확정 ▶', () => {
       this.game.confirmHand();
       onAction('confirm');
     }, { fill: 0xe6c84f });
@@ -172,17 +173,9 @@ export class HandBar {
       // 이상 손에 잡혔을 때 remainingCards가 예외를 던져 게임 루프까지 멈춘다.
       this.cachedOdds = rerollOdds(this.game.hand, this.game.holds, deck);
     }
-    const odds = this.cachedOdds!;
-    const likely = odds.probabilities
-      .map((probability, rank) => ({ probability, rank: rank as HandRank }))
-      .filter((item) => item.probability > 0)
-      .sort((a, b) => b.probability - a.probability)
-      .slice(0, 2)
-      .map((item) => `${HAND_NAMES_KO[item.rank]} ${formatOddsPercent(item.probability)}`)
-      .join(' · ');
-    const action = odds.drawCount === 0 ? '교환 없음' : `${odds.drawCount}장 교체`;
+    const guide = rerollGuidance(this.cachedOdds!, formatOddsPercent);
     this.oddsText.setText(
-      `HOLD 기준 · 다음 1회 교환\n${action} · 상승 ${formatOddsPercent(odds.improveProbability)}\n${likely}`,
+      `${guide.title}\n${guide.decision}\n${guide.targets}`,
     );
   }
 }

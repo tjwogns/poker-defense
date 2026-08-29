@@ -5,6 +5,7 @@ import { spawnEnemy } from '../src/core/combat';
 import {
   START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME,
 } from '../src/core/balance';
+import { h } from './helpers';
 
 /** 라운드가 끝나 prep으로 돌아오거나 게임이 끝날 때까지 틱 진행 */
 function runCombat(game: Game, maxTicks = 5000): void {
@@ -29,6 +30,16 @@ describe('Game state machine', () => {
     expect(g.pendingUnits.length).toBe(1);
     expect(g.confirmHand()).toBeNull();
     expect(g.pendingUnits.length).toBe(1);
+  });
+
+  test('히든 족보는 보스 승급에 의해 낮아지지 않고 초월 유닛으로 확정된다', () => {
+    const g = new Game(61);
+    g.round = 10;
+    g.relics.push('ace_up_sleeve');
+    g.hand = h('AS AS AS AS AS');
+    expect(g.confirmHand()).toBe(HandRank.FlushFive);
+    expect(g.pendingUnits).toEqual([HandRank.FlushFive]);
+    expect(g.bestHand).toBe(HandRank.FlushFive);
   });
 
   test('교환: 첫 회 무료, 이후 골드 차감, 부족하면 실패', () => {
@@ -114,6 +125,13 @@ describe('Game state machine', () => {
       royal.placeUnit(4 + i, 4);
     }
     expect(royal.fuseUnits(royal.field.units.map((unit) => unit.id))).toBe(false);
+
+    const hidden = new Game(54);
+    for (let i = 0; i < 3; i++) {
+      hidden.pendingUnits.push(HandRank.FiveKind);
+      hidden.placeUnit(4 + i, 4);
+    }
+    expect(hidden.fuseUnits(hidden.field.units.map((unit) => unit.id))).toBe(false);
   });
 
   test('전투 중에는 유닛 판매와 공격력 강화를 할 수 없다', () => {

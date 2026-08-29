@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
 import { DeckEditOddsPair, DeckOdds, deckEditOddsPair, deckOdds } from '../core/cards/odds';
 import { DeckEditStatus, DeckSealId, Game } from '../core/game';
+import { closestHiddenRecipe, hiddenRecipeLabel, hiddenRecipeProgress } from '../core/cards/hiddenRecipes';
 import { Button, UI, makeButton, makeText } from './ui';
 
 const SUITS: Suit[] = ['S', 'H', 'D', 'C'];
@@ -33,6 +34,7 @@ export class DeckOverlay {
   private status: Phaser.GameObjects.Text;
   private banishPreview: Phaser.GameObjects.Text;
   private duplicatePreview: Phaser.GameObjects.Text;
+  private hiddenRecipes: Phaser.GameObjects.Text;
   private banishBtn: Button;
   private duplicateBtn: Button;
   private baseOdds: DeckOdds;
@@ -62,6 +64,9 @@ export class DeckOverlay {
       fontSize: 11,
     });
     children.push(close.container);
+
+    this.hiddenRecipes = makeText(scene, 112, 143, '', 11, UI.gold, true);
+    children.push(this.hiddenRecipes);
 
     SUITS.forEach((suit, suitIndex) => {
       const y = 190 + suitIndex * 78;
@@ -130,6 +135,15 @@ export class DeckOverlay {
 
   private refresh(): void {
     const selectedKey = cardKey(this.selected);
+    const deck = this.game.deckSnapshot();
+    const recipes = hiddenRecipeProgress(deck);
+    const closest = closestHiddenRecipe(deck)!;
+    const recommendation = closest.missing === 0
+      ? `${HAND_NAMES_KO[closest.rank]} 재료 완성 · 같은 숫자를 HOLD해 노리세요`
+      : `추천 ${SUIT_GLYPHS[closest.target.suit]}${RANK_LABELS[closest.target.rank]} 복제 → ${HAND_NAMES_KO[closest.rank]}까지 ${closest.missing}장`;
+    this.hiddenRecipes.setText(
+      `HIDDEN  ${recipes.map(hiddenRecipeLabel).join(' · ')}  │  ${recommendation}`,
+    );
     for (const cell of this.cells) {
       const count = this.game.deckCardCount(cell.card);
       const selected = cardKey(cell.card) === selectedKey;

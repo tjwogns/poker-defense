@@ -120,12 +120,29 @@ function unitArt(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.Gam
     g.fillStyle(color, 1); g.fillTriangle(0, -7, -11, 12, 11, 12); g.strokeTriangle(0, -7, -11, 12, 11, 12); head(0, -10, 3.5);
     g.lineStyle(1.5, 0xd7c7ff, 0.9); g.strokeEllipse(0, -1, 28, 11); g.strokeEllipse(0, -1, 12, 28);
     g.fillStyle(0xf3e8ff, 1); g.fillCircle(12, -2, 2.5); g.fillCircle(-3, 11, 2);
-  } else {
+  } else if (tier === HandRank.RoyalFlush) {
     g.fillStyle(0xf2f0e4, 0.95); g.fillTriangle(-2, -3, -18, -11, -10, 9); g.fillTriangle(2, -3, 18, -11, 10, 9);
     g.fillStyle(0xd9cf9a, 1); g.fillEllipse(0, 1, 18, 20); g.strokeEllipse(0, 1, 18, 20);
     g.fillStyle(0xf2f0e4, 1); g.fillCircle(0, -9, 5); g.strokeCircle(0, -9, 5);
     g.fillTriangle(-4, -12, -8, -17, -1, -14); g.fillTriangle(4, -12, 8, -17, 1, -14);
     g.fillStyle(0xe6c84f, 1); g.fillCircle(-2, -10, 1); g.fillCircle(2, -10, 1);
+  } else if (tier === HandRank.FiveKind) {
+    body(15, 15); head(0, -9, 4);
+    g.lineStyle(2, 0xffd09b, 1);
+    for (let i = -2; i <= 2; i++) g.lineBetween(i * 4, -2, i * 4, 11);
+    g.fillStyle(0xff9b54, 1); g.fillCircle(0, -15, 3);
+  } else if (tier === HandRank.FlushHouse) {
+    body(16, 16); head(0, -9, 4);
+    g.lineStyle(2, 0x72e0b8, 1); g.strokeCircle(0, 2, 14); g.strokeCircle(0, 2, 9);
+    g.fillStyle(0xe6c84f, 1); g.fillTriangle(-6, -13, 0, -18, 6, -13);
+  } else {
+    g.fillStyle(0xffe27a, 0.95);
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI * i) / 4;
+      g.fillTriangle(0, 0, Math.cos(a - 0.18) * 18, Math.sin(a - 0.18) * 18, Math.cos(a + 0.18) * 18, Math.sin(a + 0.18) * 18);
+    }
+    g.fillStyle(0xffffff, 1); g.fillCircle(0, 0, 6);
+    g.lineStyle(1.5, 0xff9b54, 1); g.strokeCircle(0, 0, 13);
   }
   return g;
 }
@@ -498,6 +515,14 @@ export class FieldRenderer {
       this.fxG.lineStyle(10, 0xe6c84f, 0.1 * fade); this.fxG.lineBetween(x1, y1, x2, y2);
       this.fxG.lineStyle(4, 0xf8f4df, 0.75 * fade); this.fxG.lineBetween(x1, y1, x2, y2);
       this.fxG.lineStyle(2, 0xe6c84f, fade); this.fxG.strokeCircle(x2, y2, 8 + progress * 15);
+    } else if (f.tier >= HandRank.FiveKind) {
+      const rays = f.tier === HandRank.FlushFive ? 8 : 5;
+      this.fxG.lineStyle(f.tier === HandRank.FlushFive ? 4 : 2, f.color, 0.7 * fade);
+      for (let i = 0; i < rays; i++) {
+        const offset = (i - (rays - 1) / 2) * 2.2;
+        this.fxG.lineBetween(x1 + ox * offset, y1 + oy * offset, x2 + ox * offset, y2 + oy * offset);
+      }
+      this.fxG.lineStyle(2, 0xffffff, fade); this.fxG.strokeCircle(x2, y2, 6 + progress * 18);
     } else {
       this.fxG.lineStyle(3, f.color, fade); this.fxG.lineBetween(px - nx * 8, py - ny * 8, px, py);
       this.fxG.fillStyle(0xf4ead4, fade); this.fxG.fillCircle(px, py, 3);

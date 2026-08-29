@@ -51,6 +51,7 @@ describe('exact reroll odds', () => {
       { rank: 14, suit: 'S' },
       { rank: 14, suit: 'S' },
       { rank: 14, suit: 'S' },
+      { rank: 14, suit: 'S' },
     );
     const odds = rerollOdds(
       h('AS AS AS AS 4H'),
@@ -59,8 +60,17 @@ describe('exact reroll odds', () => {
     );
 
     expect(odds.drawCount).toBe(1);
-    expect(odds.totalCombinations).toBe(50);
-    expect(odds.outcomes.reduce((sum, count) => sum + count, 0)).toBe(50);
+    expect(odds.totalCombinations).toBe(51);
+    expect(odds.outcomes.reduce((sum, count) => sum + count, 0)).toBe(51);
+    expect(odds.outcomes[HandRank.FlushFive]).toBe(1);
+  });
+
+  test('복제 덱의 히든 족보를 전체 분포에 포함한다', () => {
+    const deck = newDeck();
+    deck.push({ rank: 14, suit: 'S' }, { rank: 14, suit: 'S' }, { rank: 14, suit: 'S' }, { rank: 14, suit: 'S' });
+    const odds = deckOdds(deck);
+    expect(odds.outcomes[HandRank.FlushFive]).toBe(1);
+    expect(odds.outcomes[HandRank.FiveKind]).toBeGreaterThan(0);
   });
 
   test('추방된 카드는 리롤 결과에 등장하지 않는다', () => {

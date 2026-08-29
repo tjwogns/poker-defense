@@ -33,19 +33,19 @@ export class OddsOverlay {
     children.push(close.container);
 
     const maxProbability = Math.max(...odds.probabilities);
-    for (let rank = HandRank.HighCard; rank <= HandRank.RoyalFlush; rank++) {
+    for (let rank = HandRank.HighCard; rank <= HandRank.FlushFive; rank++) {
       const probability = odds.probabilities[rank];
-      const y = 176 + rank * 40;
+      const y = 170 + rank * 31;
       const improved = rank > odds.currentRank;
       const current = rank === odds.currentRank;
       const color = improved ? UI.gold : current ? UI.text : UI.textDim;
-      if (rank % 2 === 0) children.push(scene.add.rectangle(640, y, 660, 34, UI.panelRaised, 0.65));
+      if (rank % 2 === 0) children.push(scene.add.rectangle(640, y, 660, 27, UI.panelRaised, 0.65));
       const barWidth = probability > 0 ? Math.max(2, 300 * probability / maxProbability) : 0;
       children.push(
-        makeText(scene, 320, y, HAND_NAMES_KO[rank as HandRank], 13, color, improved || current).setOrigin(0, 0.5),
+        makeText(scene, 320, y, HAND_NAMES_KO[rank as HandRank], 12, color, improved || current).setOrigin(0, 0.5),
         scene.add.rectangle(520, y, 300, 8, UI.panelDeep, 1).setOrigin(0, 0.5),
         scene.add.rectangle(520, y, barWidth, 8, improved ? 0xe6c84f : current ? UI.accent : 0x60746a, 0.9).setOrigin(0, 0.5),
-        makeText(scene, 960, y, formatOddsPercent(probability), 13, color, improved).setOrigin(1, 0.5),
+        makeText(scene, 960, y, formatOddsPercent(probability), 12, color, improved).setOrigin(1, 0.5),
       );
     }
 

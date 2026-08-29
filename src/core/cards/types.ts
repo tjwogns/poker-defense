@@ -17,6 +17,9 @@ export enum HandRank {
   FourKind,
   StraightFlush,
   RoyalFlush,
+  FiveKind,
+  FlushHouse,
+  FlushFive,
 }
 
 export const HAND_NAMES_KO: Record<HandRank, string> = {
@@ -30,7 +33,20 @@ export const HAND_NAMES_KO: Record<HandRank, string> = {
   [HandRank.FourKind]: '포카드',
   [HandRank.StraightFlush]: '스트레이트 플러시',
   [HandRank.RoyalFlush]: '로열 스트레이트 플러시',
+  [HandRank.FiveKind]: '파이브 카드',
+  [HandRank.FlushHouse]: '플러시 하우스',
+  [HandRank.FlushFive]: '플러시 파이브',
 };
+
+export const HIDDEN_HAND_RANKS = [
+  HandRank.FiveKind,
+  HandRank.FlushHouse,
+  HandRank.FlushFive,
+] as const;
+
+export function isHiddenHand(rank: HandRank): boolean {
+  return rank >= HandRank.FiveKind && rank <= HandRank.FlushFive;
+}
 
 export const RANK_LABELS: Record<number, string> = {
   2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9',

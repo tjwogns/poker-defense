@@ -47,7 +47,7 @@ describe('play UI layout', () => {
 
 describe('족보·유닛 도감', () => {
   test('모든 족보를 낮은 등급부터 빠짐없이 표시한다', () => {
-    expect(HANDBOOK_ROWS).toHaveLength(10);
+    expect(HANDBOOK_ROWS).toHaveLength(13);
     expect(HANDBOOK_ROWS.map((row) => row.rank)).toEqual([
       HandRank.HighCard,
       HandRank.Pair,
@@ -59,6 +59,9 @@ describe('족보·유닛 도감', () => {
       HandRank.FourKind,
       HandRank.StraightFlush,
       HandRank.RoyalFlush,
+      HandRank.FiveKind,
+      HandRank.FlushHouse,
+      HandRank.FlushFive,
     ]);
     for (const row of HANDBOOK_ROWS) {
       expect(row.hand).not.toBe('');

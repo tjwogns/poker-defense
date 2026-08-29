@@ -40,7 +40,7 @@ export function rerollOdds(
   if (hand.length !== 5 || holds.length !== 5) throw new Error('hand and holds must contain 5 items');
   const drawCount = holds.filter((held) => !held).length;
   const currentRank = evaluateHand([...hand]);
-  const outcomes = Array.from({ length: HandRank.RoyalFlush + 1 }, () => 0);
+  const outcomes = Array.from({ length: HandRank.FlushFive + 1 }, () => 0);
 
   if (drawCount === 0) {
     outcomes[currentRank] = 1;
@@ -129,7 +129,7 @@ function result(drawCount: number, currentRank: HandRank, outcomes: number[], to
 }
 
 function countHands(deck: readonly Card[], choose: number, required: readonly Card[] = []): DeckOdds {
-  const outcomes = Array.from({ length: HandRank.RoyalFlush + 1 }, () => 0);
+  const outcomes = Array.from({ length: HandRank.FlushFive + 1 }, () => 0);
   const rankCounts = new Uint8Array(15);
   const suitCounts = new Uint8Array(4);
   for (const card of required) {
@@ -189,6 +189,7 @@ function evaluateCounts(rankCounts: Uint8Array, suitCounts: Uint8Array): HandRan
   let pairs = 0;
   let trips = false;
   let four = false;
+  let five = false;
   for (let rank = 2; rank <= 14; rank++) {
     const count = rankCounts[rank];
     if (count === 0) continue;
@@ -197,7 +198,8 @@ function evaluateCounts(rankCounts: Uint8Array, suitCounts: Uint8Array): HandRan
     max = Math.max(max, rank);
     if (count === 2) pairs++;
     else if (count === 3) trips = true;
-    else if (count >= 4) four = true;
+    else if (count === 4) four = true;
+    else if (count === 5) five = true;
   }
   const flush = suitCounts.some((count) => count === 5);
   const wheel = unique === 5
@@ -207,6 +209,9 @@ function evaluateCounts(rankCounts: Uint8Array, suitCounts: Uint8Array): HandRan
     && rankCounts[4] === 1
     && rankCounts[5] === 1;
   const straight = unique === 5 && (max - min === 4 || wheel);
+  if (five && flush) return HandRank.FlushFive;
+  if (trips && pairs === 1 && flush) return HandRank.FlushHouse;
+  if (five) return HandRank.FiveKind;
   if (straight && flush) return min === 10 ? HandRank.RoyalFlush : HandRank.StraightFlush;
   if (four) return HandRank.FourKind;
   if (trips && pairs === 1) return HandRank.FullHouse;

@@ -61,4 +61,4 @@ export function upgradeMultiplier(level: number): number {
 }
 
 /** HandRank 인덱스별 유닛 판매 환급 골드 */
-export const SELL_REFUND: number[] = [2, 5, 10, 20, 40, 40, 80, 150, 300, 500];
+export const SELL_REFUND: number[] = [2, 5, 10, 20, 40, 40, 80, 150, 300, 500, 800, 1000, 1500];

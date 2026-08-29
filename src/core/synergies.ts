@@ -34,6 +34,9 @@ export const UNIT_FAMILIES: Record<HandRank, readonly UnitFamily[]> = {
   [HandRank.FourKind]: ['legion', 'dragon'],
   [HandRank.StraightFlush]: ['arcane', 'royal'],
   [HandRank.RoyalFlush]: ['dragon', 'royal'],
+  [HandRank.FiveKind]: ['legion', 'dragon'],
+  [HandRank.FlushHouse]: ['arcane', 'royal'],
+  [HandRank.FlushFive]: ['arcane', 'royal', 'dragon'],
 };
 
 export const SYNERGY_DEFS: Record<UnitFamily, SynergyDef> = {

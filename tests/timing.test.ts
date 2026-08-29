@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { MAX_FRAME_DELTA_SECONDS, pauseStateAfterFocus, safeFrameDelta } from '../src/game/timing';
+import {
+  MAX_FRAME_DELTA_SECONDS,
+  pauseStateAfterFocus,
+  safeFrameDelta,
+  speedAfterFocus,
+} from '../src/game/timing';
 
 describe('frame timing', () => {
   test('일반 프레임 시간은 초 단위로 변환한다', () => {
@@ -21,5 +26,10 @@ describe('frame timing', () => {
 
   test('사용자가 직접 정지한 전투는 포커스 복귀 후에도 유지한다', () => {
     expect(pauseStateAfterFocus(true, false)).toBe(true);
+  });
+
+  test.each([1, 2, 4])('포커스 이벤트가 중복되어도 선택한 ×%i 배속을 보존한다', (speed) => {
+    expect(speedAfterFocus(speed)).toBe(speed);
+    expect(speedAfterFocus(speedAfterFocus(speed))).toBe(speed);
   });
 });

@@ -43,7 +43,7 @@ describe('balance formulas', () => {
   });
 
   test('판매 환급은 10개 등급 전부 정의', () => {
-    expect(SELL_REFUND.length).toBe(10);
+    expect(SELL_REFUND.length).toBe(13);
   });
 });
 

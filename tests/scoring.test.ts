@@ -23,6 +23,7 @@ describe('score rules', () => {
     expect(scoreForHand(HandRank.HighCard)).toBe(20);
     expect(scoreForHand(HandRank.FullHouse)).toBe(1000);
     expect(scoreForHand(HandRank.RoyalFlush)).toBe(10_000);
+    expect(scoreForHand(HandRank.FlushFive)).toBe(30_000);
   });
 
   test('Game은 족보 점수를 기록하고 요약에 최고 족보를 포함한다', () => {

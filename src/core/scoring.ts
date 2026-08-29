@@ -12,6 +12,9 @@ const HAND_SCORES: Record<HandRank, number> = {
   [HandRank.FourKind]: 2000,
   [HandRank.StraightFlush]: 5000,
   [HandRank.RoyalFlush]: 10_000,
+  [HandRank.FiveKind]: 15_000,
+  [HandRank.FlushHouse]: 20_000,
+  [HandRank.FlushFive]: 30_000,
 };
 
 export const VICTORY_SCORE = 50_000;

@@ -68,6 +68,19 @@ export const UNIT_DEFS: Record<HandRank, UnitDef> = {
     tier: HandRank.RoyalFlush, name: '신룡', dps: 1800, period: 2.0, range: 6.0,
     glyph: '神', color: 0xf2f0e4, traits: { execute: { pct: 0.05, bossPct: 0.02 } },
   },
+  [HandRank.FiveKind]: {
+    tier: HandRank.FiveKind, name: '오중 군주', dps: 2200, period: 0.7, range: 4.5,
+    glyph: 'Ⅴ', color: 0xff9b54, traits: { chain: { count: 5, decay: 0.85 } },
+  },
+  [HandRank.FlushHouse]: {
+    tier: HandRank.FlushHouse, name: '문장 기사단장', dps: 2600, period: 1.1, range: 4.0,
+    glyph: '♜', color: 0x72e0b8, traits: { aura: { radius: 3, dmgPct: 0.3 } },
+  },
+  [HandRank.FlushFive]: {
+    tier: HandRank.FlushFive, name: '태초의 별', dps: 4000, period: 1.4, range: 6.0,
+    glyph: '✺', color: 0xffe27a,
+    traits: { chain: { count: 8, decay: 0.82 }, execute: { pct: 0.08, bossPct: 0.03 } },
+  },
 };
 
 export function damagePerHit(def: UnitDef): number {
