@@ -32,6 +32,8 @@ import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
 import { DeckOverlay } from './DeckOverlay';
 import { MaintenanceOverlay } from './MaintenanceOverlay';
 import { FirstRunCoach } from './FirstRunCoach';
+import { isCompactTouchDevice } from './device';
+import { attackFxBudget, totalFxBudget } from './fxBudget';
 
 const DT = 1 / TICK_RATE;
 
@@ -86,6 +88,7 @@ export class PlayScene extends Phaser.Scene {
   private backgroundPaused = false;
   private trackedRelicTriggers = new Set<string>();
   private lastRelicFeedbackAt = -Infinity;
+  private compactFx = false;
 
   constructor() {
     super('play');
@@ -130,6 +133,7 @@ export class PlayScene extends Phaser.Scene {
     this.backgroundPaused = false;
     this.trackedRelicTriggers.clear();
     this.lastRelicFeedbackAt = -Infinity;
+    this.compactFx = isCompactTouchDevice();
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -828,7 +832,7 @@ export class PlayScene extends Phaser.Scene {
       }
       this.audio.play('boss');
     }
-    const max = 40;
+    const max = attackFxBudget(this.compactFx);
     for (const atk of result.attacks) {
       if (this.fx.length >= max) break;
       const unit = this.core.field.units.find((u) => u.id === atk.unitId);
@@ -865,7 +869,7 @@ export class PlayScene extends Phaser.Scene {
       }
     }
     for (const enemy of result.deaths) {
-      if (this.fx.length >= 60) break;
+      if (this.fx.length >= totalFxBudget(this.compactFx)) break;
       const at = enemyPos(enemy);
       this.fx.push({
         kind: 'death',

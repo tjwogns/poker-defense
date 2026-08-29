@@ -61,7 +61,9 @@ interface UnitView {
 function unitVisual(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.GameObjects.GameObject {
   const key = UNIT_SPRITE_KEYS[tier];
   if (!key || !scene.textures.exists(key)) return unitArt(scene, tier, color);
-  return scene.add.image(0, -2, key).setDisplaySize(42, 44);
+  const image = scene.add.image(0, -2, key);
+  const scale = Math.min(46 / image.width, 46 / image.height);
+  return image.setDisplaySize(image.width * scale, image.height * scale);
 }
 
 function unitArt(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.GameObjects.Graphics {
@@ -535,16 +537,31 @@ export class FieldRenderer {
       this.fxG.fillStyle(0xf4ead4, fade); this.fxG.fillCircle(px, py, 3);
     }
 
-    if (f.targetKind === 'boss' && progress > 0.55) {
-      const impact = Math.max(0, 1 - Math.abs(progress - 0.78) * 3.8);
-      this.fxG.lineStyle(2, 0xe6c84f, impact * 0.9);
-      this.fxG.strokeCircle(x2, y2, 7 + impact * 10);
-      this.fxG.fillStyle(0xf8f4df, impact);
-      for (let i = 0; i < 4; i++) {
-        const angle = Math.PI / 4 + (Math.PI / 2) * i;
-        const sx = x2 + Math.cos(angle) * (8 + impact * 7);
-        const sy = y2 + Math.sin(angle) * (8 + impact * 7);
-        this.fxG.fillCircle(sx, sy, 2.2);
+    if (progress > 0.5) {
+      const impact = Math.max(0, 1 - Math.abs(progress - 0.76) * 3.9);
+      const highTier = f.tier >= HandRank.FullHouse;
+      const sparkCount = highTier ? 6 : 4;
+      const baseRadius = highTier ? 7 : 5;
+      this.fxG.fillStyle(0xf8f4df, impact * 0.82);
+      this.fxG.fillCircle(x2, y2, 2.4 + impact * (highTier ? 3.2 : 2));
+      this.fxG.lineStyle(highTier ? 2 : 1.4, f.color, impact * 0.95);
+      this.fxG.strokeCircle(x2, y2, baseRadius + impact * (highTier ? 10 : 7));
+      for (let i = 0; i < sparkCount; i++) {
+        const angle = ((Math.PI * 2) / sparkCount) * i + (f.seed % 11) * 0.09;
+        const inner = baseRadius + impact * 3;
+        const outer = inner + impact * (highTier ? 8 : 5);
+        this.fxG.lineStyle(i % 2 === 0 ? 1.8 : 1.1, i % 2 === 0 ? 0xf8f4df : f.color, impact * 0.86);
+        this.fxG.lineBetween(
+          x2 + Math.cos(angle) * inner,
+          y2 + Math.sin(angle) * inner,
+          x2 + Math.cos(angle) * outer,
+          y2 + Math.sin(angle) * outer,
+        );
+      }
+
+      if (f.targetKind === 'boss') {
+        this.fxG.lineStyle(2.2, 0xe6c84f, impact * 0.9);
+        this.fxG.strokeCircle(x2, y2, 10 + impact * 13);
       }
     }
   }

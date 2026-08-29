@@ -59,13 +59,19 @@ await page.touchscreen.tap(
   landscape.canvas.y + 500 * scale,
 );
 await page.evaluate(() => {
-  for (const [tier, tx, ty] of [[0, 5, 2], [1, 6, 3], [3, 8, 4]]) {
+  for (const [tier, tx, ty] of [[0, 5, 2], [1, 6, 3], [2, 8, 4], [3, 10, 2], [4, 11, 3], [5, 13, 4]]) {
     window.__game.pendingUnits.push(tier);
     if (!window.__game.placeUnit(tx, ty)) throw new Error(`캐릭터 배치 실패: ${tier}`);
   }
 });
 await new Promise((resolve) => setTimeout(resolve, 350));
 await page.screenshot({ path: `${TMP}/s26-landscape-units.png` });
+await page.evaluate(() => {
+  window.__game.handConfirmed = true;
+  if (!window.__game.startCombat()) throw new Error('전투 이펙트 테스트 시작 실패');
+});
+await new Promise((resolve) => setTimeout(resolve, 1800));
+await page.screenshot({ path: `${TMP}/s26-landscape-combat.png` });
 
 await page.setViewport({ width: 360, height: 780, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
 await new Promise((resolve) => setTimeout(resolve, 250));
