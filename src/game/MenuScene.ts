@@ -10,10 +10,17 @@ import { LeaderboardOverlay } from './LeaderboardOverlay';
 import { PatchNotesOverlay } from './PatchNotesOverlay';
 import { CURRENT_VERSION, PATCH_NOTES } from '../meta/patchNotes';
 import { leaderboardConfigured } from '../meta/leaderboard';
+import { isCompactTouchDevice } from './device';
+import { preloadUnitSprites, UNIT_SPRITE_KEYS } from './unitAssets';
+import { HandRank } from '../core/cards/types';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
     super('menu');
+  }
+
+  preload(): void {
+    preloadUnitSprites(this);
   }
 
   create(): void {
@@ -33,6 +40,13 @@ export class MenuScene extends Phaser.Scene {
     makeText(this, 105, 360, '♠', 190, '#5cb187', true).setOrigin(0.5).setAlpha(0.055);
     makeText(this, 1175, 360, '♦', 190, UI.gold, true).setOrigin(0.5).setAlpha(0.045);
 
+    const apprentice = this.add.image(285, 168, UNIT_SPRITE_KEYS[HandRank.HighCard]!)
+      .setDisplaySize(150, 150).setAlpha(0.9);
+    const archer = this.add.image(995, 168, UNIT_SPRITE_KEYS[HandRank.Pair]!)
+      .setDisplaySize(143, 150).setAlpha(0.9);
+    this.tweens.add({ targets: apprentice, y: 163, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.tweens.add({ targets: archer, y: 173, duration: 1750, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+
     makeText(this, 640, 92, '♠  POKER DEFENSE  ♦', 18, UI.accentText, true).setOrigin(0.5);
     makeText(this, 640, 150, 'ROYAL SIEGE', 58, UI.gold, true)
       .setOrigin(0.5).setShadow(0, 5, '#000000', 12);
@@ -50,7 +64,7 @@ export class MenuScene extends Phaser.Scene {
     const achievementCount = profile.achievements.length;
     makeText(this, 350, 431, `업적 ${achievementCount} / ${Object.keys(ACHIEVEMENTS).length}`, 14, UI.accentText);
 
-    makeButton(this, 770, 310, 250, 50, '새 게임', () => {
+    makeButton(this, 770, 310, 250, 50, '새 원정 시작', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fontSize: 18 });
     makeButton(this, 770, 370, 250, 50, hasChallenge ? '친구의 도전 수락' : '오늘의 도전', () => {
@@ -117,7 +131,16 @@ export class MenuScene extends Phaser.Scene {
     }, { fill: 0xe6c84f, fontSize: 10 });
     this.input.keyboard?.on('keydown-ESC', closePatchNotes);
 
-    makeText(this, 640, 560, 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · D 덱 · H 도감 · M 음소거', 13, UI.textDim)
+    makeText(
+      this,
+      640,
+      560,
+      isCompactTouchDevice()
+        ? '카드를 탭해 HOLD · 교환 후 군단 확정 · 초록 타일에 유닛 배치'
+        : 'E 교환 · ENTER 확정 · SPACE 전투/정지 · 1/2/4 배속 · D 덱 · H 도감 · M 음소거',
+      isCompactTouchDevice() ? 15 : 13,
+      UI.textDim,
+    )
       .setOrigin(0.5);
     makeText(
       this,

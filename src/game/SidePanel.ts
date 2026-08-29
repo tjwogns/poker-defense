@@ -11,6 +11,7 @@ import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
 import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
 import { threatBand, threatLabel } from './threat';
+import { isCompactTouchDevice } from './device';
 
 const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
@@ -91,6 +92,7 @@ export class SidePanel {
   constructor(scene: Phaser.Scene, game: Game, cb: PanelCallbacks) {
     this.scene = scene;
     this.game = game;
+    const compactTouch = isCompactTouchDevice();
 
     const backdrop = scene.add.graphics();
     backdrop.fillGradientStyle(UI.panelDeep, UI.panelDeep, UI.panel, UI.panel, 1);
@@ -117,18 +119,19 @@ export class SidePanel {
     this.pendingText = makeText(scene, PX, 283, '', 12, UI.accentText, true);
     this.unitName = makeText(scene, PX, 304, '', 15, UI.text, true);
     this.unitStats = makeText(scene, PX, 326, '', 11, UI.textDim).setWordWrapWidth(432, true).setLineSpacing(-2);
-    this.sellBtn = makeButton(scene, 846, 360, 96, 32, '판매', cb.onSell, { fill: UI.danger, fontSize: 11 });
-    this.moveBtn = makeButton(scene, 951, 360, 96, 32, '재배치', cb.onMove, { fontSize: 11 });
-    this.fuseBtn = makeButton(scene, 1098, 360, 174, 32, '동일 3기 합성', cb.onFuse, { fill: 0x9f74cf, fontSize: 11 });
+    const unitActionHeight = compactTouch ? 40 : 32;
+    this.sellBtn = makeButton(scene, 846, 360, 96, unitActionHeight, '판매', cb.onSell, { fill: UI.danger, fontSize: 11 });
+    this.moveBtn = makeButton(scene, 951, 360, 96, unitActionHeight, '재배치', cb.onMove, { fontSize: 11 });
+    this.fuseBtn = makeButton(scene, 1098, 360, 174, unitActionHeight, '동일 3기 합성', cb.onFuse, { fill: 0x9f74cf, fontSize: 11 });
 
-    this.startBtn = makeButton(scene, 1022, 424, 432, 48, '전투 시작  ▶', cb.onStart, { fontSize: 17 });
+    this.startBtn = makeButton(scene, 1022, 424, 432, compactTouch ? 58 : 48, '전투 시작  ▶', cb.onStart, { fontSize: 17 });
     SPEEDS.forEach((n, index) => {
       this.speedBtns.push(
-        makeButton(scene, 831 + index * 78, 414, 68, 34, `×${n}`, () => cb.onSpeed(n), { fontSize: 12 }),
+        makeButton(scene, 831 + index * 78, 414, 68, compactTouch ? 46 : 34, `×${n}`, () => cb.onSpeed(n), { fontSize: 12 }),
       );
     });
-    this.pauseBtn = makeButton(scene, 1092, 414, 96, 34, '일시정지', cb.onPause, { fill: 0x5d91c5, fontSize: 11 });
-    this.soundBtn = makeButton(scene, 1200, 414, 88, 34, 'SOUND', cb.onSound, { fill: 0x34463c, fontSize: 10 });
+    this.pauseBtn = makeButton(scene, 1092, 414, 96, compactTouch ? 46 : 34, '일시정지', cb.onPause, { fill: 0x5d91c5, fontSize: 11 });
+    this.soundBtn = makeButton(scene, 1200, 414, 88, compactTouch ? 46 : 34, 'SOUND', cb.onSound, { fill: 0x34463c, fontSize: 10 });
     this.combatText = makeText(scene, PX, 441, '', 11, UI.textDim);
 
     makeText(scene, PX, 478, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
@@ -139,15 +142,17 @@ export class SidePanel {
 
     this.helpText = makeText(
       scene, PX, 596,
-      'E 교환 · ENTER 확정 · 1/2/4 배속 · SPACE 정지\nD 덱 보기 · 카드 → 유닛 · 동일 3기 → 합성',
-      10, UI.textDim,
+      compactTouch
+        ? '카드를 탭해 HOLD · 아래 버튼으로 교환/출전\n유닛을 탭해 판매·재배치·합성'
+        : 'E 교환 · ENTER 확정 · 1/2/4 배속 · SPACE 정지\nD 덱 보기 · 카드 → 유닛 · 동일 3기 → 합성',
+      compactTouch ? 12 : 10, UI.textDim,
     );
     this.helpText.setLineSpacing(4);
-    makeButton(scene, 1098, 660, 116, 38, '덱 보기  D', cb.onDeck, {
+    makeButton(scene, 1098, 660, compactTouch ? 150 : 116, compactTouch ? 48 : 38, compactTouch ? '덱 보기' : '덱 보기  D', cb.onDeck, {
       fill: 0x425f50,
       fontSize: 10,
     });
-    makeButton(scene, 1222, 660, 116, 38, '도감  H', cb.onGuide, {
+    makeButton(scene, 1222, 660, compactTouch ? 88 : 116, compactTouch ? 48 : 38, compactTouch ? '도감' : '도감  H', cb.onGuide, {
       fill: 0x78612b,
       fontSize: 10,
     });

@@ -17,6 +17,8 @@ export const UI = {
   accentText: '#5cb187',
   danger: 0xd06258,
   dangerText: '#d06258',
+  coral: 0xff7366,
+  sky: 0x6cb7ff,
   gold: '#e6c84f',
   placeable: 0x5cb187,
   cardFace: 0xf5f3ec,
@@ -47,10 +49,18 @@ export function makeButton(
   const green = (fill >> 8) & 0xff;
   const blue = fill & 0xff;
   const luminance = (red * 0.299 + green * 0.587 + blue * 0.114) / 255;
-  const shadow = scene.add.rectangle(0, 3, w, h, 0x000000, 0.32);
-  const bg = scene.add.rectangle(0, 0, w, h, fill, 0.96)
-    .setStrokeStyle(1, opts.stroke ?? 0xffffff, 0.22);
-  const shine = scene.add.rectangle(0, -h / 2 + 2, w - 4, 2, 0xffffff, 0.13);
+  const radius = Math.min(10, h * 0.24);
+  const shadow = scene.add.graphics()
+    .fillStyle(0x000000, 0.32)
+    .fillRoundedRect(-w / 2, -h / 2 + 4, w, h, radius);
+  const bg = scene.add.graphics()
+    .fillStyle(fill, 0.98)
+    .fillRoundedRect(-w / 2, -h / 2, w, h, radius)
+    .lineStyle(1.4, opts.stroke ?? 0xffffff, 0.24)
+    .strokeRoundedRect(-w / 2, -h / 2, w, h, radius);
+  const shine = scene.add.graphics()
+    .fillStyle(0xffffff, 0.16)
+    .fillRoundedRect(-w / 2 + 4, -h / 2 + 3, w - 8, 3, 1.5);
   const text = scene.add
     .text(0, 0, label, {
       fontFamily: FONT,
@@ -63,10 +73,13 @@ export function makeButton(
   const container = scene.add.container(x, y, [shadow, bg, shine, text]);
   let enabled = true;
 
-  bg.setInteractive({ useHandCursor: true });
+  bg.setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains);
   bg.on('pointerdown', (_p: unknown, _x: unknown, _y: unknown, event: { stopPropagation(): void }) => {
     event.stopPropagation();
-    if (enabled) onClick();
+    if (!enabled) return;
+    container.setScale(0.97);
+    scene.tweens.add({ targets: container, scale: 1, duration: 120, ease: 'Back.Out' });
+    onClick();
   });
   bg.on('pointerover', () => {
     if (!enabled) return;

@@ -8,6 +8,7 @@ import {
   GRID_W, GRID_H, TILE, isPathTile, isPlaceable, recommendedPlacementTiles, tileCanReachPath, tileCenter,
 } from '../core/map';
 import { UI, FONT } from './ui';
+import { UNIT_SPRITE_KEYS } from './unitAssets';
 
 export const FIELD_X = 16;
 export const FIELD_Y = 16;
@@ -55,6 +56,12 @@ interface EnemyView {
 interface UnitView {
   root: Phaser.GameObjects.Container;
   selection: Phaser.GameObjects.Arc;
+}
+
+function unitVisual(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.GameObjects.GameObject {
+  const key = UNIT_SPRITE_KEYS[tier];
+  if (!key || !scene.textures.exists(key)) return unitArt(scene, tier, color);
+  return scene.add.image(0, -2, key).setDisplaySize(42, 44);
 }
 
 function unitArt(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.GameObjects.Graphics {
@@ -274,7 +281,7 @@ export class FieldRenderer {
           .setStrokeStyle(2, 0xe6c84f, 0.95).setVisible(false);
         const halo = this.scene.add.circle(0, 0, 17, def.color, 0.24)
           .setStrokeStyle(1, def.color, 0.75);
-        const art = unitArt(this.scene, u.tier, def.color);
+        const art = unitVisual(this.scene, u.tier, def.color);
         const root = this.scene.add.container(0, 0, [shadow, selection, halo, art]).setDepth(2);
         view = { root, selection };
         this.unitViews.set(u.id, view);

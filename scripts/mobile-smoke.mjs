@@ -54,6 +54,18 @@ await page.touchscreen.tap(
 );
 await page.waitForFunction(() => Boolean(window.__game));
 await page.screenshot({ path: `${TMP}/s26-landscape-game.png` });
+await page.touchscreen.tap(
+  landscape.canvas.x + 520 * scale,
+  landscape.canvas.y + 500 * scale,
+);
+await page.evaluate(() => {
+  for (const [tier, tx, ty] of [[0, 5, 2], [1, 6, 3], [3, 8, 4]]) {
+    window.__game.pendingUnits.push(tier);
+    if (!window.__game.placeUnit(tx, ty)) throw new Error(`캐릭터 배치 실패: ${tier}`);
+  }
+});
+await new Promise((resolve) => setTimeout(resolve, 350));
+await page.screenshot({ path: `${TMP}/s26-landscape-units.png` });
 
 await page.setViewport({ width: 360, height: 780, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
 await new Promise((resolve) => setTimeout(resolve, 250));

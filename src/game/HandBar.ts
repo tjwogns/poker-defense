@@ -8,6 +8,7 @@ import { Button, FONT, UI, makeButton, makeText } from './ui';
 import { rerollOdds, RerollOdds } from '../core/cards/odds';
 import { formatOddsPercent } from './OddsOverlay';
 import { rerollGuidance } from './rerollGuidance';
+import { isCompactTouchDevice } from './device';
 
 const CARD_W = 74;
 const CARD_H = 104;
@@ -44,6 +45,7 @@ export class HandBar {
     onOdds: (odds: RerollOdds) => void,
   ) {
     this.game = game;
+    const compactTouch = isCompactTouchDevice();
 
     scene.add.rectangle(390, 628, 748, 152, UI.panelDeep, 0.96)
       .setStrokeStyle(1, UI.panelLine, 0.9).setDepth(0.5);
@@ -66,7 +68,7 @@ export class HandBar {
         fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: UI.cardInkBlack,
       }).setOrigin(0, 0).setRotation(Math.PI);
       const holdTag = scene.add
-        .text(0, CARD_H / 2 - 11, 'LOCKED', {
+        .text(0, CARD_H / 2 - 11, 'HOLD', {
           fontFamily: FONT, fontSize: '9px', fontStyle: 'bold', color: UI.accentText,
         })
         .setOrigin(0.5)
@@ -97,16 +99,16 @@ export class HandBar {
       .setWordWrapWidth(210, true)
       .setLineSpacing(3)
       .setDepth(3);
-    this.oddsBtn = makeButton(scene, 710, 574, 104, 28, '확률 자세히', () => {
+    this.oddsBtn = makeButton(scene, 710, 574, compactTouch ? 112 : 104, compactTouch ? 36 : 28, '확률 자세히', () => {
       if (this.cachedOdds && this.game.phase === 'prep' && !this.game.handConfirmed) onOdds(this.cachedOdds);
     }, { fill: 0x42544a, fontSize: 10 });
     this.oddsBtn.container.setDepth(3);
 
-    this.exchangeBtn = makeButton(scene, 542, 650, 160, 44, '교환 (무료)', () => {
+    this.exchangeBtn = makeButton(scene, 542, 650, 160, compactTouch ? 56 : 44, '교환 (무료)', () => {
       this.game.doExchange();
       onAction('exchange');
     });
-    this.confirmBtn = makeButton(scene, 694, 650, 120, 44, '족보 확정 ▶', () => {
+    this.confirmBtn = makeButton(scene, 694, 650, 132, compactTouch ? 56 : 44, '이 군단으로 출전!', () => {
       this.game.confirmHand();
       onAction('confirm');
     }, { fill: 0xe6c84f });
