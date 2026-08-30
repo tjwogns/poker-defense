@@ -1,4 +1,5 @@
 import { Card, HandRank } from './cards/types';
+import { Suit } from './cards/types';
 import { MAX_RUN_DECK_SIZE, MIN_RUN_DECK_SIZE, RunDeck } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
@@ -37,6 +38,10 @@ import {
   createHandMasteryLevels, HandMasteryLevels, handMasteryCost, handMasteryMultiplier,
   handMasteryOffer, HAND_MASTERY_DAMAGE_PER_LEVEL, HAND_MASTERY_MAX_LEVEL, MasterableHandRank,
 } from './mastery';
+import {
+  dominantSuitChoices, HandVariant, handVariant, suitDamageMultiplier, suitPeriodMultiplier,
+  variantDamageMultiplier, variantPeriodMultiplier,
+} from './cards/handIdentity';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 export type DefeatReason = 'field-cap' | 'final-boss-timeout';
@@ -71,6 +76,9 @@ export class Game {
   exchangesUsed = 0;
   handConfirmed = false;
   lastHandRank: HandRank | null = null;
+  lastHandSuit: Suit | null = null;
+  lastHandVariant: HandVariant | null = null;
+  selectedDominantSuit: Suit | null = null;
   relics: RelicId[] = [];
   relicChoices: RelicId[] = [];
   readonly deckSeals: Record<DeckSealId, number> = { banish: 0, duplicate: 0 };
@@ -83,6 +91,8 @@ export class Game {
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
   private pendingUnitPristine: boolean[] = [];
+  private pendingUnitSuits: (Suit | null)[] = [];
+  private pendingUnitVariants: (HandVariant | null)[] = [];
   lastRelicGoldBonus = 0;
   lastPairBrokerBonus = false;
   lastRelicTriggers: RelicId[] = [];
@@ -94,6 +104,7 @@ export class Game {
   private spawnQueue: EnemyKindId[] = [];
   private spawnTimer = 0;
   private combatTimer = 0;
+  private diamondGoldThisRound = 0;
   private nextBossTaxAt = Infinity;
   private nextBossSummonAt = Infinity;
   private pendingBossRewardRounds: number[] = [];
@@ -299,6 +310,26 @@ export class Game {
     this.holds[i] = !this.holds[i];
   }
 
+  get dominantSuitChoicesNow(): Suit[] {
+    return dominantSuitChoices(this.hand);
+  }
+
+  get dominantSuitNow(): Suit | null {
+    const choices = this.dominantSuitChoicesNow;
+    if (choices.length === 1) return choices[0];
+    return this.selectedDominantSuit && choices.includes(this.selectedDominantSuit)
+      ? this.selectedDominantSuit
+      : null;
+  }
+
+  selectDominantSuit(suit: Suit): boolean {
+    if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return false;
+    const choices = this.dominantSuitChoicesNow;
+    if (choices.length < 2 || !choices.includes(suit)) return false;
+    this.selectedDominantSuit = suit;
+    return true;
+  }
+
   get exchangeCostNow(): number {
     const mods = relicModifiers(this.relics, this.deckSize);
     return Math.ceil(
@@ -320,18 +351,23 @@ export class Game {
     this.gold -= cost;
     this.hand = this.runDeck.exchange(this.hand, this.holds, this.rng);
     this.exchangesUsed++;
+    this.selectedDominantSuit = null;
     return true;
   }
 
   /** 족보 확정 → 해당 등급 유닛 1기 획득 (배치 대기). 하이카드도 유닛 지급. */
-  confirmHand(): HandRank | null {
+  confirmHand(requireSuitChoice = false): HandRank | null {
     if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return null;
+    const choices = this.dominantSuitChoicesNow;
+    const suit = this.dominantSuitNow ?? (!requireSuitChoice ? choices[0] : null);
+    if (!suit) return null;
     this.handConfirmed = true;
     this.lastRelicGoldBonus = 0;
     this.lastPairBrokerBonus = false;
     this.lastRelicTriggers = [];
     if (this.pendingUnits.length === 0) this.pendingUnitPristine = [];
     const baseRank = evaluateHand(this.hand);
+    const variant = handVariant(this.hand, baseRank);
     const bonus = this.round % BOSS_EVERY === 0
       ? relicModifiers(this.relics).bossRankBonus
       : 0;
@@ -341,16 +377,22 @@ export class Game {
       ? baseRank
       : Math.min(HandRank.RoyalFlush, baseRank + bonus) as HandRank;
     this.lastHandRank = rank;
+    this.lastHandSuit = suit;
+    this.lastHandVariant = variant;
     this.bestHand = Math.max(this.bestHand, rank) as HandRank;
     this.score += scoreForHand(rank);
     const pristine = this.exchangesUsed === 0;
     this.pendingUnits.push(rank);
     this.pendingUnitPristine.push(pristine);
+    this.pendingUnitSuits.push(suit);
+    this.pendingUnitVariants.push(variant);
     const mods = relicModifiers(this.relics, this.deckSize);
     if (mods.pairBonusUnit && rank === HandRank.Pair) {
       if (this.field.units.length + this.pendingUnits.length < UNIT_CAP) {
         this.pendingUnits.push(rank);
         this.pendingUnitPristine.push(pristine);
+        this.pendingUnitSuits.push(suit);
+        this.pendingUnitVariants.push(variant);
         this.lastPairBrokerBonus = true;
       } else {
         this.gold += 15;
@@ -379,7 +421,15 @@ export class Game {
     const tier = this.pendingUnits[0];
     if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
     if (!tileCanReachPath(tx, ty, UNIT_DEFS[tier].range)) return false;
-    addUnit(this.field, this.pendingUnits.shift()!, tx, ty, this.pendingUnitPristine.shift() ?? false);
+    addUnit(
+      this.field,
+      this.pendingUnits.shift()!,
+      tx,
+      ty,
+      this.pendingUnitPristine.shift() ?? false,
+      this.pendingUnitSuits.shift() ?? null,
+      this.pendingUnitVariants.shift() ?? null,
+    );
     return true;
   }
 
@@ -387,6 +437,8 @@ export class Game {
     if (this.pendingUnits.length === 0) return false;
     this.pendingUnits.shift();
     this.pendingUnitPristine.shift();
+    this.pendingUnitSuits.shift();
+    this.pendingUnitVariants.shift();
     return true;
   }
 
@@ -423,7 +475,8 @@ export class Game {
     const origin = units[0];
     const consumed = new Set(unitIds);
     this.field.units = this.field.units.filter((unit) => !consumed.has(unit.id));
-    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty);
+    const fusedSuit = units.every((unit) => unit.suit === origin.suit) ? origin.suit : null;
+    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty, false, fusedSuit, null);
     return true;
   }
 
@@ -454,6 +507,14 @@ export class Game {
     return this.dmgMult
       * handMasteryMultiplier(this.handMastery, tier)
       * unitSynergyDamageMultiplier(tier, this.synergies, targetIsBoss);
+  }
+
+  unitDpsMult(unit: Pick<Unit, 'tier' | 'suit' | 'variant'>, targetIsBoss = false): number {
+    return this.unitDamageMult(unit.tier, targetIsBoss)
+      * suitDamageMultiplier(unit.suit, targetIsBoss)
+      * variantDamageMultiplier(unit.variant)
+      / suitPeriodMultiplier(unit.suit)
+      / variantPeriodMultiplier(unit.variant);
   }
 
   get fieldCap(): number {
@@ -573,12 +634,19 @@ export class Game {
       },
     );
     result.relicTriggers = [...triggeredRelics];
+    let diamondBonusGold = 0;
     for (const attack of result.attacks) {
       const unit = this.field.units.find((candidate) => candidate.id === attack.unitId);
-      if (unit) this.handDamage[unit.tier] += attack.totalDamage;
+      if (!unit) continue;
+      this.handDamage[unit.tier] += attack.totalDamage;
+      if (unit.suit === 'D' && attack.kills > 0 && this.diamondGoldThisRound < 3) {
+        const bonus = Math.min(attack.kills, 3 - this.diamondGoldThisRound);
+        this.diamondGoldThisRound += bonus;
+        diamondBonusGold += bonus;
+      }
     }
     const mods = relicModifiers(this.relics);
-    result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
+    result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier) + diamondBonusGold;
     this.gold += result.goldEarned;
     this.kills += result.deaths.length;
     this.score += scoreForKills(this.round, result.deaths.length);
@@ -662,6 +730,11 @@ export class Game {
     this.hand = this.runDeck.draw(this.rng);
     this.holds = [false, false, false, false, false];
     this.exchangesUsed = 0;
+    this.selectedDominantSuit = null;
+    this.lastHandRank = null;
+    this.lastHandSuit = null;
+    this.lastHandVariant = null;
+    this.diamondGoldThisRound = 0;
     this.handConfirmed = false;
     this.phase = 'prep';
     this.openNextBossReward();

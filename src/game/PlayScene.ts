@@ -35,6 +35,7 @@ import { FirstRunCoach } from './FirstRunCoach';
 import { isCompactTouchDevice } from './device';
 import { attackFxBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
+import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
 
 const DT = 1 / TICK_RATE;
 
@@ -142,6 +143,13 @@ export class PlayScene extends Phaser.Scene {
     if (localVisualTest === 'relics') {
       this.profile.tutorialDone = true;
       this.core.relicChoices = ['royal_seal', 'compound_ledger', 'glass_crown'];
+    } else if (localVisualTest === 'suits') {
+      this.profile.tutorialDone = true;
+      this.core.hand = [
+        { rank: 10, suit: 'S' }, { rank: 13, suit: 'S' },
+        { rank: 11, suit: 'H' }, { rank: 12, suit: 'H' },
+        { rank: 14, suit: 'D' },
+      ];
     } else if (localVisualTest === 'mastery') {
       this.profile.tutorialDone = true;
       this.core.round = 9;
@@ -469,7 +477,16 @@ export class PlayScene extends Phaser.Scene {
         exchanges: this.core.exchangesUsed,
         hidden: isHiddenHand(this.core.lastHandRank),
         newlyDiscovered,
+        suit: this.core.lastHandSuit,
+        variant: this.core.lastHandVariant,
       }, this.runId);
+      if (this.core.lastHandVariant) {
+        this.flashCenter(
+          `${HAND_VARIANT_LABELS[this.core.lastHandVariant]} · ${suitIdentityLabel(this.core.lastHandSuit)}`,
+          0xffe27a,
+          20,
+        );
+      }
       this.showRelicTriggers(this.core.lastRelicTriggers, 'hand');
       if (this.core.lastRelicGoldBonus > 0) this.flashCenter(`유물 보상  +${this.core.lastRelicGoldBonus}G`, 0xe6c84f, 17);
     } else if (action === 'exchange') {
@@ -538,7 +555,7 @@ export class PlayScene extends Phaser.Scene {
     });
     keyboard.on('keydown-ENTER', () => {
       if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
-      if (this.core.confirmHand() !== null) this.onHandAction('confirm');
+      if (this.core.confirmHand(true) !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
       if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
@@ -924,7 +941,7 @@ export class PlayScene extends Phaser.Scene {
         x1: from.x, y1: from.y, x2: to.x, y2: to.y,
         ttl: 0.2,
         duration: 0.2,
-        color: UNIT_DEFS[unit.tier].color,
+        color: unit.suit ? SUIT_COLORS[unit.suit] : UNIT_DEFS[unit.tier].color,
         tier: unit.tier,
         targetKind: enemy.kind,
         targetRound: enemy.round,

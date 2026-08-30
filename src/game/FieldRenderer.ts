@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { Game } from '../core/game';
-import { HandRank } from '../core/cards/types';
+import { HandRank, SUIT_GLYPHS } from '../core/cards/types';
 import { enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
@@ -311,7 +311,15 @@ export class FieldRenderer {
         const halo = this.scene.add.circle(0, 0, 17, def.color, 0.24)
           .setStrokeStyle(1, def.color, 0.75);
         const art = unitVisual(this.scene, u.tier, def.color);
-        const root = this.scene.add.container(0, 0, [shadow, selection, halo, art]).setDepth(2);
+        const identity = this.scene.add.text(13, 13, u.suit ? `${SUIT_GLYPHS[u.suit]}${u.variant ? '✦' : ''}` : '', {
+          fontFamily: FONT,
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: u.variant ? '#ffe27a' : '#f4eee4',
+          backgroundColor: '#07130cdd',
+          padding: { x: 2, y: 1 },
+        }).setOrigin(0.5);
+        const root = this.scene.add.container(0, 0, [shadow, selection, halo, art, identity]).setDepth(2);
         view = { root, selection, halo, introStartedAt: this.scene.time.now };
         this.unitViews.set(u.id, view);
       }

@@ -53,6 +53,16 @@ GROUP BY hand_rank
 ORDER BY purchases DESC, hand_rank;
 
 SELECT
+  COALESCE(json_extract(properties_json, '$.suit'), 'none') AS dominant_suit,
+  COALESCE(json_extract(properties_json, '$.variant'), 'standard') AS hand_variant,
+  COUNT(*) AS confirmations
+FROM analytics_events
+WHERE name = 'hand_confirmed'
+  AND received_at >= datetime('now', '-7 days')
+GROUP BY dominant_suit, hand_variant
+ORDER BY confirmations DESC, dominant_suit, hand_variant;
+
+SELECT
   CAST(json_extract(properties_json, '$.damageRanks[0]') AS INTEGER) AS main_damage_rank,
   COUNT(*) AS finished_runs,
   ROUND(AVG(CAST(json_extract(properties_json, '$.round') AS REAL)), 1) AS avg_round,

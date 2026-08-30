@@ -6,7 +6,7 @@ const HAND_RULES: Record<HandRank, string> = {
   [HandRank.Pair]: '같은 숫자 2장',
   [HandRank.TwoPair]: '서로 다른 페어 2개',
   [HandRank.Trips]: '같은 숫자 3장',
-  [HandRank.Straight]: '연속 숫자 5장 (A-2-3-4-5 포함)',
+  [HandRank.Straight]: '연속 숫자 5장 · 마운틴/백스트레이트 포함',
   [HandRank.Flush]: '같은 무늬 5장',
   [HandRank.FullHouse]: '트리플 1개 + 페어 1개',
   [HandRank.FourKind]: '같은 숫자 4장',

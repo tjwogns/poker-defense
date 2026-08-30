@@ -66,11 +66,15 @@ export class GuideOverlay {
     });
 
     children.push(
-      makeText(scene, 120, 600, 'SYNERGY', 10, UI.accentText, true),
-      makeText(scene, 190, 600, '군단 2/4 · 정밀 2 · 마도 2/3 · 왕실 2/3 · 용족 2 · 서로 다른 유닛 종류만 집계', 10, UI.text, true),
-      makeText(scene, 120, 624, 'FUSION', 10, UI.gold, true),
-      makeText(scene, 180, 624, '표준 족보 유닛만 동일 3기 합성 · 히든 족보는 카드 조합으로만 획득', 10, UI.text, true),
-      makeText(scene, 120, 654, 'H로 언제든 도감을 열 수 있습니다 · 히든 족보는 첫 발견 후 조건과 유닛이 공개됩니다.', 10, UI.textDim),
+      makeText(scene, 120, 582, 'SPECIAL', 9, UI.gold, true),
+      makeText(scene, 185, 582, '마운틴 10-J-Q-K-A: 피해 +25% · 백스트레이트 A-2-3-4-5: 공격 속도 +18%', 9, UI.text, true),
+      makeText(scene, 120, 602, 'SUITS', 9, UI.accentText, true),
+      makeText(scene, 170, 602, '♠ 보스 +12% · ♥ 공속 +11% · ♦ 처치 +1G(라운드 3G) · ♣ 일반 적 +10% · 2-2-1은 직접 선택', 9, UI.text, true),
+      makeText(scene, 120, 622, 'SYNERGY', 9, UI.accentText, true),
+      makeText(scene, 180, 622, '군단 2/4 · 정밀 2 · 마도 2/3 · 왕실 2/3 · 용족 2 · 서로 다른 유닛 종류만 집계', 9, UI.text, true),
+      makeText(scene, 120, 642, 'FUSION', 9, UI.gold, true),
+      makeText(scene, 170, 642, '동일 3기 합성 · 세 유닛의 대표 문양이 같을 때만 문양 특성 계승', 9, UI.text, true),
+      makeText(scene, 120, 668, 'H로 언제든 도감을 열 수 있습니다 · 히든 족보는 첫 발견 후 조건과 유닛이 공개됩니다.', 9, UI.textDim),
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(40);

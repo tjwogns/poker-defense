@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 import { Game } from '../core/game';
 import { evaluateHand } from '../core/cards/evaluator';
-import { HAND_NAMES_KO, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
+import { HAND_NAMES_KO, RANK_LABELS, Suit, SUIT_GLYPHS } from '../core/cards/types';
+import {
+  HAND_VARIANT_LABELS, handVariant, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
+} from '../core/cards/handIdentity';
 import { UNIT_DEFS } from '../core/units';
 import { HAND_PREVIEW_BOUNDS } from './layout';
 import { Button, FONT, UI, makeButton, makeText } from './ui';
@@ -35,6 +38,7 @@ export class HandBar {
   private oddsBtn: Button;
   private exchangeBtn: Button;
   private confirmBtn: Button;
+  private suitBtns: Record<Suit, Button>;
   private oddsSignature = '';
   private cachedOdds: RerollOdds | null = null;
 
@@ -104,13 +108,24 @@ export class HandBar {
     }, { fill: 0x42544a, fontSize: 10 });
     this.oddsBtn.container.setDepth(3);
 
+    this.suitBtns = Object.fromEntries((['S', 'H', 'D', 'C'] as Suit[]).map((suit, index) => {
+      const button = makeButton(scene, 480 + index * 48, 606, 42, 28, SUIT_GLYPHS[suit], () => {
+        if (this.game.selectDominantSuit(suit)) onAction('hold');
+      }, {
+        fill: suit === 'S' ? 0x55708f : suit === 'H' ? 0xa84e62 : suit === 'D' ? 0x9b7a32 : 0x477757,
+        fontSize: 14,
+      });
+      button.container.setDepth(4).setVisible(false);
+      return [suit, button];
+    })) as Record<Suit, Button>;
+
     this.exchangeBtn = makeButton(scene, 542, 650, 160, compactTouch ? 56 : 44, '교환 (무료)', () => {
       this.game.doExchange();
       onAction('exchange');
     });
     this.confirmBtn = makeButton(scene, 694, 650, 132, compactTouch ? 56 : 44, '이 군단으로 출전!', () => {
-      this.game.confirmHand();
-      onAction('confirm');
+      if (this.game.confirmHand(true) !== null) onAction('confirm');
+      else this.refresh();
     }, { fill: 0xe6c84f });
     this.exchangeBtn.container.setDepth(2);
     this.confirmBtn.container.setDepth(2);
@@ -138,24 +153,41 @@ export class HandBar {
     });
 
     const rank = evaluateHand(g.hand);
+    const variant = handVariant(g.hand, rank);
+    const variantText = variant ? ` · ${HAND_VARIANT_LABELS[variant]}` : '';
+    const suit = g.dominantSuitNow;
+    const suitChoices = g.dominantSuitChoicesNow;
+    const showSuitChoices = inPrep && !g.handConfirmed && suitChoices.length > 1;
+    const needsSuitChoice = showSuitChoices && !suit;
     if (!inPrep) {
       this.preview.setText('전투 진행 중…');
     } else if (g.handConfirmed) {
       const pending = g.pendingUnits.length;
       this.preview.setText(
         pending > 0
-          ? `획득 ${UNIT_DEFS[g.lastHandRank!].name} · 초록 타일에 배치`
+          ? `획득 ${variantUnitName(UNIT_DEFS[g.lastHandRank!].name, g.lastHandVariant)} · ${suitIdentityLabel(g.lastHandSuit)}`
+            + `${g.lastHandVariant ? ` · ${HAND_VARIANT_LABELS[g.lastHandVariant]}` : ''}\n초록 타일에 배치`
           : `${HAND_NAMES_KO[g.lastHandRank!]} 확정 완료`,
       );
     } else {
-      this.preview.setText(`현재 패: ${HAND_NAMES_KO[rank]} → ${UNIT_DEFS[rank].name}`);
+      this.preview.setText(needsSuitChoice
+        ? `현재 패: ${HAND_NAMES_KO[rank]}${variantText}\n대표 문양을 선택하세요`
+        : `현재 패: ${HAND_NAMES_KO[rank]}${variantText} → ${variantUnitName(UNIT_DEFS[rank].name, variant)}\n`
+          + `${suitIdentityLabel(suit)} · ${suit ? SUIT_TRAIT_LABELS[suit] : ''}`);
     }
-    this.refreshOdds(inPrep && !g.handConfirmed);
+    this.refreshOdds(inPrep && !g.handConfirmed && !showSuitChoices);
+    for (const [candidate, button] of Object.entries(this.suitBtns) as [Suit, Button][]) {
+      const visible = showSuitChoices && suitChoices.includes(candidate);
+      button.container.setVisible(visible);
+      button.setLabel(candidate === g.selectedDominantSuit ? `${SUIT_GLYPHS[candidate]}●` : SUIT_GLYPHS[candidate]);
+      button.setEnabled(visible);
+    }
 
     const cost = g.exchangeCostNow;
     this.exchangeBtn.setLabel(cost === 0 ? '교환 (무료)' : `교환 (${cost}G)`);
     this.exchangeBtn.setEnabled(inPrep && !g.handConfirmed && g.gold >= cost);
-    this.confirmBtn.setEnabled(inPrep && !g.handConfirmed);
+    this.confirmBtn.setLabel(needsSuitChoice ? '문양 선택 필요' : '이 군단으로 출전!');
+    this.confirmBtn.setEnabled(inPrep && !g.handConfirmed && !needsSuitChoice);
   }
 
   private refreshOdds(visible: boolean): void {

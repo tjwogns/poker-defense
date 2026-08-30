@@ -6,6 +6,8 @@ import { TILE, Pt, pointAt, tileCenter } from './map';
 import { bossModifiers } from './bosses';
 import { SynergyStatus, unitSynergyDamageMultiplier } from './synergies';
 import type { RelicId } from './relics';
+import { HandVariant, suitDamageMultiplier, suitPeriodMultiplier, variantDamageMultiplier, variantPeriodMultiplier } from './cards/handIdentity';
+import type { Suit } from './cards/types';
 
 export interface Enemy {
   id: number;
@@ -28,6 +30,8 @@ export interface Unit {
   ty: number;
   cooldown: number; // 남은 초 (0 이하 = 공격 가능)
   pristine: boolean; // 교환 없이 확정한 패에서 생성됐는지
+  suit: Suit | null; // 확정 패의 대표 문양
+  variant: HandVariant | null; // 마운틴·백스트레이트 등 명명 변형
 }
 
 export interface AttackEvent {
@@ -37,6 +41,7 @@ export interface AttackEvent {
   damage: number;
   /** 광역·연쇄를 포함해 이 공격이 실제로 가한 총 피해. */
   totalDamage: number;
+  kills: number;
 }
 
 export interface TickResult {
@@ -88,8 +93,16 @@ export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts:
   return enemy;
 }
 
-export function addUnit(field: Field, tier: HandRank, tx: number, ty: number, pristine = false): Unit {
-  const unit: Unit = { id: field.nextId++, tier, tx, ty, cooldown: 0, pristine };
+export function addUnit(
+  field: Field,
+  tier: HandRank,
+  tx: number,
+  ty: number,
+  pristine = false,
+  suit: Suit | null = null,
+  variant: HandVariant | null = null,
+): Unit {
+  const unit: Unit = { id: field.nextId++, tier, tx, ty, cooldown: 0, pristine, suit, variant };
   field.units.push(unit);
   return unit;
 }
@@ -191,9 +204,12 @@ function performAttack(
   }
 
   const targetPos = enemyPos(target);
+  const deathsBefore = result.deaths.length;
   const damageAgainst = (enemy: Enemy, amount: number) => amount
     * unitSynergyDamageMultiplier(unit.tier, synergies, enemy.kind === 'boss')
-    * relicDamageMultiplier(unit, enemy, field);
+    * relicDamageMultiplier(unit, enemy, field)
+    * suitDamageMultiplier(unit.suit, enemy.kind === 'boss')
+    * variantDamageMultiplier(unit.variant);
   const targetDamage = damageAgainst(target, base);
 
   if (slow && target.alive) {
@@ -244,6 +260,7 @@ function performAttack(
     targetId: target.id,
     damage: primaryDamage,
     totalDamage,
+    kills: result.deaths.length - deathsBefore,
   });
 
   return true;
@@ -287,7 +304,7 @@ export function tick(
         unit.cooldown = 0;
         break;
       }
-      unit.cooldown += def.period;
+      unit.cooldown += def.period * suitPeriodMultiplier(unit.suit) * variantPeriodMultiplier(unit.variant);
     }
   }
 

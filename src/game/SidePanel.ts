@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Game } from '../core/game';
 import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
-import { HAND_NAMES_KO } from '../core/cards/types';
+import { HAND_NAMES_KO, SUIT_GLYPHS } from '../core/cards/types';
 import { HandRank } from '../core/cards/types';
 import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
 import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
@@ -14,6 +14,9 @@ import { threatBand, threatLabel } from './threat';
 import { isCompactTouchDevice } from './device';
 import { createRelicIcon } from './relicAssets';
 import { MASTERABLE_HANDS } from '../core/mastery';
+import {
+  HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
+} from '../core/cards/handIdentity';
 
 const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
@@ -248,9 +251,12 @@ export class SidePanel {
 
     if (selectedUnit) {
       const def = UNIT_DEFS[selectedUnit.tier];
-      this.unitName.setText(`${def.name}  ·  ${HAND_NAMES_KO[def.tier]}  [${familyLabel(def.tier)}]`);
+      const variant = selectedUnit.variant ? ` · ${HAND_VARIANT_LABELS[selectedUnit.variant]}` : '';
+      const suitGlyph = selectedUnit.suit ? ` · ${SUIT_GLYPHS[selectedUnit.suit]}` : '';
+      this.unitName.setText(`${variantUnitName(def.name, selectedUnit.variant)}  ·  ${HAND_NAMES_KO[def.tier]}${variant}${suitGlyph}  [${familyLabel(def.tier)}]`);
       this.unitStats.setText(
-        `DPS ${def.dps} × ${g.unitDamageMult(def.tier).toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
+        `${suitIdentityLabel(selectedUnit.suit)} · ${selectedUnit.suit ? SUIT_TRAIT_LABELS[selectedUnit.suit] : '합성으로 문양 특성 소실'}\n`
+        + `DPS ${def.dps} × ${g.unitDpsMult(selectedUnit).toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
       );
       this.sellBtn.setLabel(`판매 +${SELL_REFUND[selectedUnit.tier]}G`);
       this.sellBtn.setEnabled(inPrep);
