@@ -1,10 +1,13 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
-// SINGLEFILE=1 빌드는 아티팩트/단일 파일 배포용 (모든 JS를 index.html에 인라인)
+// Pages는 새 배포 때 이전 해시 번들을 제거한다. 브라우저가 캐시한 이전 HTML이
+// 삭제된 JS를 가리켜 빈 화면이 되는 일을 막기 위해 CI 배포본은 코드를 인라인한다.
+const singleFile = Boolean(process.env.SINGLEFILE || process.env.GITHUB_ACTIONS);
+
 export default defineConfig({
   base: './',
-  plugins: process.env.SINGLEFILE ? [viteSingleFile()] : [],
+  plugins: singleFile ? [viteSingleFile()] : [],
   build: {
     chunkSizeWarningLimit: 2000,
   },
