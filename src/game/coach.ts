@@ -20,7 +20,11 @@ export function firstRunCoachHint(game: Game): CoachHint | null {
     if (game.phase === 'prep' && game.pendingUnits.length > 0) {
       return { step: 1, title: '첫 유닛 배치', body: '금빛 ◆ 추천 칸 또는 ✓ 표시 칸에 유닛을 배치하세요.' };
     }
-    return { step: 1, title: '첫 전투', body: `필드 적 ${aliveEnemies(game.field).length}/${game.fieldCap} · 80기가 되기 전에 처치하세요.` };
+    return {
+      step: 1,
+      title: '첫 전투',
+      body: `필드 적 ${aliveEnemies(game.field).length}/${game.fieldCap} · ${game.fieldCap}기를 초과하기 전에 처치하세요.`,
+    };
   }
   if (game.round === 2) {
     if (game.phase === 'prep') {

@@ -306,6 +306,26 @@ describe('Game relic flow', () => {
     expect(game.fieldCap).toBe(85);
   });
 
+  test('필드 허용치 유물은 서로 합산되고 실제 패배 임계치에도 적용된다', () => {
+    const stacked = new Game(961);
+    stacked.relics.push('fortified_table', 'frozen_clover', 'glass_crown');
+    expect(stacked.fieldCap).toBe(80);
+
+    const game = new Game(962);
+    game.relics.push('glass_crown');
+    game.phase = 'combat';
+    for (let i = 0; i < 65; i++) spawnEnemy(game.field, 'normal', 1, { dist: i });
+
+    game.tickCombat(1 / 30);
+    expect(game.phase).toBe('combat');
+    spawnEnemy(game.field, 'normal', 1, { dist: 65 });
+    game.tickCombat(1 / 30);
+
+    expect(game.fieldCap).toBe(65);
+    expect(game.phase).toBe('defeat');
+    expect(game.defeatReason).toBe('field-cap');
+  });
+
   test('피의 계약은 피해를 높이는 대신 처치 골드를 낮춘다', () => {
     const mods = relicModifiers(['blood_contract']);
 

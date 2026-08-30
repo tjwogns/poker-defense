@@ -10,7 +10,7 @@ import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
 import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
-import { threatBand, threatLabel } from './threat';
+import { threatBand, threatLabel, threatTitle } from './threat';
 import { isCompactTouchDevice } from './device';
 import { createRelicIcon } from './relicAssets';
 import { MASTERABLE_HANDS } from '../core/mastery';
@@ -112,7 +112,7 @@ export class SidePanel {
     this.waveText = makeText(scene, PX, 65, '', 13, UI.textDim);
     makeButton(scene, 1208, 42, 72, 28, 'EXIT', cb.onHome, { fill: 0x34463c, fontSize: 10 });
 
-    this.threatTitle = makeText(scene, PX, 92, '필드 위험도 · 80기 도달 시 패배', 10, UI.textDim, true);
+    this.threatTitle = makeText(scene, PX, 92, '', 10, UI.textDim, true);
     scene.add.rectangle(PX, 114, 370, 12, UI.panelDeep, 0.95).setOrigin(0, 0.5);
     this.gaugeFg = scene.add.rectangle(PX, 114, 0, 12, UI.accent).setOrigin(0, 0.5);
     this.gaugeText = makeText(scene, 1198, 103, '', 12, UI.text, true).setOrigin(1, 0);
@@ -213,6 +213,7 @@ export class SidePanel {
     const threatTextColor = band === 'critical' ? UI.dangerText : band === 'warning' ? '#e0a33c' : UI.text;
     this.gaugeFg.width = 370 * ratio;
     this.gaugeFg.setFillStyle(threatColor);
+    this.threatTitle.setText(threatTitle(g.fieldCap));
     this.gaugeText.setText(threatLabel(alive, g.fieldCap)).setColor(threatTextColor);
     this.threatTitle.setColor(band === 'safe' ? UI.textDim : threatTextColor);
     if (band !== this.lastThreatBand && band !== 'safe') {

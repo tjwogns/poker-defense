@@ -11,3 +11,7 @@ export function threatLabel(alive: number, cap: number): string {
   const prefix = threatBand(alive, cap) === 'safe' ? '' : '⚠ ';
   return `${prefix}필드 적 ${alive} / ${cap}`;
 }
+
+export function threatTitle(cap: number): string {
+  return `필드 위험도 · ${cap}기 초과 시 패배`;
+}
