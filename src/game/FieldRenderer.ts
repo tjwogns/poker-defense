@@ -9,6 +9,7 @@ import {
 } from '../core/map';
 import { UI, FONT } from './ui';
 import { UNIT_SPRITE_KEYS } from './unitAssets';
+import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 
 export const FIELD_X = 16;
 export const FIELD_Y = 16;
@@ -56,13 +57,16 @@ interface EnemyView {
 interface UnitView {
   root: Phaser.GameObjects.Container;
   selection: Phaser.GameObjects.Arc;
+  halo: Phaser.GameObjects.Arc;
+  introStartedAt: number;
 }
 
 function unitVisual(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.GameObjects.GameObject {
   const key = UNIT_SPRITE_KEYS[tier];
   if (!key || !scene.textures.exists(key)) return unitArt(scene, tier, color);
   const image = scene.add.image(0, -2, key);
-  const scale = Math.min(46 / image.width, 46 / image.height);
+  const extent = unitSpriteExtent(tier);
+  const scale = Math.min(extent / image.width, extent / image.height);
   return image.setDisplaySize(image.width * scale, image.height * scale);
 }
 
@@ -285,7 +289,7 @@ export class FieldRenderer {
           .setStrokeStyle(1, def.color, 0.75);
         const art = unitVisual(this.scene, u.tier, def.color);
         const root = this.scene.add.container(0, 0, [shadow, selection, halo, art]).setDepth(2);
-        view = { root, selection };
+        view = { root, selection, halo, introStartedAt: this.scene.time.now };
         this.unitViews.set(u.id, view);
       }
       const p = unitPos(u);
@@ -296,8 +300,15 @@ export class FieldRenderer {
       const recoilX = attackFx ? -((attackFx.x2 - attackFx.x1) / attackLength) * recoil * 2.5 : 0;
       const recoilY = attackFx ? -((attackFx.y2 - attackFx.y1) / attackLength) * recoil * 2.5 : 0;
       const bob = Math.sin(game.field.time * 2.4 + u.id * 0.7) * 0.8;
+      const introDuration = unitIntroDuration(u.tier);
+      const introProgress = introDuration === 0
+        ? 1
+        : Math.min(1, (this.scene.time.now - view.introStartedAt) / introDuration);
+      const introScale = introDuration === 0 ? 1 : Phaser.Math.Easing.Back.Out(introProgress);
       view.root.setPosition(FIELD_X + p.x + recoilX, FIELD_Y + p.y + bob + recoilY);
-      view.root.setScale((selected ? 1.12 : 1) * (1 + recoil * 0.06));
+      view.root.setScale((selected ? 1.12 : 1) * (1 + recoil * 0.06) * introScale);
+      view.root.setAlpha(introDuration === 0 ? 1 : 0.5 + introProgress * 0.5);
+      view.halo.setScale(introDuration === 0 ? 1 : 1 + (1 - introProgress) * 0.75);
       view.selection.setVisible(selected);
     }
     for (const [id, view] of this.unitViews) {

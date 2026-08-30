@@ -59,7 +59,10 @@ await page.touchscreen.tap(
   landscape.canvas.y + 500 * scale,
 );
 await page.evaluate(() => {
-  for (const [tier, tx, ty] of [[0, 5, 2], [1, 6, 3], [2, 8, 4], [3, 10, 2], [4, 11, 3], [5, 13, 4]]) {
+  for (const [tier, tx, ty] of [
+    [0, 5, 2], [1, 6, 3], [2, 8, 4], [3, 10, 2], [4, 11, 3],
+    [5, 13, 4], [6, 7, 3], [7, 9, 4], [8, 12, 2], [9, 13, 5],
+  ]) {
     window.__game.pendingUnits.push(tier);
     if (!window.__game.placeUnit(tx, ty)) throw new Error(`캐릭터 배치 실패: ${tier}`);
   }
