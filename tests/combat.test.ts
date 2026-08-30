@@ -58,10 +58,14 @@ describe('combat engine', () => {
     const near = spawnEnemy(f, 'normal', 20, { dist: AT_TILE_3_1 + 0.5 * TILE });
     const far = spawnEnemy(f, 'normal', 20, { dist: AT_TILE_5_1 + 5 * TILE });
     addUnit(f, HandRank.Trips, 3, 2);
-    tick(f, 1 / 30, 1);
+    const result = tick(f, 1 / 30, 1);
     expect(target.hp).toBeLessThan(target.maxHp);
     expect(near.hp).toBeLessThan(near.maxHp);
     expect(far.hp).toBe(far.maxHp);
+    expect(result.attacks[0].totalDamage).toBeCloseTo(
+      (target.maxHp - target.hp) + (near.maxHp - near.hp),
+    );
+    expect(result.attacks[0].totalDamage).toBeGreaterThan(result.attacks[0].damage);
   });
 
   test('대마법사 체인: 인접 적에게 70%로 감쇠하며 연쇄', () => {

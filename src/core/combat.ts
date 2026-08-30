@@ -33,7 +33,10 @@ export interface Unit {
 export interface AttackEvent {
   unitId: number;
   targetId: number;
+  /** 주 대상에 실제로 들어간 피해. 투사체 숫자 표시에 사용한다. */
   damage: number;
+  /** 광역·연쇄를 포함해 이 공격이 실제로 가한 총 피해. */
+  totalDamage: number;
 }
 
 export interface TickResult {
@@ -141,14 +144,16 @@ function die(field: Field, enemy: Enemy, result: TickResult): void {
   }
 }
 
-function applyDamage(field: Field, enemy: Enemy, amount: number, ignoreDefense: boolean, result: TickResult): void {
-  if (!enemy.alive) return;
+function applyDamage(field: Field, enemy: Enemy, amount: number, ignoreDefense: boolean, result: TickResult): number {
+  if (!enemy.alive) return 0;
   let mult = ignoreDefense ? 1 : ENEMY_KINDS[enemy.kind].damageTakenMult;
   if (enemy.kind === 'boss' && !ignoreDefense) {
     mult *= bossModifiers(enemy.round, enemy.hp / enemy.maxHp).damageTakenMultiplier;
   }
+  const dealt = Math.min(Math.max(0, enemy.hp), amount * mult);
   enemy.hp -= amount * mult;
   if (enemy.hp <= 0) die(field, enemy, result);
+  return dealt;
 }
 
 /** 오라 보정: 반경 내 다른 성기사 유무 (비중첩 — 최대 1회) */
@@ -190,21 +195,21 @@ function performAttack(
     * unitSynergyDamageMultiplier(unit.tier, synergies, enemy.kind === 'boss')
     * relicDamageMultiplier(unit, enemy, field);
   const targetDamage = damageAgainst(target, base);
-  result.attacks.push({ unitId: unit.id, targetId: target.id, damage: targetDamage });
 
   if (slow && target.alive) {
     target.slowUntil = field.time + slow.dur;
     target.slowPct = slow.pct;
   }
 
-  applyDamage(field, target, targetDamage, ignoreDefense, result);
+  const primaryDamage = applyDamage(field, target, targetDamage, ignoreDefense, result);
+  let totalDamage = primaryDamage;
 
   if (splash) {
     const r2 = splash * TILE * (splash * TILE);
     for (const e of field.enemies) {
       if (!e.alive || e.id === target.id) continue;
       if (dist2(targetPos, enemyPos(e)) <= r2) {
-        applyDamage(field, e, damageAgainst(e, base), ignoreDefense, result);
+        totalDamage += applyDamage(field, e, damageAgainst(e, base), ignoreDefense, result);
       }
     }
   }
@@ -228,11 +233,18 @@ function performAttack(
       }
       if (!next) break;
       dmg *= chain.decay;
-      applyDamage(field, next, damageAgainst(next, dmg), ignoreDefense, result);
+      totalDamage += applyDamage(field, next, damageAgainst(next, dmg), ignoreDefense, result);
       hit.add(next.id);
       cur = next;
     }
   }
+
+  result.attacks.push({
+    unitId: unit.id,
+    targetId: target.id,
+    damage: primaryDamage,
+    totalDamage,
+  });
 
   return true;
 }

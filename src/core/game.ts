@@ -75,6 +75,10 @@ export class Game {
   relicChoices: RelicId[] = [];
   readonly deckSeals: Record<DeckSealId, number> = { banish: 0, duplicate: 0 };
   readonly handMastery: HandMasteryLevels = createHandMasteryLevels();
+  /** 실제 체력 감소량 기준 족보별 누적 피해(광역·연쇄 포함). */
+  readonly handDamage: Record<HandRank, number> = Object.fromEntries(
+    Array.from({ length: HandRank.FlushFive + 1 }, (_, rank) => [rank, 0]),
+  ) as Record<HandRank, number>;
 
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
@@ -569,6 +573,10 @@ export class Game {
       },
     );
     result.relicTriggers = [...triggeredRelics];
+    for (const attack of result.attacks) {
+      const unit = this.field.units.find((candidate) => candidate.id === attack.unitId);
+      if (unit) this.handDamage[unit.tier] += attack.totalDamage;
+    }
     const mods = relicModifiers(this.relics);
     result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier);
     this.gold += result.goldEarned;

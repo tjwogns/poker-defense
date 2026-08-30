@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import { Game } from '../src/core/game';
+import { addUnit, spawnEnemy } from '../src/core/combat';
 import {
   createHandMasteryLevels, handMasteryCost, handMasteryMultiplier, handMasteryOffer,
   HAND_MASTERY_MAX_LEVEL, MASTERABLE_HANDS,
@@ -52,6 +53,20 @@ describe('hand mastery', () => {
     expect(game.buyMaintenanceMastery()).toBe(false);
     expect(game.handMastery[offer.rank]).toBe(offer.level);
     expect(game.gold).toBe(offer.cost - 1);
+  });
+
+  test('전투 중 실제 피해를 공격한 족보에 누적한다', () => {
+    const game = new Game(702);
+    addUnit(game.field, HandRank.Pair, 3, 2);
+    spawnEnemy(game.field, 'normal', 20, { dist: 2 * 44, hpOverride: 1000 });
+    game.phase = 'combat';
+
+    const result = game.tickCombat(1 / 30)!;
+
+    expect(result.attacks).toHaveLength(1);
+    expect(game.handDamage[HandRank.Pair]).toBeCloseTo(result.attacks[0].totalDamage);
+    expect(game.handDamage[HandRank.Pair]).toBeGreaterThan(0);
+    expect(game.handDamage[HandRank.Trips]).toBe(0);
   });
 });
 

@@ -42,6 +42,29 @@ GROUP BY relic
 ORDER BY selections DESC;
 
 SELECT
+  CAST(json_extract(properties_json, '$.handRank') AS INTEGER) AS hand_rank,
+  COUNT(*) AS purchases,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.level') AS REAL)), 1) AS avg_level,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.cost') AS REAL)), 1) AS avg_cost
+FROM analytics_events
+WHERE name = 'maintenance_mastery_purchase'
+  AND received_at >= datetime('now', '-7 days')
+GROUP BY hand_rank
+ORDER BY purchases DESC, hand_rank;
+
+SELECT
+  CAST(json_extract(properties_json, '$.damageRanks[0]') AS INTEGER) AS main_damage_rank,
+  COUNT(*) AS finished_runs,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.round') AS REAL)), 1) AS avg_round,
+  ROUND(100.0 * AVG(CASE WHEN json_extract(properties_json, '$.result') = 'victory' THEN 1.0 ELSE 0.0 END), 1) AS victory_percent
+FROM analytics_events
+WHERE name = 'run_finished'
+  AND received_at >= datetime('now', '-7 days')
+  AND json_array_length(json_extract(properties_json, '$.damageRanks')) > 0
+GROUP BY main_damage_rank
+ORDER BY finished_runs DESC, main_damage_rank;
+
+SELECT
   COUNT(DISTINCT CASE WHEN name = 'run_started' THEN run_id END) AS run_started,
   COUNT(DISTINCT CASE WHEN name = 'combat_started' THEN run_id END) AS first_combat,
   COUNT(DISTINCT CASE

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DeckSealId, Game, Phase } from '../core/game';
-import { Enemy, TickResult, enemyPos, unitPos } from '../core/combat';
+import { Enemy, TickResult, addUnit, enemyPos, spawnEnemy, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
@@ -154,6 +154,27 @@ export class PlayScene extends Phaser.Scene {
       for (let tick = 0; tick < 5000 && this.core.phase === 'combat'; tick++) {
         this.core.tickCombat(1 / 30);
       }
+    } else if (localVisualTest === 'mastery-result' || localVisualTest === 'mastery-victory') {
+      this.profile.tutorialDone = true;
+      this.core.round = localVisualTest === 'mastery-victory' ? 60 : 47;
+      this.core.score = 128400;
+      this.core.kills = 612;
+      this.core.upgradeLevel = 12;
+      this.core.bestHand = HandRank.FullHouse;
+      this.core.handMastery[HandRank.Pair] = 2;
+      this.core.handMastery[HandRank.Trips] = 1;
+      this.core.handDamage[HandRank.Pair] = 70000;
+      this.core.handDamage[HandRank.Trips] = 30000;
+      addUnit(this.core.field, HandRank.Pair, 3, 2);
+      addUnit(this.core.field, HandRank.Trips, 5, 2);
+      if (localVisualTest === 'mastery-victory') {
+        this.core.phase = 'victory';
+      } else {
+        const boss = spawnEnemy(this.core.field, 'boss', 40, { hpOverride: 1000 });
+        boss.hp = 340;
+        this.core.defeatReason = 'field-cap';
+        this.core.phase = 'defeat';
+      }
     }
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -288,6 +309,9 @@ export class PlayScene extends Phaser.Scene {
       paused: () => this.paused,
       backgroundPaused: () => this.backgroundPaused,
     };
+    if (localVisualTest === 'mastery-result' || localVisualTest === 'mastery-victory') {
+      this.time.delayedCall(0, () => this.showEnd());
+    }
   }
 
   update(_time: number, deltaMs: number): void {
@@ -1053,6 +1077,8 @@ export class PlayScene extends Phaser.Scene {
       upgradeLevel: this.core.upgradeLevel,
       bestHand: this.core.bestHand,
       relicCount: this.core.relics.length,
+      handMastery: this.core.handMastery,
+      handDamage: this.core.handDamage,
     });
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.72).setDepth(20);
     this.add
@@ -1074,8 +1100,21 @@ export class PlayScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(21);
+    if (won) {
+      this.add.text(640, 424, `연마 효율  ${this.masteryOutcomeLabel()}`, {
+        fontFamily: FONT, fontSize: '14px', color: '#f0c879',
+      }).setOrigin(0.5).setDepth(21);
+    }
     if (analysis) this.renderDefeatAnalysis(analysis);
     const summary = this.core.summary();
+    const damageLeaders = Object.entries(this.core.handDamage)
+      .map(([rank, damage]) => ({ rank: Number(rank), damage: Math.round(damage) }))
+      .filter((entry) => entry.damage > 0)
+      .sort((a, b) => b.damage - a.damage)
+      .slice(0, 5);
+    const masteryRanks = Object.entries(this.core.handMastery)
+      .map(([rank, level]) => ({ rank: Number(rank), level }))
+      .filter((entry) => entry.level > 0);
     this.analytics.track('run_finished', {
       mode: this.mode,
       result: summary.result,
@@ -1086,6 +1125,10 @@ export class PlayScene extends Phaser.Scene {
       upgradeLevel: summary.upgradeLevel,
       relics: [...summary.relics],
       durationSeconds: this.elapsedSeconds(),
+      masteryRanks: masteryRanks.map((entry) => entry.rank),
+      masteryLevels: masteryRanks.map((entry) => entry.level),
+      damageRanks: damageLeaders.map((entry) => entry.rank),
+      damageValues: damageLeaders.map((entry) => entry.damage),
       ...(analysis ? {
         defeatCause: this.core.defeatReason ?? 'unknown',
         aliveEnemies: analysis.aliveEnemies,
@@ -1094,13 +1137,13 @@ export class PlayScene extends Phaser.Scene {
       } : {}),
     }, this.runId);
     const date = this.runDate;
-    const btn = makeButton(this, 640, won ? 452 : 510, 220, 52, '다시 시작', () => {
+    const btn = makeButton(this, 640, won ? 474 : 510, 220, 52, '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
     }, { fontSize: 18 });
     btn.container.setDepth(22);
-    const actionY = won ? 520 : 568;
+    const actionY = won ? 536 : 568;
     if (this.mode === 'daily') {
       const ranking = makeButton(this, 384, actionY, 220, 42, '일일 랭킹 등록', async () => {
         ranking.setEnabled(false);
@@ -1148,7 +1191,7 @@ export class PlayScene extends Phaser.Scene {
       this.flashCenter('PNG 카드를 저장했습니다', 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
     card.container.setDepth(22);
-    const home = makeButton(this, 640, won ? 578 : 626, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
+    const home = makeButton(this, 640, won ? 594 : 626, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
     home.container.setDepth(22);
   }
 
@@ -1168,6 +1211,9 @@ export class PlayScene extends Phaser.Scene {
     this.add.text(226, 328, `시너지  ${analysis.synergies}`, {
       fontFamily: FONT, fontSize: '14px', color: UI.accentText,
     }).setDepth(22);
+    this.add.text(226, 350, `연마 효율  ${analysis.mastery}`, {
+      fontFamily: FONT, fontSize: '13px', color: '#f0c879',
+    }).setDepth(22);
     this.add.text(226, 366, '다음 시도', {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
     }).setDepth(22);
@@ -1175,6 +1221,18 @@ export class PlayScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '14px', color: UI.text, lineSpacing: 8,
       wordWrap: { width: 820 },
     }).setDepth(22);
+  }
+
+  private masteryOutcomeLabel(): string {
+    const entries = Object.entries(this.core.handDamage)
+      .map(([rank, damage]) => ({ rank: Number(rank) as HandRank, damage }))
+      .filter((entry) => entry.damage > 0)
+      .sort((a, b) => b.damage - a.damage);
+    const total = entries.reduce((sum, entry) => sum + entry.damage, 0);
+    const main = entries[0];
+    if (!main || total <= 0) return '피해 기록 없음';
+    const share = Math.round((main.damage / total) * 100);
+    return `주력 ${HAND_NAMES_KO[main.rank]} ${share}% · Lv${this.core.handMastery[main.rank] ?? 0}`;
   }
 
   private reducedMotion(): boolean {
