@@ -649,7 +649,10 @@ export class Game {
     result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier) + diamondBonusGold;
     this.gold += result.goldEarned;
     this.kills += result.deaths.length;
-    this.score += scoreForKills(this.round, result.deaths.length);
+    this.score += result.deaths.reduce(
+      (total, enemy) => total + scoreForKills(enemy.round, 1),
+      0,
+    );
 
     const taxBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 40);
     while (taxBoss && this.field.time >= this.nextBossTaxAt) {

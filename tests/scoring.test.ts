@@ -8,6 +8,8 @@ import {
   VICTORY_SCORE,
 } from '../src/core/scoring';
 import { h } from './helpers';
+import { addUnit, spawnEnemy } from '../src/core/combat';
+import { TILE } from '../src/core/map';
 
 describe('score rules', () => {
   test('처치 점수는 처치 수 × 라운드 × 10이다', () => {
@@ -39,5 +41,18 @@ describe('score rules', () => {
       round: 1,
       result: 'active',
     });
+  });
+
+  test('이월 적은 늦게 처치해도 생성 라운드 점수만 지급한다', () => {
+    const game = new Game(202);
+    game.round = 2;
+    game.phase = 'combat';
+    spawnEnemy(game.field, 'normal', 1, { dist: 2 * TILE, hpOverride: 1 });
+    spawnEnemy(game.field, 'normal', 2, { dist: 4 * TILE, hpOverride: 10_000 });
+    addUnit(game.field, HandRank.Straight, 3, 2);
+
+    game.tickCombat(1 / 30);
+
+    expect(game.score).toBe(10);
   });
 });

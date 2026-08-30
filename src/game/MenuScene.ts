@@ -120,6 +120,24 @@ export class MenuScene extends Phaser.Scene {
       data.setLabel(allowed ? 'DATA ON' : 'DATA OFF');
       if (allowed) analytics.track('menu_view', { source: 'data_button' });
     }, { fill: 0x42544a, fontSize: 11 });
+    const deliveryStatus = makeText(this, 1160, 168, '', 9, UI.textDim).setOrigin(0.5);
+    const refreshDeliveryStatus = () => {
+      if (analytics.consent !== 'granted') {
+        deliveryStatus.setText('전송: DATA OFF');
+        return;
+      }
+      if (!analytics.remoteEnabled) {
+        deliveryStatus.setText('전송: 연결 대기');
+        return;
+      }
+      const labels = {
+        idle: '미시도', pending: '전송 중', queued: '브라우저 접수', confirmed: '서버 확인', failed: '실패',
+      } as const;
+      deliveryStatus.setText(`전송: ${labels[analytics.delivery.status]}`);
+      deliveryStatus.setColor(analytics.delivery.status === 'failed' ? UI.dangerText : UI.textDim);
+    };
+    refreshDeliveryStatus();
+    this.time.addEvent({ delay: 800, loop: true, callback: refreshDeliveryStatus });
     makeButton(this, 1160, 188, 150, 34, 'PRIVACY', () => {
       window.open('./privacy.html', '_blank', 'noopener,noreferrer');
     }, { fill: 0x42544a, fontSize: 11 });

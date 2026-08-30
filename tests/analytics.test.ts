@@ -89,4 +89,35 @@ describe('anonymous play analytics', () => {
     analytics.track('menu_view');
     expect(send).toHaveBeenCalledTimes(2);
   });
+
+  test('서버 응답이 확인되면 전송 횟수와 마지막 확인 시각을 보존한다', async () => {
+    const analytics = new Analytics(new MemoryStorage(), {
+      endpoint: 'https://analytics.example/events',
+      idFactory: () => 'delivery-id',
+      now: () => new Date('2026-08-30T12:00:00.000Z'),
+      send: async () => 'confirmed',
+    });
+    analytics.setConsent('granted');
+
+    await vi.waitFor(() => expect(analytics.delivery.status).toBe('confirmed'));
+    expect(analytics.delivery).toMatchObject({
+      attempts: 1,
+      lastAttemptAt: '2026-08-30T12:00:00.000Z',
+      lastConfirmedAt: '2026-08-30T12:00:00.000Z',
+      lastFailureAt: null,
+    });
+  });
+
+  test('전송 실패는 게임 이벤트와 별도로 관측 상태에 기록한다', async () => {
+    const analytics = new Analytics(new MemoryStorage(), {
+      endpoint: 'https://analytics.example/events',
+      idFactory: () => 'delivery-id',
+      send: async () => { throw new Error('network'); },
+    });
+    analytics.setConsent('granted');
+
+    await vi.waitFor(() => expect(analytics.delivery.status).toBe('failed'));
+    expect(analytics.delivery.attempts).toBe(1);
+    expect(analytics.exportEvents().map((event) => event.name)).toEqual(['consent_granted']);
+  });
 });

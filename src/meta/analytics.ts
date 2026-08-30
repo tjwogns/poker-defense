@@ -3,6 +3,8 @@ export const LEGACY_ANALYTICS_KEY = 'poker-defense:v2-beta:analytics';
 import { CURRENT_VERSION } from './patchNotes';
 
 export type AnalyticsConsent = 'unknown' | 'granted' | 'denied';
+export type AnalyticsDeliveryStatus = 'idle' | 'pending' | 'queued' | 'confirmed' | 'failed';
+export type AnalyticsDeliveryResult = Exclude<AnalyticsDeliveryStatus, 'idle' | 'pending'>;
 export type AnalyticsValue = string | number | boolean | null | string[] | number[];
 export type AnalyticsProperties = Record<string, AnalyticsValue>;
 
@@ -56,6 +58,15 @@ interface AnalyticsState {
   consent: AnalyticsConsent;
   visitorId: string;
   events: AnalyticsEvent[];
+  delivery: AnalyticsDeliveryState;
+}
+
+export interface AnalyticsDeliveryState {
+  attempts: number;
+  status: AnalyticsDeliveryStatus;
+  lastAttemptAt: string | null;
+  lastConfirmedAt: string | null;
+  lastFailureAt: string | null;
 }
 
 export interface AnalyticsStorage {
@@ -67,7 +78,7 @@ interface AnalyticsOptions {
   endpoint?: string;
   idFactory?: () => string;
   now?: () => Date;
-  send?: (endpoint: string, event: AnalyticsEvent) => void;
+  send?: (endpoint: string, event: AnalyticsEvent) => AnalyticsDeliveryResult | Promise<AnalyticsDeliveryResult> | void;
 }
 
 const MAX_EVENTS = 500;
@@ -77,7 +88,7 @@ export class Analytics {
   private readonly endpoint: string;
   private readonly idFactory: () => string;
   private readonly now: () => Date;
-  private readonly send: (endpoint: string, event: AnalyticsEvent) => void;
+  private readonly send: NonNullable<AnalyticsOptions['send']>;
   private state: AnalyticsState;
 
   constructor(private readonly storage: AnalyticsStorage, options: AnalyticsOptions = {}) {
@@ -99,6 +110,10 @@ export class Analytics {
 
   get remoteEnabled(): boolean {
     return this.state.consent === 'granted' && this.endpoint.length > 0;
+  }
+
+  get delivery(): AnalyticsDeliveryState {
+    return { ...this.state.delivery };
   }
 
   setConsent(consent: Exclude<AnalyticsConsent, 'unknown'>): void {
@@ -128,7 +143,7 @@ export class Analytics {
     };
     this.state.events = [...this.state.events, event].slice(-MAX_EVENTS);
     this.persist();
-    if (this.endpoint) this.send(this.endpoint, event);
+    if (this.endpoint) this.dispatch(event);
     return event;
   }
 
@@ -141,6 +156,34 @@ export class Analytics {
 
   clearEvents(): void {
     this.state.events = [];
+    this.persist();
+  }
+
+  private dispatch(event: AnalyticsEvent): void {
+    this.state.delivery = {
+      ...this.state.delivery,
+      attempts: this.state.delivery.attempts + 1,
+      status: 'pending',
+      lastAttemptAt: this.now().toISOString(),
+    };
+    this.persist();
+    try {
+      void Promise.resolve(this.send(this.endpoint, event))
+        .then((result) => this.finishDelivery(result ?? 'queued'))
+        .catch(() => this.finishDelivery('failed'));
+    } catch {
+      this.finishDelivery('failed');
+    }
+  }
+
+  private finishDelivery(status: AnalyticsDeliveryResult): void {
+    const at = this.now().toISOString();
+    this.state.delivery = {
+      ...this.state.delivery,
+      status,
+      lastConfirmedAt: status === 'confirmed' ? at : this.state.delivery.lastConfirmedAt,
+      lastFailureAt: status === 'failed' ? at : this.state.delivery.lastFailureAt,
+    };
     this.persist();
   }
 
@@ -174,6 +217,7 @@ function loadState(storage: AnalyticsStorage): AnalyticsState {
       consent: parsed.consent === 'granted' || parsed.consent === 'denied' ? parsed.consent : 'unknown',
       visitorId: typeof parsed.visitorId === 'string' ? parsed.visitorId : '',
       events: Array.isArray(parsed.events) ? parsed.events.filter(isAnalyticsEvent).slice(-MAX_EVENTS) : [],
+      delivery: sanitizeDelivery(parsed.delivery),
     };
   } catch {
     return defaultState();
@@ -181,7 +225,26 @@ function loadState(storage: AnalyticsStorage): AnalyticsState {
 }
 
 function defaultState(): AnalyticsState {
-  return { version: 1, consent: 'unknown', visitorId: '', events: [] };
+  return { version: 1, consent: 'unknown', visitorId: '', events: [], delivery: defaultDelivery() };
+}
+
+function defaultDelivery(): AnalyticsDeliveryState {
+  return { attempts: 0, status: 'idle', lastAttemptAt: null, lastConfirmedAt: null, lastFailureAt: null };
+}
+
+function sanitizeDelivery(value: unknown): AnalyticsDeliveryState {
+  if (!value || typeof value !== 'object') return defaultDelivery();
+  const parsed = value as Partial<AnalyticsDeliveryState>;
+  const statuses: AnalyticsDeliveryStatus[] = ['idle', 'pending', 'queued', 'confirmed', 'failed'];
+  return {
+    attempts: Number.isInteger(parsed.attempts) && (parsed.attempts ?? 0) >= 0 ? parsed.attempts! : 0,
+    status: statuses.includes(parsed.status as AnalyticsDeliveryStatus)
+      ? parsed.status as AnalyticsDeliveryStatus
+      : 'idle',
+    lastAttemptAt: typeof parsed.lastAttemptAt === 'string' ? parsed.lastAttemptAt : null,
+    lastConfirmedAt: typeof parsed.lastConfirmedAt === 'string' ? parsed.lastConfirmedAt : null,
+    lastFailureAt: typeof parsed.lastFailureAt === 'string' ? parsed.lastFailureAt : null,
+  };
 }
 
 function sanitizeProperties(properties: AnalyticsProperties): AnalyticsProperties {
@@ -212,20 +275,26 @@ function randomId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-function sendEvent(endpoint: string, event: AnalyticsEvent): void {
+async function sendEvent(endpoint: string, event: AnalyticsEvent): Promise<AnalyticsDeliveryResult> {
   const body = JSON.stringify({ schema: 'poker-defense-event-v1', gameVersion: CURRENT_VERSION, event });
   try {
-    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-      navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
-      return;
-    }
-    void fetch(endpoint, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body,
       keepalive: true,
-    }).catch(() => undefined);
+    });
+    return response.ok ? 'confirmed' : 'failed';
   } catch {
-    // 분석 전송 실패는 플레이를 방해하지 않는다. 로컬 기록은 유지된다.
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        return navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }))
+          ? 'queued'
+          : 'failed';
+      }
+    } catch {
+      // 아래 실패 상태로 합류한다.
+    }
+    return 'failed';
   }
 }
