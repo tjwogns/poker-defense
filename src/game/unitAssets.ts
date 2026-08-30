@@ -12,6 +12,9 @@ export const UNIT_SPRITE_KEYS: Partial<Record<HandRank, string>> = {
   [HandRank.FourKind]: 'unit-dragon-rider-v1',
   [HandRank.StraightFlush]: 'unit-archmage-v1',
   [HandRank.RoyalFlush]: 'unit-divine-dragon-v1',
+  [HandRank.FiveKind]: 'unit-fivefold-lord-v1',
+  [HandRank.FlushHouse]: 'unit-crest-commander-v1',
+  [HandRank.FlushFive]: 'unit-primordial-star-v1',
 };
 
 const UNIT_SPRITE_PATHS: Record<string, string> = {
@@ -25,6 +28,9 @@ const UNIT_SPRITE_PATHS: Record<string, string> = {
   'unit-dragon-rider-v1': './assets/units/dragon-rider-v1.png',
   'unit-archmage-v1': './assets/units/archmage-v1.png',
   'unit-divine-dragon-v1': './assets/units/divine-dragon-v1.png',
+  'unit-fivefold-lord-v1': './assets/units/fivefold-lord-v1.png',
+  'unit-crest-commander-v1': './assets/units/crest-commander-v1.png',
+  'unit-primordial-star-v1': './assets/units/primordial-star-v1.png',
 };
 
 export function preloadUnitSprites(scene: Phaser.Scene): void {

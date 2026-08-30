@@ -8,9 +8,19 @@ describe('유닛 비주얼 정책', () => {
     expect(unitSpriteExtent(HandRank.RoyalFlush)).toBe(unitSpriteExtent(HandRank.FullHouse));
   });
 
-  test('풀하우스 이상만 짧은 등장 강조를 사용한다', () => {
+  test('히든 초월 유닛은 표준 고등급보다 더 큰 실루엣을 사용한다', () => {
+    expect(unitSpriteExtent(HandRank.FiveKind)).toBeGreaterThan(unitSpriteExtent(HandRank.RoyalFlush));
+    expect(unitSpriteExtent(HandRank.FlushFive)).toBe(54);
+  });
+
+  test('표준 고등급은 짧은 등장 강조를 사용한다', () => {
     expect(unitIntroDuration(HandRank.Flush)).toBe(0);
     expect(unitIntroDuration(HandRank.FullHouse)).toBe(420);
     expect(unitIntroDuration(HandRank.RoyalFlush)).toBe(420);
+  });
+
+  test('히든 초월 유닛은 더 긴 등장 강조를 사용한다', () => {
+    expect(unitIntroDuration(HandRank.FiveKind)).toBe(560);
+    expect(unitIntroDuration(HandRank.FlushFive)).toBe(560);
   });
 });
