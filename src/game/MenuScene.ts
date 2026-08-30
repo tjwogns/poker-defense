@@ -14,6 +14,7 @@ import { isCompactTouchDevice } from './device';
 import { preloadUnitSprites, UNIT_SPRITE_KEYS } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
+import { preloadRelicSprites } from './relicAssets';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -23,6 +24,7 @@ export class MenuScene extends Phaser.Scene {
   preload(): void {
     preloadUnitSprites(this);
     preloadBossSprites(this);
+    preloadRelicSprites(this);
   }
 
   create(): void {

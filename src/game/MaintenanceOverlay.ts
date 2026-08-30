@@ -6,6 +6,7 @@ import {
   relicSellPrice,
 } from '../core/relics';
 import { Button, UI, makeButton, makeText } from './ui';
+import { createRelicIcon } from './relicAssets';
 
 interface OfferView {
   id: DeckSealId;
@@ -39,6 +40,7 @@ export class MaintenanceOverlay {
   private finishBtn: Button;
   private offers: OfferView[] = [];
   private relicButtons: Button[] = [];
+  private relicSlotIcons: Phaser.GameObjects.Container[] = [];
   private shopRelicButton!: Button;
   private relicHint!: Phaser.GameObjects.Text;
   private boughtSeal = false;
@@ -46,7 +48,7 @@ export class MaintenanceOverlay {
   private selectedReplacement: RelicId | null = null;
 
   constructor(
-    scene: Phaser.Scene,
+    private scene: Phaser.Scene,
     private game: Game,
     private onBought: (id: DeckSealId, cost: number) => void,
     private onRelicBought: (id: RelicId, cost: number, replaced: RelicId | null, refund: number) => void,
@@ -114,17 +116,19 @@ export class MaintenanceOverlay {
     const relicColor = relicDef ? RELIC_RARITY_COLORS[relicDef.rarity] : UI.panelLine;
     const relicCard = scene.add.rectangle(920, 335, 240, 280, UI.panelRaised, 1)
       .setStrokeStyle(2, relicColor, 0.9);
-    const relicGlyph = makeText(scene, 920, 242, relicDef?.glyph ?? '—', 48, relicDef
-      ? `#${relicDef.color.toString(16).padStart(6, '0')}` : UI.textDim, true).setOrigin(0.5);
+    const relicIcon = relicDef
+      ? createRelicIcon(scene, relicDef.id, 920, 242, 72)
+      : makeText(scene, 920, 242, '—', 48, UI.textDim, true).setOrigin(0.5);
     const relicName = makeText(scene, 920, 294, relicDef?.name ?? '유물 없음', 20, UI.text, true).setOrigin(0.5);
     const relicDesc = makeText(scene, 920, 338, relicDef?.description ?? '진열 가능한 유물이 없습니다.', 12, UI.textDim)
       .setOrigin(0.5).setAlign('center').setWordWrapWidth(205, true);
     const shopRelicRarity = makeText(scene, 920, 400, relicDef
-      ? RELIC_RARITY_LABELS[relicDef.rarity] : '', 12, UI.accentText, true).setOrigin(0.5);
+      ? RELIC_RARITY_LABELS[relicDef.rarity] : '', 12,
+      relicDef ? `#${relicColor.toString(16).padStart(6, '0')}` : UI.accentText, true).setOrigin(0.5);
     this.shopRelicButton = makeButton(scene, 920, 447, 190, 42, '', () => this.buyRelic(), {
       fill: relicColor, fontSize: 12,
     });
-    children.push(relicCard, relicGlyph, relicName, relicDesc, shopRelicRarity, this.shopRelicButton.container);
+    children.push(relicCard, relicIcon, relicName, relicDesc, shopRelicRarity, this.shopRelicButton.container);
 
     children.push(makeText(scene, 230, 492, '인장은 덱 보기(D)에서 사용 · 유물은 빌드에 즉시 적용', 11, UI.textDim));
     this.relicHint = makeText(scene, 230, 515, '', 11, UI.gold, true);
@@ -201,6 +205,8 @@ export class MaintenanceOverlay {
   }
 
   private refresh(): void {
+    this.relicSlotIcons.forEach((icon) => icon.destroy(true));
+    this.relicSlotIcons = [];
     this.goldText.setText(`G  ${this.game.gold.toLocaleString()}`);
     for (const offer of this.offers) {
       const state = this.game.maintenanceOffer(offer.id);
@@ -241,9 +247,12 @@ export class MaintenanceOverlay {
       const def = RELIC_DEFS[id];
       const value = relicSellPrice(id);
       button.setLabel(this.awaitingReplacement
-        ? `${this.selectedReplacement === id ? '✓ ' : ''}${def.glyph} ${def.name}\n교체 환급 ${value}G`
-        : `${def.glyph} ${def.name}\n판매  ${value}G`);
+        ? `${this.selectedReplacement === id ? '✓ ' : ''}${def.name}\n교체 환급 ${value}G`
+        : `${def.name}\n판매  ${value}G`);
       button.setEnabled(true);
+      const icon = createRelicIcon(this.scene, id, 288 + index * 155, 561, 30);
+      this.relicSlotIcons.push(icon);
+      this.root.add(icon);
     }
     this.finishBtn.setLabel(this.boughtSeal ? '정비 완료 · 덱 개조하기' : '정비 마치기');
   }

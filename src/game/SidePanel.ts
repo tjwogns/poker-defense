@@ -12,6 +12,7 @@ import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
 import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
 import { threatBand, threatLabel } from './threat';
 import { isCompactTouchDevice } from './device';
+import { createRelicIcon } from './relicAssets';
 
 const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
@@ -85,6 +86,8 @@ export class SidePanel {
   private pauseBtn: Button;
   private soundBtn: Button;
   private relicText: Phaser.GameObjects.Text;
+  private relicIcons: Phaser.GameObjects.Container[] = [];
+  private relicIconIds = '';
   private relicTriggerText: Phaser.GameObjects.Text;
   private combatText: Phaser.GameObjects.Text;
   private helpText: Phaser.GameObjects.Text;
@@ -136,7 +139,7 @@ export class SidePanel {
 
     makeText(scene, PX, 478, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
     this.relicText = makeText(scene, PX, 496, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
-    this.relicTriggerText = makeText(scene, PX, 548, '', 10, UI.gold, true)
+    this.relicTriggerText = makeText(scene, PX, 567, '', 10, UI.gold, true)
       .setAlpha(0)
       .setDepth(6);
 
@@ -160,7 +163,7 @@ export class SidePanel {
 
   pulseRelics(ids: readonly RelicId[]): void {
     if (ids.length === 0) return;
-    const names = ids.slice(0, 2).map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`);
+    const names = ids.slice(0, 2).map((id) => RELIC_DEFS[id].name);
     const extra = ids.length > 2 ? ` 외 ${ids.length - 2}` : '';
     this.scene.tweens.killTweensOf(this.relicTriggerText);
     this.relicTriggerText
@@ -296,7 +299,13 @@ export class SidePanel {
             : `라운드 종료까지 ${Math.ceil(remaining)}초 · 생존 적은 다음 라운드로 이월`,
     );
     this.combatText.setVisible(g.phase === 'combat');
-    const relics = g.relics.map((id) => `${RELIC_DEFS[id].glyph} ${RELIC_DEFS[id].name}`).join('  ·  ');
+    const relics = g.relics.map((id) => RELIC_DEFS[id].name).join(' · ');
+    const relicIconIds = g.relics.join(',');
+    if (relicIconIds !== this.relicIconIds) {
+      this.relicIcons.forEach((icon) => icon.destroy(true));
+      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 823 + index * 38, 542, 28));
+      this.relicIconIds = relicIconIds;
+    }
     const synergies = g.synergies
       .filter((status) => status.count > 0)
       .map((status) => {

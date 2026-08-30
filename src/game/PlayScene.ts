@@ -10,7 +10,7 @@ import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
 import { FONT, UI, makeButton, makeText } from './ui';
 import {
-  RELIC_DEFS, RELIC_RARITY_LABELS, RELIC_SLOT_CAP, RelicId, relicSellPrice,
+  RELIC_DEFS, RELIC_RARITY_COLORS, RELIC_RARITY_LABELS, RELIC_SLOT_CAP, RelicId, relicSellPrice,
 } from '../core/relics';
 import {
   dailyDate, discoverHiddenHand, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
@@ -34,6 +34,7 @@ import { MaintenanceOverlay } from './MaintenanceOverlay';
 import { FirstRunCoach } from './FirstRunCoach';
 import { isCompactTouchDevice } from './device';
 import { attackFxBudget, totalFxBudget } from './fxBudget';
+import { createRelicIcon } from './relicAssets';
 
 const DT = 1 / TICK_RATE;
 
@@ -135,6 +136,12 @@ export class PlayScene extends Phaser.Scene {
     this.lastRelicFeedbackAt = -Infinity;
     this.compactFx = isCompactTouchDevice();
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
+    const localRelicPreview = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+      && new URLSearchParams(window.location.search).get('visualTest') === 'relics';
+    if (localRelicPreview) {
+      this.profile.tutorialDone = true;
+      this.core.relicChoices = ['royal_seal', 'compound_ledger', 'glass_crown'];
+    }
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
 
@@ -742,14 +749,19 @@ export class PlayScene extends Phaser.Scene {
     };
     this.core.relicChoices.forEach((id, index) => {
       const def = RELIC_DEFS[id];
+      const rarityColor = RELIC_RARITY_COLORS[def.rarity];
       const x = 176 + index * 214;
       const card = this.add.rectangle(x, 278, 188, 240, UI.panel, 1)
-        .setStrokeStyle(2, def.color, 0.9).setInteractive({ useHandCursor: true });
-      const glyph = makeText(this, x, 210, def.glyph, 44, `#${def.color.toString(16).padStart(6, '0')}`, true).setOrigin(0.5);
+        .setStrokeStyle(def.rarity === 'legendary' ? 3 : 2, rarityColor, 0.95)
+        .setInteractive({ useHandCursor: true });
+      const icon = createRelicIcon(this, id, x, 210, 68);
       const name = makeText(this, x, 278, def.name, 17, UI.text, true).setOrigin(0.5);
       const desc = makeText(this, x, 318, def.description, 13, UI.textDim).setOrigin(0.5).setAlign('center');
       desc.setWordWrapWidth(154, true);
-      const rarity = makeText(this, x, 367, RELIC_RARITY_LABELS[def.rarity], 11, UI.accentText, true).setOrigin(0.5);
+      const rarity = makeText(
+        this, x, 367, RELIC_RARITY_LABELS[def.rarity], 11,
+        `#${rarityColor.toString(16).padStart(6, '0')}`, true,
+      ).setOrigin(0.5);
       card.on('pointerdown', () => {
         if (!full) {
           finishSelection(id);
@@ -759,7 +771,7 @@ export class PlayScene extends Phaser.Scene {
         title.setText(`${def.name} 선택 · 교체할 기존 유물을 누르세요`);
         replacementButtons.forEach((button) => button.setEnabled(true));
       });
-      children.push(card, glyph, name, desc, rarity);
+      children.push(card, icon, name, desc, rarity);
     });
     if (full) {
       this.core.relics.forEach((id, index) => {
@@ -771,7 +783,7 @@ export class PlayScene extends Phaser.Scene {
           466,
           126,
           54,
-          `${def.glyph} ${def.name}\n교체 +${value}G`,
+          `${def.name}\n교체 +${value}G`,
           () => {
             if (selectedNew) finishSelection(selectedNew, id);
           },
@@ -779,7 +791,7 @@ export class PlayScene extends Phaser.Scene {
         );
         button.setEnabled(false);
         replacementButtons.push(button);
-        children.push(button.container);
+        children.push(button.container, createRelicIcon(this, id, 68 + index * 140, 466, 30));
       });
     }
     this.relicOverlay = this.add.container(0, 0, children).setDepth(18);
