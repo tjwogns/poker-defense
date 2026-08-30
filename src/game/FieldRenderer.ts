@@ -5,7 +5,7 @@ import { enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
 import {
-  GRID_W, GRID_H, TILE, isPathTile, isPlaceable, recommendedPlacementTiles, tileCanReachPath, tileCenter,
+  GRID_W, GRID_H, TILE, isPathTile, isPlaceable, pointAt, recommendedPlacementTiles, tileCanReachPath, tileCenter,
 } from '../core/map';
 import { UI, FONT } from './ui';
 import { UNIT_SPRITE_KEYS } from './unitAssets';
@@ -29,7 +29,7 @@ export function isInsideField(px: number, py: number): boolean {
 
 /** 이번 프레임에 그릴 공격 이펙트 */
 export interface Fx {
-  kind: 'attack' | 'death';
+  kind: 'attack' | 'death' | 'bossAbility';
   unitId?: number;
   x1: number;
   y1: number;
@@ -40,6 +40,8 @@ export interface Fx {
   color: number;
   tier: HandRank;
   targetKind: EnemyKindId;
+  targetRound?: number;
+  bossAbility?: 'tax' | 'summon';
   seed: number;
 }
 
@@ -218,6 +220,7 @@ export class FieldRenderer {
   private highlightG: Phaser.GameObjects.Graphics;
   private rangeG: Phaser.GameObjects.Graphics;
   private fxG: Phaser.GameObjects.Graphics;
+  private bossAbilityG: Phaser.GameObjects.Graphics;
   private placementHint: Phaser.GameObjects.Text;
   private enemyViews = new Map<number, EnemyView>();
   private unitViews = new Map<number, UnitView>();
@@ -228,6 +231,7 @@ export class FieldRenderer {
     this.highlightG = scene.add.graphics().setDepth(1);
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
+    this.bossAbilityG = scene.add.graphics().setDepth(4);
     this.placementHint = scene.add.text(390, 29, '◆ 추천 3칸  ·  ✓ 배치 가능  ·  × 사거리 밖', {
       fontFamily: FONT,
       fontSize: '12px',
@@ -288,6 +292,7 @@ export class FieldRenderer {
   update(game: Game, selectedUnitId: number | null, placingTier: HandRank | null, fx: Fx[], dt: number): void {
     this.updateUnits(game, selectedUnitId, fx);
     this.updateEnemies(game);
+    this.drawBossAbilities(game);
     this.updateHighlight(game, placingTier);
     this.updateRange(game, selectedUnitId, placingTier);
     this.updateFx(fx, dt);
@@ -399,6 +404,67 @@ export class FieldRenderer {
     }
   }
 
+  private drawBossAbilities(game: Game): void {
+    this.bossAbilityG.clear();
+    const t = game.field.time;
+    for (const enemy of game.field.enemies) {
+      if (!enemy.alive || enemy.kind !== 'boss') continue;
+      const p = enemyPos(enemy);
+      const x = FIELD_X + p.x;
+      const y = FIELD_Y + p.y;
+      if (enemy.round === 10) {
+        const pulse = 0.45 + Math.sin(t * 4) * 0.12;
+        this.bossAbilityG.lineStyle(2, 0xa9c4dd, pulse);
+        this.bossAbilityG.strokeCircle(x, y, 31);
+        for (let i = 0; i < 4; i++) {
+          const angle = t * 0.35 + i * Math.PI / 2;
+          this.bossAbilityG.fillStyle(0xd9e8f4, 0.5);
+          this.bossAbilityG.fillRect(x + Math.cos(angle) * 31 - 2, y + Math.sin(angle) * 31 - 3, 4, 6);
+        }
+      } else if (enemy.round === 20) {
+        for (let i = 0; i < 3; i++) {
+          const rise = (t * 16 + i * 12) % 34;
+          this.bossAbilityG.fillStyle(0xff526e, 0.18 + (1 - rise / 34) * 0.42);
+          this.bossAbilityG.fillCircle(x - 10 + i * 10, y + 17 - rise, 2.2);
+        }
+      } else if (enemy.round === 30) {
+        this.bossAbilityG.lineStyle(2, 0x66b8ff, 0.45);
+        for (let i = 0; i < 3; i++) {
+          const offset = 22 + i * 8 + ((t * 28) % 8);
+          this.bossAbilityG.lineBetween(x - offset, y - 7, x - offset + 7, y);
+          this.bossAbilityG.lineBetween(x - offset + 7, y, x - offset, y + 7);
+        }
+      } else if (enemy.round === 40 || enemy.round === 50) {
+        const countdown = game.bossAbilityCountdown(enemy.round);
+        if (countdown === null || countdown > 1.5) continue;
+        const progress = 1 - countdown / 1.5;
+        const color = enemy.round === 40 ? 0xffce4a : 0xa875ff;
+        this.bossAbilityG.lineStyle(2.5, color, 0.45 + progress * 0.5);
+        this.bossAbilityG.strokeCircle(x, y, 40 - progress * 16);
+        if (enemy.round === 50) {
+          for (const distance of [enemy.dist - 12, enemy.dist + 12]) {
+            const portal = pointAt(distance);
+            this.bossAbilityG.lineStyle(2, color, 0.35 + progress * 0.55);
+            this.bossAbilityG.strokeEllipse(FIELD_X + portal.x, FIELD_Y + portal.y + 5, 18, 8);
+          }
+        }
+      } else if (enemy.round >= 60 && enemy.hp / enemy.maxHp <= 0.5) {
+        const radius = 35 + Math.sin(t * 10) * 4;
+        this.bossAbilityG.lineStyle(2.5, 0xff4d82, 0.75);
+        this.bossAbilityG.strokeCircle(x, y, radius);
+        for (let i = 0; i < 8; i++) {
+          const angle = i * Math.PI / 4 + t * 0.3;
+          this.bossAbilityG.lineBetween(
+            x + Math.cos(angle) * radius,
+            y + Math.sin(angle) * radius,
+            x + Math.cos(angle) * (radius + 8),
+            y + Math.sin(angle) * (radius + 8),
+          );
+        }
+      }
+    }
+  }
+
   private updateHighlight(game: Game, placingTier: HandRank | null): void {
     this.highlightG.clear();
     this.placementHint.setVisible(placingTier !== null);
@@ -492,6 +558,16 @@ export class FieldRenderer {
     const ny = dy / len;
     const ox = -ny;
     const oy = nx;
+
+    if (f.kind === 'bossAbility') {
+      const color = f.bossAbility === 'tax' ? 0xffce4a : 0xa875ff;
+      const radius = f.bossAbility === 'tax' ? 34 - progress * 18 : 10 + progress * 34;
+      this.fxG.lineStyle(f.bossAbility === 'tax' ? 4 : 3, color, fade);
+      this.fxG.strokeCircle(x2, y2, radius);
+      this.fxG.lineStyle(2, 0xffffff, fade * 0.8);
+      this.fxG.strokeCircle(x2, y2, Math.max(4, radius * 0.58));
+      return;
+    }
 
     if (f.kind === 'death') {
       const particleCount = f.targetKind === 'boss' ? 16 : f.targetKind === 'tank' ? 9 : 6;
@@ -600,6 +676,10 @@ export class FieldRenderer {
       if (f.targetKind === 'boss') {
         this.fxG.lineStyle(2.2, 0xe6c84f, impact * 0.9);
         this.fxG.strokeCircle(x2, y2, 10 + impact * 13);
+        if (f.targetRound === 10) {
+          this.fxG.lineStyle(3, 0xbdd9ef, impact);
+          this.fxG.strokeCircle(x2, y2, 15 + impact * 11);
+        }
       }
     }
   }

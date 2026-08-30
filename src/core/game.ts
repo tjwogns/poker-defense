@@ -457,6 +457,19 @@ export class Game {
     return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count };
   }
 
+  /** HUD와 텔레그래프가 실제 보스 발동 시계와 같은 값을 표시한다. */
+  bossAbilityCountdown(bossRound: number): number | null {
+    if (this.phase !== 'combat') return null;
+    const alive = this.field.enemies.some(
+      (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === bossRound,
+    );
+    if (!alive) return null;
+    const nextAt = bossRound === 40
+      ? this.nextBossTaxAt
+      : bossRound === 50 ? this.nextBossSummonAt : Infinity;
+    return Number.isFinite(nextAt) ? Math.max(0, nextAt - this.field.time) : null;
+  }
+
   // ── 전투 ──────────────────────────────────────────
 
   startCombat(): boolean {

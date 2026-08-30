@@ -3,6 +3,7 @@ import { bossDef, featuredBoss } from '../core/bosses';
 import { Game } from '../core/game';
 import { UI, makeText } from './ui';
 import { BOSS_HUD_BOUNDS } from './layout';
+import { bossMechanicStatus } from './bossFeedback';
 
 export class BossHud {
   private root: Phaser.GameObjects.Container;
@@ -32,7 +33,9 @@ export class BossHud {
     const def = bossDef(boss.round);
     const ratio = Math.max(0, boss.hp / boss.maxHp);
     this.name.setText(`♛ ${def.name}`);
-    this.mechanic.setText(def.mechanic);
+    const status = bossMechanicStatus(boss.round, ratio, game.bossAbilityCountdown(boss.round));
+    this.mechanic.setText(status.text || def.mechanic);
+    this.mechanic.setColor(status.urgent ? '#ff8a78' : UI.textDim);
     this.hpFg.width = 152 * ratio;
     this.hp.setText(`${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}`);
   }

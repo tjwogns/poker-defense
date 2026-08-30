@@ -64,6 +64,40 @@ await new Promise((resolve) => setTimeout(resolve, 1200));
 await page.screenshot({ path: `${TMP}/s26-boss-lineup.png` });
 await new Promise((resolve) => setTimeout(resolve, 450));
 await page.screenshot({ path: `${TMP}/s26-boss-enrage.png` });
+
+await page.evaluate(() => {
+  const game = window.__game;
+  game.phase = 'combat';
+  game.field.time = 0;
+  game.field.enemies.length = 0;
+  game.field.enemies.push({
+    id: game.field.nextId++, kind: 'boss', hp: 100, maxHp: 100, dist: 360,
+    slowUntil: 0, slowPct: 0, stunUntil: 0, bounty: 0, round: 40, alive: true,
+  });
+  game.nextBossTaxAt = 1.2;
+  game.nextBossSummonAt = Infinity;
+});
+await new Promise((resolve) => setTimeout(resolve, 260));
+await page.screenshot({ path: `${TMP}/s26-gold-tyrant-warning.png` });
+await new Promise((resolve) => setTimeout(resolve, 1100));
+await page.screenshot({ path: `${TMP}/s26-gold-tyrant-trigger.png` });
+
+await page.evaluate(() => {
+  const game = window.__game;
+  game.phase = 'combat';
+  game.field.time = 0;
+  game.field.enemies.length = 0;
+  game.field.enemies.push({
+    id: game.field.nextId++, kind: 'boss', hp: 100, maxHp: 100, dist: 360,
+    slowUntil: 0, slowPct: 0, stunUntil: 0, bounty: 0, round: 50, alive: true,
+  });
+  game.nextBossTaxAt = Infinity;
+  game.nextBossSummonAt = 1.2;
+});
+await new Promise((resolve) => setTimeout(resolve, 260));
+await page.screenshot({ path: `${TMP}/s26-legion-king-warning.png` });
+await new Promise((resolve) => setTimeout(resolve, 1100));
+await page.screenshot({ path: `${TMP}/s26-legion-king-trigger.png` });
 await browser.close();
 
 if (errors.length > 0) throw new Error(`브라우저 오류: ${errors.join(' | ')}`);

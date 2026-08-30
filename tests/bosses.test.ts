@@ -39,6 +39,8 @@ describe('boss identities', () => {
   test('황금 폭군은 전투 중 5초마다 5골드를 빼앗는다', () => {
     const game = bossGame(40);
     game.gold = 100;
+    game.tickCombat(2);
+    expect(game.bossAbilityCountdown(40)).toBeCloseTo(3, 5);
     const result = game.tickCombat(5.1)!;
     expect(game.gold).toBe(95);
     expect(result.bossEvents).toContainEqual({ type: 'tax', bossRound: 40, amount: 5 });

@@ -830,6 +830,24 @@ export class PlayScene extends Phaser.Scene {
       } else {
         this.flashCenter(`군단왕  부하 +${event.count}`, 0x8a58b5);
       }
+      const boss = this.core.field.enemies.find(
+        (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === event.bossRound,
+      );
+      if (boss) {
+        const at = enemyPos(boss);
+        this.fx.push({
+          kind: 'bossAbility',
+          x1: at.x, y1: at.y, x2: at.x, y2: at.y,
+          ttl: 0.7, duration: 0.7,
+          color: event.type === 'tax' ? 0xffce4a : 0xa875ff,
+          tier: HandRank.HighCard,
+          targetKind: 'boss',
+          targetRound: boss.round,
+          bossAbility: event.type,
+          seed: boss.id * 61,
+        });
+      }
+      if (!this.reducedMotion()) this.cameras.main.shake(110, event.type === 'tax' ? 0.0022 : 0.0016);
       this.audio.play('boss');
     }
     const max = attackFxBudget(this.compactFx);
@@ -849,6 +867,7 @@ export class PlayScene extends Phaser.Scene {
         color: UNIT_DEFS[unit.tier].color,
         tier: unit.tier,
         targetKind: enemy.kind,
+        targetRound: enemy.round,
         seed: atk.targetId * 31 + atk.unitId,
       });
       if (!this.damageLabelShownThisFrame) {
