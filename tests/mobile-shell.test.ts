@@ -16,4 +16,10 @@ describe('mobile shell', () => {
     expect(html).toContain('height: 100dvh');
     expect(html).toContain('touch-action: none');
   });
+
+  test('게임 준비 중 빈 화면 대신 즉시 로딩 안내를 표시한다', () => {
+    expect(html).toContain('id="boot-splash"');
+    expect(html).toContain('왕국과 카드 군단을 불러오는 중');
+    expect(html).toContain('role="status"');
+  });
 });

@@ -28,6 +28,10 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    const bootSplash = document.getElementById('boot-splash');
+    bootSplash?.classList.add('ready');
+    window.setTimeout(() => bootSplash?.remove(), 320);
+
     let profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, profile);
     const analytics = getAnalytics();
