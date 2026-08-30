@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { ANALYTICS_KEY, Analytics } from '../src/meta/analytics';
+import { ANALYTICS_KEY, LEGACY_ANALYTICS_KEY, Analytics } from '../src/meta/analytics';
 
 class MemoryStorage {
   values = new Map<string, string>();
@@ -50,6 +50,21 @@ describe('anonymous play analytics', () => {
 
     expect(reopenedEvent.visitorId).toBe(firstEvent.visitorId);
     expect(reopenedEvent.sessionId).not.toBe(firstEvent.sessionId);
+  });
+
+  test('정식 승격 전 익명 분석 동의와 방문 ID를 이어받는다', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(LEGACY_ANALYTICS_KEY, JSON.stringify({
+      version: 1,
+      consent: 'granted',
+      visitorId: 'legacy-visitor',
+      events: [],
+    }));
+
+    const analytics = new Analytics(storage, { idFactory: () => 'new-session' });
+    expect(analytics.consent).toBe('granted');
+    expect(analytics.track('menu_view')?.visitorId).toBe('legacy-visitor');
+    expect(storage.values.has(ANALYTICS_KEY)).toBe(true);
   });
 
   test('거부하면 기존 이벤트를 삭제하고 이후 기록도 중단한다', () => {

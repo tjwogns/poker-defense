@@ -1,7 +1,8 @@
 import { HandRank, isHiddenHand } from '../core/cards/types';
 import { RunSummary } from '../core/scoring';
 
-export const PROFILE_KEY = 'poker-defense:v2-beta:profile';
+export const PROFILE_KEY = 'poker-defense:v2:profile';
+export const LEGACY_PROFILE_KEY = 'poker-defense:v2-beta:profile';
 
 export type RunMode = 'standard' | 'daily';
 export type AchievementId =
@@ -74,7 +75,7 @@ export function defaultProfile(): Profile {
 
 export function loadProfile(storage: StorageLike): Profile {
   try {
-    const raw = storage.getItem(PROFILE_KEY);
+    const raw = storage.getItem(PROFILE_KEY) ?? storage.getItem(LEGACY_PROFILE_KEY);
     if (!raw) return defaultProfile();
     const parsed = JSON.parse(raw) as Partial<Profile>;
     const base = defaultProfile();

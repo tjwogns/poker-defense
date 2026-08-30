@@ -88,7 +88,7 @@ export class MenuScene extends Phaser.Scene {
       leaderboardOverlay = null;
     };
     const onlineRankingEnabled = leaderboardConfigured();
-    makeButton(this, 770, 449, 250, 38, onlineRankingEnabled ? '온라인 일일 랭킹' : 'v2 베타 · 랭킹 비활성', () => {
+    makeButton(this, 770, 449, 250, 38, onlineRankingEnabled ? '온라인 일일 랭킹' : '온라인 랭킹 연결 대기', () => {
       if (leaderboardOverlay) return;
       leaderboardOverlay = new LeaderboardOverlay(
         this,
@@ -152,7 +152,7 @@ export class MenuScene extends Phaser.Scene {
       610,
       `${CURRENT_VERSION}  ·  ${PATCH_NOTES[0].title}`,
       11,
-      CURRENT_VERSION.includes('beta') ? UI.gold : '#60746a',
+      UI.gold,
       true,
     ).setOrigin(0.5);
     analytics.track('menu_view', { challenge: hasChallenge });

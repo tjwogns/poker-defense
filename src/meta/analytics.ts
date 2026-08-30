@@ -1,4 +1,5 @@
-export const ANALYTICS_KEY = 'poker-defense:v2-beta:analytics';
+export const ANALYTICS_KEY = 'poker-defense:v2:analytics';
+export const LEGACY_ANALYTICS_KEY = 'poker-defense:v2-beta:analytics';
 import { CURRENT_VERSION } from './patchNotes';
 
 export type AnalyticsConsent = 'unknown' | 'granted' | 'denied';
@@ -165,7 +166,7 @@ export function getAnalytics(): Analytics {
 
 function loadState(storage: AnalyticsStorage): AnalyticsState {
   try {
-    const raw = storage.getItem(ANALYTICS_KEY);
+    const raw = storage.getItem(ANALYTICS_KEY) ?? storage.getItem(LEGACY_ANALYTICS_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw) as Partial<AnalyticsState>;
     return {

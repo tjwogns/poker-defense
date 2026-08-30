@@ -31,7 +31,7 @@ page.on('console', (m) => {
 await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
 await page.evaluate(() => {
   localStorage.clear();
-  localStorage.setItem('poker-defense:v2-beta:analytics', JSON.stringify({
+  localStorage.setItem('poker-defense:v2:analytics', JSON.stringify({
     version: 1,
     consent: 'denied',
     visitorId: '',
@@ -71,6 +71,12 @@ const state = () =>
   });
 
 console.log('초기 상태:', JSON.stringify(await state()));
+
+// 대표 문양이 2-2-1로 동률이면 실제 UI 확정 규칙에 맞춰 첫 후보를 선택한다.
+await page.evaluate(() => {
+  const g = window.__game;
+  if (g?.dominantSuitChoicesNow?.length > 1) g.selectDominantSuit(g.dominantSuitChoicesNow[0]);
+});
 
 // 족보 확정 버튼 (694, 640)
 await page.mouse.click(694, 640);

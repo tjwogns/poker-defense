@@ -24,58 +24,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: main
-          path: releases/v1
-
-      - name: Checkout v2 beta
-        uses: actions/checkout@v6
-        with:
           ref: codex/v2-deck-foundation
-          path: releases/v2
+          path: release
 
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            releases/v1/package-lock.json
-            releases/v2/package-lock.json
+          cache-dependency-path: release/package-lock.json
 
-      - name: Install v1 dependencies
+      - name: Install dependencies
         run: npm ci
-        working-directory: releases/v1
+        working-directory: release
 
-      - name: Test v1
+      - name: Test
         run: npm test
-        working-directory: releases/v1
+        working-directory: release
 
-      - name: Build v1
+      - name: Build production
         run: npm run build
-        working-directory: releases/v1
+        working-directory: release
         env:
           VITE_ANALYTICS_ENDPOINT: ${{ vars.VITE_ANALYTICS_ENDPOINT }}
           VITE_LEADERBOARD_ENDPOINT: ${{ vars.VITE_LEADERBOARD_ENDPOINT }}
 
-      - name: Install v2 dependencies
-        run: npm ci
-        working-directory: releases/v2
-
-      - name: Test v2
-        run: npm test
-        working-directory: releases/v2
-
-      - name: Build v2 beta
-        run: npm run build
-        working-directory: releases/v2
-        env:
-          VITE_ANALYTICS_ENDPOINT: ${{ vars.VITE_ANALYTICS_ENDPOINT }}
-
-      - name: Assemble v1 and v2 site
+      - name: Assemble site
         run: |
           mkdir -p site/v2
-          cp -R releases/v1/dist/. site/
-          cp -R releases/v2/dist/. site/v2/
+          cp -R release/dist/. site/
+          printf '%s\n' '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>포커 디펜스</title><script>location.replace("../"+location.search+location.hash)</script><a href="../">포커 디펜스 실행</a>' > site/v2/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

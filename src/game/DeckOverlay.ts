@@ -114,7 +114,7 @@ export class DeckOverlay {
 
     children.push(
       makeText(scene, 112, 604, '덱 제한 40–60장 · 변화량은 퍼센트포인트(%p)', 11, UI.textDim),
-      makeText(scene, 112, 626, '현재 v2 브랜치에서는 정비소 보상 연결 전이라 인장 재고가 0개입니다.', 11, UI.gold),
+      makeText(scene, 112, 626, '추방·복제 인장은 보스전 직전 정비소에서 구매할 수 있습니다.', 11, UI.gold),
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(46);

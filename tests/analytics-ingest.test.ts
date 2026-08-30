@@ -4,7 +4,7 @@ import worker, { validateAnalyticsSubmission } from '../leaderboard-worker/src/i
 function validBody() {
   return {
     schema: 'poker-defense-event-v1',
-    gameVersion: 'v1.4',
+    gameVersion: 'v2.0',
     event: {
       id: 'event-id-1234',
       name: 'upgrade_bought',
@@ -29,14 +29,13 @@ describe('analytics ingestion validation', () => {
     };
     expect(validateAnalyticsSubmission(boss)).toBe('');
 
-    const beta = validBody();
-    beta.gameVersion = 'v2.0-beta';
-    beta.event.name = 'deck_modified';
-    expect(validateAnalyticsSubmission(beta)).toBe('');
+    const deckEvent = validBody();
+    deckEvent.event.name = 'deck_modified';
+    expect(validateAnalyticsSubmission(deckEvent)).toBe('');
 
-    beta.event.name = 'maintenance_mastery_purchase';
-    beta.event.properties = { round: 10, handRank: 1, level: 1, cost: 30, goldAfter: 70 };
-    expect(validateAnalyticsSubmission(beta)).toBe('');
+    deckEvent.event.name = 'maintenance_mastery_purchase';
+    deckEvent.event.properties = { round: 10, handRank: 1, level: 1, cost: 30, goldAfter: 70 };
+    expect(validateAnalyticsSubmission(deckEvent)).toBe('');
   });
 
   test('허용된 웹 주소의 preflight에 자격 증명 CORS 헤더를 반환한다', async () => {
