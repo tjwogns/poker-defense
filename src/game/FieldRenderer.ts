@@ -10,6 +10,8 @@ import {
 import { UI, FONT } from './ui';
 import { UNIT_SPRITE_KEYS } from './unitAssets';
 import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
+import { bossSpriteKey } from './bossAssets';
+import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
 
 export const FIELD_X = 16;
 export const FIELD_Y = 16;
@@ -160,10 +162,26 @@ function unitArt(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.Gam
   return g;
 }
 
-function enemyArt(scene: Phaser.Scene, kind: EnemyKindId, radius: number, color: number): Phaser.GameObjects.Container {
+function enemyArt(
+  scene: Phaser.Scene,
+  kind: EnemyKindId,
+  radius: number,
+  color: number,
+  round: number,
+): Phaser.GameObjects.Container {
   const shadow = scene.add.ellipse(2, 4, radius * 2.2, radius * 1.45, 0x000000, 0.38);
   const aura = scene.add.circle(0, 0, radius + 3, color, kind === 'boss' ? 0.2 : 0.1)
     .setStrokeStyle(kind === 'boss' ? 2 : 1, color, 0.55);
+  if (kind === 'boss') {
+    const key = bossSpriteKey(round);
+    if (scene.textures.exists(key)) {
+      const image = scene.add.image(0, -2, key);
+      const extent = bossSpriteExtent(round);
+      const scale = Math.min(extent / image.width, extent / image.height);
+      image.setDisplaySize(image.width * scale, image.height * scale);
+      return scene.add.container(0, 0, [shadow, aura, image]).setDepth(3);
+    }
+  }
   let body: Phaser.GameObjects.Shape;
   if (kind === 'fast') {
     body = scene.add.triangle(0, 0, 0, -radius, radius, radius, -radius, radius, color, 1);
@@ -328,8 +346,8 @@ export class FieldRenderer {
       if (!view) {
         const def = ENEMY_KINDS[e.kind];
         const r = ENEMY_RADIUS[e.kind];
-        const root = enemyArt(this.scene, e.kind, r, def.color);
-        const barWidth = e.kind === 'boss' ? 42 : 24;
+        const root = enemyArt(this.scene, e.kind, r, def.color, e.round);
+        const barWidth = e.kind === 'boss' ? 50 : 24;
         const hpBg = this.scene.add.rectangle(0, 0, barWidth, e.kind === 'boss' ? 5 : 3, 0x000000, 0.78).setDepth(3);
         const hpFg = this.scene.add.rectangle(0, 0, barWidth, e.kind === 'boss' ? 5 : 3, 0x76d67a).setDepth(3);
         const introRing = e.kind === 'boss'
@@ -343,19 +361,28 @@ export class FieldRenderer {
       const sx = FIELD_X + p.x;
       const sy = FIELD_Y + p.y;
       const r = ENEMY_RADIUS[e.kind];
+      const ratio = Math.max(0, e.hp / e.maxHp);
       view.root.setPosition(sx, sy);
       if (e.kind === 'boss') {
-        const intro = Math.min(1, (this.scene.time.now - view.introStartedAt) / 720);
+        const intro = Math.min(1, (this.scene.time.now - view.introStartedAt) / bossIntroDuration(e.round));
         const entranceScale = intro < 1 ? Phaser.Math.Easing.Back.Out(intro) : 1;
-        view.root.setScale(entranceScale * (1 + Math.sin(game.field.time * 5) * 0.055));
-        view.introRing?.setScale(1 + intro * 1.4).setAlpha(Math.max(0, 1 - intro));
+        const enraged = e.round >= 60 && ratio <= 0.5;
+        const pulse = enraged
+          ? 1 + Math.sin(game.field.time * 11) * 0.085
+          : 1 + Math.sin(game.field.time * 5) * 0.045;
+        view.root.setScale(entranceScale * pulse);
+        if (enraged) {
+          view.introRing?.setScale(1.35 + Math.sin(game.field.time * 8) * 0.12).setAlpha(0.58);
+        } else {
+          view.introRing?.setScale(1 + intro * 1.4).setAlpha(Math.max(0, 1 - intro));
+        }
       } else {
         view.root.setScale(1);
       }
       view.root.setAlpha(game.field.time < e.stunUntil ? 0.62 : 1);
-      const ratio = Math.max(0, e.hp / e.maxHp);
-      view.hpBg.setPosition(sx, sy - r - 6);
-      view.hpFg.setPosition(sx - view.barWidth / 2 + (view.barWidth * ratio) / 2, sy - r - 6);
+      const barY = sy - (e.kind === 'boss' ? bossSpriteExtent(e.round) / 2 + 6 : r + 6);
+      view.hpBg.setPosition(sx, barY);
+      view.hpFg.setPosition(sx - view.barWidth / 2 + (view.barWidth * ratio) / 2, barY);
       view.hpFg.width = view.barWidth * ratio;
       view.hpFg.setFillStyle(ratio > 0.5 ? 0x76d67a : ratio > 0.25 ? 0xe0a33c : 0xd06258);
       const showHp = e.kind === 'boss' || ratio < 0.995;

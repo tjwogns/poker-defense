@@ -13,6 +13,7 @@ import { leaderboardConfigured } from '../meta/leaderboard';
 import { isCompactTouchDevice } from './device';
 import { preloadUnitSprites, UNIT_SPRITE_KEYS } from './unitAssets';
 import { HandRank } from '../core/cards/types';
+import { preloadBossSprites } from './bossAssets';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -21,6 +22,7 @@ export class MenuScene extends Phaser.Scene {
 
   preload(): void {
     preloadUnitSprites(this);
+    preloadBossSprites(this);
   }
 
   create(): void {
