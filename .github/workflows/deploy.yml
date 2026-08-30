@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: codex/v2-deck-foundation
+          ref: main
           path: release
 
       - name: Set up Node
