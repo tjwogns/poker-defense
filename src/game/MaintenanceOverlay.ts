@@ -7,6 +7,7 @@ import {
 } from '../core/relics';
 import { Button, UI, makeButton, makeText } from './ui';
 import { createRelicIcon } from './relicAssets';
+import { HAND_NAMES_KO, HandRank } from '../core/cards/types';
 
 interface OfferView {
   id: DeckSealId;
@@ -42,6 +43,8 @@ export class MaintenanceOverlay {
   private relicButtons: Button[] = [];
   private relicSlotIcons: Phaser.GameObjects.Container[] = [];
   private shopRelicButton!: Button;
+  private masteryButton!: Button;
+  private masteryText!: Phaser.GameObjects.Text;
   private relicHint!: Phaser.GameObjects.Text;
   private boughtSeal = false;
   private awaitingReplacement = false;
@@ -52,6 +55,7 @@ export class MaintenanceOverlay {
     private game: Game,
     private onBought: (id: DeckSealId, cost: number) => void,
     private onRelicBought: (id: RelicId, cost: number, replaced: RelicId | null, refund: number) => void,
+    private onMasteryBought: (rank: HandRank, level: number, cost: number) => void,
     private onRelicSold: (id: RelicId, value: number) => void,
     private onFinish: (openDeck: boolean) => void,
   ) {
@@ -130,14 +134,19 @@ export class MaintenanceOverlay {
     });
     children.push(relicCard, relicIcon, relicName, relicDesc, shopRelicRarity, this.shopRelicButton.container);
 
-    children.push(makeText(scene, 230, 492, '인장은 덱 보기(D)에서 사용 · 유물은 빌드에 즉시 적용', 11, UI.textDim));
-    this.relicHint = makeText(scene, 230, 515, '', 11, UI.gold, true);
-    children.push(this.relicHint);
+    children.push(makeText(scene, 230, 480, '인장은 덱 보기(D)에서 사용 · 유물과 연마는 기존 군단에도 즉시 적용', 11, UI.textDim));
+    this.masteryText = makeText(scene, 230, 503, '', 11, UI.accentText, true);
+    this.masteryButton = makeButton(scene, 920, 510, 190, 38, '', () => this.buyMastery(), {
+      fill: 0x6ca4d9,
+      fontSize: 11,
+    });
+    this.relicHint = makeText(scene, 230, 536, '', 10, UI.gold, true);
+    children.push(this.masteryText, this.masteryButton.container, this.relicHint);
     for (let index = 0; index < RELIC_SLOT_CAP; index++) {
       const button = makeButton(
         scene,
         330 + index * 155,
-        561,
+        577,
         142,
         58,
         '',
@@ -204,6 +213,13 @@ export class MaintenanceOverlay {
     this.refresh();
   }
 
+  private buyMastery(): void {
+    const offer = this.game.maintenanceMasteryOffer();
+    if (!offer || !this.game.buyMaintenanceMastery()) return;
+    this.onMasteryBought(offer.rank, offer.nextLevel, offer.cost);
+    this.refresh();
+  }
+
   private refresh(): void {
     this.relicSlotIcons.forEach((icon) => icon.destroy(true));
     this.relicSlotIcons = [];
@@ -233,6 +249,20 @@ export class MaintenanceOverlay {
         : `구매  ${shopRelic.cost}G`);
       this.shopRelicButton.setEnabled(shopRelic.affordable);
     }
+    const mastery = this.game.maintenanceMasteryOffer();
+    if (!mastery) {
+      this.masteryText.setText('HAND MASTERY · 모든 족보가 최대 레벨입니다.');
+      this.masteryButton.setLabel('연마 완료');
+      this.masteryButton.setEnabled(false);
+    } else {
+      this.masteryText.setText(mastery.purchased
+        ? `HAND MASTERY · ${HAND_NAMES_KO[mastery.rank]} Lv${mastery.level}`
+          + ` · 피해 ×${mastery.multiplier.toFixed(2)} · 이번 방문 완료`
+        : `HAND MASTERY · ${HAND_NAMES_KO[mastery.rank]} Lv${mastery.level} → Lv${mastery.nextLevel}`
+          + ` · 피해 ×${mastery.multiplier.toFixed(2)} → ×${mastery.nextMultiplier.toFixed(2)}`);
+      this.masteryButton.setLabel(mastery.purchased ? '연마 완료' : `족보 연마  ${mastery.cost}G`);
+      this.masteryButton.setEnabled(!mastery.purchased && mastery.affordable);
+    }
     this.relicHint.setText(this.awaitingReplacement
       ? '교체할 기존 유물을 선택한 뒤 위 유물 버튼으로 확정하세요.'
       : `RELIC SLOTS · 최대 ${RELIC_SLOT_CAP}칸 · 보유 유물 클릭 시 등급별 판매`);
@@ -250,7 +280,7 @@ export class MaintenanceOverlay {
         ? `${this.selectedReplacement === id ? '✓ ' : ''}${def.name}\n교체 환급 ${value}G`
         : `${def.name}\n판매  ${value}G`);
       button.setEnabled(true);
-      const icon = createRelicIcon(this.scene, id, 288 + index * 155, 561, 30);
+      const icon = createRelicIcon(this.scene, id, 288 + index * 155, 577, 30);
       this.relicSlotIcons.push(icon);
       this.root.add(icon);
     }

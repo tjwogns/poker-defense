@@ -13,6 +13,7 @@ import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
 import { threatBand, threatLabel } from './threat';
 import { isCompactTouchDevice } from './device';
 import { createRelicIcon } from './relicAssets';
+import { MASTERABLE_HANDS } from '../core/mastery';
 
 const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
@@ -139,7 +140,7 @@ export class SidePanel {
 
     makeText(scene, PX, 478, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
     this.relicText = makeText(scene, PX, 496, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
-    this.relicTriggerText = makeText(scene, PX, 567, '', 10, UI.gold, true)
+    this.relicTriggerText = makeText(scene, PX, 576, '', 10, UI.gold, true)
       .setAlpha(0)
       .setDepth(6);
 
@@ -303,9 +304,13 @@ export class SidePanel {
     const relicIconIds = g.relics.join(',');
     if (relicIconIds !== this.relicIconIds) {
       this.relicIcons.forEach((icon) => icon.destroy(true));
-      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 823 + index * 38, 542, 28));
+      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 823 + index * 38, 552, 28));
       this.relicIconIds = relicIconIds;
     }
+    const masteries = MASTERABLE_HANDS
+      .filter((rank) => g.handMastery[rank] > 0)
+      .map((rank) => `${HAND_NAMES_KO[rank]} Lv${g.handMastery[rank]}`)
+      .join(' · ');
     const synergies = g.synergies
       .filter((status) => status.count > 0)
       .map((status) => {
@@ -316,6 +321,7 @@ export class SidePanel {
       .join('  ·  ');
     this.relicText.setText(
       `${synergies ? `시너지  ${synergies}` : '시너지  —'}\n`
+      + `${masteries ? `연마  ${masteries}` : '연마  —'}\n`
       + `${relics ? `유물 ${g.relics.length}/${RELIC_SLOT_CAP}  ${relics}` : `유물 0/${RELIC_SLOT_CAP}  — 보스 보상`}`,
     );
   }

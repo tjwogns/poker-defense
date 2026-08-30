@@ -136,11 +136,24 @@ export class PlayScene extends Phaser.Scene {
     this.lastRelicFeedbackAt = -Infinity;
     this.compactFx = isCompactTouchDevice();
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
-    const localRelicPreview = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
-      && new URLSearchParams(window.location.search).get('visualTest') === 'relics';
-    if (localRelicPreview) {
+    const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+      ? new URLSearchParams(window.location.search).get('visualTest')
+      : null;
+    if (localVisualTest === 'relics') {
       this.profile.tutorialDone = true;
       this.core.relicChoices = ['royal_seal', 'compound_ledger', 'glass_crown'];
+    } else if (localVisualTest === 'mastery') {
+      this.profile.tutorialDone = true;
+      this.core.round = 9;
+      this.core.gold = 1000;
+      this.core.upgradeLevel = 30;
+      this.core.pendingUnits.push(HandRank.RoyalFlush);
+      this.core.placeUnit(8, 5);
+      this.core.handConfirmed = true;
+      this.core.startCombat();
+      for (let tick = 0; tick < 5000 && this.core.phase === 'combat'; tick++) {
+        this.core.tickCombat(1 / 30);
+      }
     }
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -684,6 +697,17 @@ export class PlayScene extends Phaser.Scene {
           relicCount: this.core.relics.length,
         }, this.runId);
         this.audio.play('relic');
+      },
+      (rank, level, cost) => {
+        this.analytics.track('maintenance_mastery_purchase', {
+          round: this.core.round,
+          handRank: rank,
+          level,
+          cost,
+          goldAfter: this.core.gold,
+        }, this.runId);
+        this.audio.play('confirm');
+        this.refreshUI();
       },
       (id, value) => {
         this.analytics.track('relic_sold', {

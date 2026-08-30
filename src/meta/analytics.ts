@@ -33,6 +33,7 @@ export type AnalyticsEventName =
   | 'maintenance_opened'
   | 'maintenance_purchase'
   | 'maintenance_relic_purchase'
+  | 'maintenance_mastery_purchase'
   | 'maintenance_closed'
   | 'boss_encountered'
   | 'boss_defeated'

@@ -33,6 +33,10 @@ import {
 } from './scoring';
 import { bossDef } from './bosses';
 import { synergyStatuses, unitSynergyDamageMultiplier } from './synergies';
+import {
+  createHandMasteryLevels, HandMasteryLevels, handMasteryCost, handMasteryMultiplier,
+  handMasteryOffer, HAND_MASTERY_DAMAGE_PER_LEVEL, HAND_MASTERY_MAX_LEVEL, MasterableHandRank,
+} from './mastery';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 export type DefeatReason = 'field-cap' | 'final-boss-timeout';
@@ -70,6 +74,7 @@ export class Game {
   relics: RelicId[] = [];
   relicChoices: RelicId[] = [];
   readonly deckSeals: Record<DeckSealId, number> = { banish: 0, duplicate: 0 };
+  readonly handMastery: HandMasteryLevels = createHandMasteryLevels();
 
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
@@ -92,6 +97,7 @@ export class Game {
   private visitedMaintenanceRounds = new Set<number>();
   private purchasedMaintenanceOffers = new Set<string>();
   private maintenanceRelics = new Map<number, RelicId | null>();
+  private maintenanceMasteries = new Map<number, MasterableHandRank | null>();
   private pendingMaintenanceRound: number | null = null;
 
   constructor(seed: number) {
@@ -154,6 +160,39 @@ export class Game {
     };
   }
 
+  maintenanceMasteryOffer(): {
+    rank: MasterableHandRank;
+    level: number;
+    nextLevel: number;
+    cost: number;
+    multiplier: number;
+    nextMultiplier: number;
+    purchased: boolean;
+    affordable: boolean;
+  } | null {
+    if (!this.maintenancePending) return null;
+    if (!this.maintenanceMasteries.has(this.round)) {
+      this.maintenanceMasteries.set(this.round, handMasteryOffer(this.seed, this.round, this.handMastery));
+    }
+    const rank = this.maintenanceMasteries.get(this.round);
+    if (rank === null || rank === undefined) return null;
+    const level = this.handMastery[rank];
+    const cost = handMasteryCost(rank);
+    return {
+      rank,
+      level,
+      nextLevel: Math.min(HAND_MASTERY_MAX_LEVEL, level + 1),
+      cost,
+      multiplier: handMasteryMultiplier(this.handMastery, rank),
+      nextMultiplier: Math.pow(
+        1 + HAND_MASTERY_DAMAGE_PER_LEVEL,
+        Math.min(HAND_MASTERY_MAX_LEVEL, level + 1),
+      ),
+      purchased: this.purchasedMaintenanceOffers.has(`${this.round}:mastery`),
+      affordable: this.gold >= cost && level < HAND_MASTERY_MAX_LEVEL,
+    };
+  }
+
   buyMaintenanceSeal(id: DeckSealId): boolean {
     if (!this.maintenancePending) return false;
     const key = `${this.round}:${id}`;
@@ -175,6 +214,15 @@ export class Game {
     this.gold += offer.refund - offer.cost;
     this.addRelic(offer.id);
     this.purchasedMaintenanceOffers.add(`${this.round}:relic`);
+    return true;
+  }
+
+  buyMaintenanceMastery(): boolean {
+    const offer = this.maintenanceMasteryOffer();
+    if (!offer || offer.purchased || !offer.affordable) return false;
+    this.gold -= offer.cost;
+    this.handMastery[offer.rank]++;
+    this.purchasedMaintenanceOffers.add(`${this.round}:mastery`);
     return true;
   }
 
@@ -399,7 +447,9 @@ export class Game {
   }
 
   unitDamageMult(tier: HandRank, targetIsBoss = false): number {
-    return this.dmgMult * unitSynergyDamageMultiplier(tier, this.synergies, targetIsBoss);
+    return this.dmgMult
+      * handMasteryMultiplier(this.handMastery, tier)
+      * unitSynergyDamageMultiplier(tier, this.synergies, targetIsBoss);
   }
 
   get fieldCap(): number {
@@ -515,7 +565,7 @@ export class Game {
       (unit, enemy, field) => {
         const relicDamage = relicUnitDamageResult(this.relics, unit, enemy, field);
         for (const id of relicDamage.active) triggeredRelics.add(id);
-        return relicDamage.multiplier;
+        return relicDamage.multiplier * handMasteryMultiplier(this.handMastery, unit.tier);
       },
     );
     result.relicTriggers = [...triggeredRelics];

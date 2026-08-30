@@ -33,6 +33,10 @@ describe('analytics ingestion validation', () => {
     beta.gameVersion = 'v2.0-beta';
     beta.event.name = 'deck_modified';
     expect(validateAnalyticsSubmission(beta)).toBe('');
+
+    beta.event.name = 'maintenance_mastery_purchase';
+    beta.event.properties = { round: 10, handRank: 1, level: 1, cost: 30, goldAfter: 70 };
+    expect(validateAnalyticsSubmission(beta)).toBe('');
   });
 
   test('허용된 웹 주소의 preflight에 자격 증명 CORS 헤더를 반환한다', async () => {

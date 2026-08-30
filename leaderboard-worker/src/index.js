@@ -10,7 +10,7 @@ const ANALYTICS_EVENT_NAMES = new Set([
   'leaderboard_submitted', 'synergy_activated', 'patch_notes_viewed', 'background_pause',
   'upgrade_bought', 'odds_opened', 'boss_encountered', 'boss_defeated', 'boss_survived',
   'deck_opened', 'deck_modified', 'maintenance_opened', 'maintenance_purchase',
-  'maintenance_relic_purchase', 'maintenance_closed', 'relic_sold', 'relic_triggered',
+  'maintenance_relic_purchase', 'maintenance_mastery_purchase', 'maintenance_closed', 'relic_sold', 'relic_triggered',
 ]);
 
 export default {

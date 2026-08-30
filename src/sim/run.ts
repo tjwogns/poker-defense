@@ -16,6 +16,8 @@ const MAINTENANCE_STRATEGIES = ['skip', 'banish', 'duplicate', 'both', 'hidden']
 type MaintenanceStrategy = typeof MAINTENANCE_STRATEGIES[number];
 const RELIC_STRATEGIES = ['skip', 'always', 'targeted'] as const;
 type RelicStrategy = typeof RELIC_STRATEGIES[number];
+const MASTERY_STRATEGIES = ['skip', 'always', 'low', 'high'] as const;
+type MasteryStrategy = typeof MASTERY_STRATEGIES[number];
 
 const RELIC_PRIORITY: RelicId[] = [
   'pair_broker', 'underdog_banner', 'pristine_oath', 'compression_enthusiast',
@@ -88,13 +90,14 @@ function playPrep(
   stats: GameStats,
   strategy: MaintenanceStrategy,
   relicStrategy: RelicStrategy,
+  masteryStrategy: MasteryStrategy,
 ): void {
   if (g.relicChoices.length > 0) {
     const chosen = RELIC_PRIORITY.find((id) => g.relicChoices.includes(id)) ?? g.relicChoices[0];
     const replacement = g.relicSlotsRemaining === 0 ? weakestOwnedRelic(g) : undefined;
     g.chooseRelic(chosen, replacement);
   }
-  if (g.maintenancePending) playMaintenance(g, stats, strategy, relicStrategy);
+  if (g.maintenancePending) playMaintenance(g, stats, strategy, relicStrategy, masteryStrategy);
   // 이미 트리플 이상이면 그대로 확정, 아니면 무료 교환 1회
   if (evaluateHand(g.hand) < HandRank.Trips) {
     chooseHolds(g, strategy);
@@ -155,6 +158,7 @@ function playMaintenance(
   stats: GameStats,
   strategy: MaintenanceStrategy,
   relicStrategy: RelicStrategy,
+  masteryStrategy: MasteryStrategy,
 ): void {
   stats.maintenanceVisits++;
   const wanted: DeckSealId[] = strategy === 'both'
@@ -176,8 +180,20 @@ function playMaintenance(
       stats.relicSpend += priced.cost - priced.refund;
     }
   }
+  const masteryOffer = g.maintenanceMasteryOffer();
+  if (masteryOffer && shouldBuyMastery(masteryOffer.rank, masteryStrategy) && g.buyMaintenanceMastery()) {
+    stats.masteryPurchases++;
+    stats.masterySpend += masteryOffer.cost;
+  }
   g.leaveMaintenance();
   useOwnedSeals(g, strategy);
+}
+
+function shouldBuyMastery(rank: HandRank, strategy: MasteryStrategy): boolean {
+  if (strategy === 'skip') return false;
+  if (strategy === 'always') return true;
+  if (strategy === 'low') return rank <= HandRank.Trips;
+  return rank >= HandRank.Straight;
 }
 
 function shouldBuyRelic(id: RelicId, strategy: RelicStrategy): boolean {
@@ -237,6 +253,8 @@ interface GameStats {
   sealSpend: number;
   relicPurchases: number;
   relicSpend: number;
+  masteryPurchases: number;
+  masterySpend: number;
   deckSize: number;
   goldEnd: number;
   finalBossHpPct: number;
@@ -246,19 +264,21 @@ function playGame(
   seed: number,
   strategy: MaintenanceStrategy,
   relicStrategy: RelicStrategy = 'skip',
+  masteryStrategy: MasteryStrategy = 'skip',
 ): GameStats {
   const g = new Game(seed);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
     handCounts: Array(HandRank.FlushFive + 1).fill(0), score: 0,
     maintenanceVisits: 0, sealPurchases: { banish: 0, duplicate: 0 },
-    sealSpend: 0, relicPurchases: 0, relicSpend: 0, deckSize: 52, goldEnd: 0,
+    sealSpend: 0, relicPurchases: 0, relicSpend: 0, masteryPurchases: 0, masterySpend: 0,
+    deckSize: 52, goldEnd: 0,
     finalBossHpPct: 1,
   };
   const dt = 1 / 30;
   let guard = 0;
   while (g.phase !== 'victory' && g.phase !== 'defeat' && guard++ < 1_000_000) {
-    if (g.phase === 'prep') playPrep(g, stats, strategy, relicStrategy);
+    if (g.phase === 'prep') playPrep(g, stats, strategy, relicStrategy, masteryStrategy);
     else {
       g.tickCombat(dt);
     }
@@ -280,6 +300,7 @@ const strategyArg = process.argv[3] ?? 'skip';
 if (strategyArg === 'compare') printComparison(games);
 else if (strategyArg === 'relic-compare') printRelicComparison(games);
 else if (strategyArg === 'hidden-compare') printHiddenComparison(games);
+else if (strategyArg === 'mastery-compare') printMasteryComparison(games);
 else if (MAINTENANCE_STRATEGIES.includes(strategyArg as MaintenanceStrategy)) {
   printDetails(runGames(games, strategyArg as MaintenanceStrategy), strategyArg as MaintenanceStrategy);
 } else {
@@ -292,6 +313,13 @@ function runGames(count: number, strategy: MaintenanceStrategy): GameStats[] {
 
 function runRelicGames(count: number, strategy: RelicStrategy): GameStats[] {
   return Array.from({ length: count }, (_, index) => playGame(index + 1, 'both', strategy));
+}
+
+function runMasteryGames(count: number, strategy: MasteryStrategy): GameStats[] {
+  return Array.from(
+    { length: count },
+    (_, index) => playGame(index + 1, 'both', 'targeted', strategy),
+  );
 }
 
 function printComparison(count: number): void {
@@ -364,6 +392,27 @@ function printHiddenComparison(count: number): void {
       + `${avgRound.toFixed(1).padStart(6)} `
       + `${(duplicates / count).toFixed(1).padStart(6)} `
       + `${String(hidden).padStart(6)}  ${byRank.join('/')}`,
+    );
+  }
+}
+
+function printMasteryComparison(count: number): void {
+  console.log(`\n=== v2 족보 연마 전략 비교 (인장 both · 선별 유물 · 동일 시드 각 ${count}판) ===`);
+  console.log('전략       승률   평균R  강화Lv  연마수  연마G  종료G  최종보스HP');
+  for (const strategy of MASTERY_STRATEGIES) {
+    const all = runMasteryGames(count, strategy);
+    const wins = all.filter((game) => game.result === 'victory').length;
+    const avg = (value: (game: GameStats) => number) => (
+      all.reduce((sum, game) => sum + value(game), 0) / all.length
+    );
+    console.log(
+      `${strategy.padEnd(10)} ${((wins / count) * 100).toFixed(1).padStart(5)}% `
+      + `${avg((game) => game.roundReached).toFixed(1).padStart(6)} `
+      + `${avg((game) => game.upgradeLevel).toFixed(1).padStart(7)} `
+      + `${avg((game) => game.masteryPurchases).toFixed(1).padStart(6)} `
+      + `${avg((game) => game.masterySpend).toFixed(1).padStart(6)} `
+      + `${avg((game) => game.goldEnd).toFixed(0).padStart(6)} `
+      + `${(avg((game) => game.finalBossHpPct) * 100).toFixed(1).padStart(10)}%`,
     );
   }
 }
