@@ -9,7 +9,6 @@ import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, UI, makeButton, makeText } from './ui';
 import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
-import { familyLabel, SYNERGY_DEFS } from '../core/synergies';
 import { threatBand, threatLabel, threatTitle } from './threat';
 import { isCompactTouchDevice } from './device';
 import { createRelicIcon } from './relicAssets';
@@ -141,7 +140,7 @@ export class SidePanel {
     this.soundBtn = makeButton(scene, 1200, 414, 88, compactTouch ? 46 : 34, 'SOUND', cb.onSound, { fill: 0x34463c, fontSize: 10 });
     this.combatText = makeText(scene, PX, 441, '', 11, UI.textDim);
 
-    makeText(scene, PX, 478, 'BUILD · SYNERGY / RELIC', 10, UI.textDim, true);
+    makeText(scene, PX, 478, 'BUILD · MASTERY / RELIC', 10, UI.textDim, true);
     this.relicText = makeText(scene, PX, 496, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
     this.relicTriggerText = makeText(scene, PX, 576, '', 10, UI.gold, true)
       .setAlpha(0)
@@ -254,7 +253,7 @@ export class SidePanel {
       const def = UNIT_DEFS[selectedUnit.tier];
       const variant = selectedUnit.variant ? ` · ${HAND_VARIANT_LABELS[selectedUnit.variant]}` : '';
       const suitGlyph = selectedUnit.suit ? ` · ${SUIT_GLYPHS[selectedUnit.suit]}` : '';
-      this.unitName.setText(`${variantUnitName(def.name, selectedUnit.variant)}  ·  ${HAND_NAMES_KO[def.tier]}${variant}${suitGlyph}  [${familyLabel(def.tier)}]`);
+      this.unitName.setText(`${variantUnitName(def.name, selectedUnit.variant)}  ·  ${HAND_NAMES_KO[def.tier]}${variant}${suitGlyph}`);
       this.unitStats.setText(
         `${suitIdentityLabel(selectedUnit.suit)} · ${selectedUnit.suit ? SUIT_TRAIT_LABELS[selectedUnit.suit] : '합성으로 문양 특성 소실'}\n`
         + `DPS ${def.dps} × ${g.unitDpsMult(selectedUnit).toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
@@ -318,17 +317,8 @@ export class SidePanel {
       .filter((rank) => g.handMastery[rank] > 0)
       .map((rank) => `${HAND_NAMES_KO[rank]} Lv${g.handMastery[rank]}`)
       .join(' · ');
-    const synergies = g.synergies
-      .filter((status) => status.count > 0)
-      .map((status) => {
-        const def = SYNERGY_DEFS[status.id];
-        const target = status.nextTier?.count ?? status.activeTier?.count ?? def.tiers[0].count;
-        return `${def.glyph} ${def.name} ${status.count}/${target}${status.level > 0 ? '●' : ''}`;
-      })
-      .join('  ·  ');
     this.relicText.setText(
-      `${synergies ? `시너지  ${synergies}` : '시너지  —'}\n`
-      + `${masteries ? `연마  ${masteries}` : '연마  —'}\n`
+      `${masteries ? `연마  ${masteries}` : '연마  —'}\n`
       + `${relics ? `유물 ${g.relics.length}/${RELIC_SLOT_CAP}  ${relics}` : `유물 0/${RELIC_SLOT_CAP}  — 보스 보상`}`,
     );
   }

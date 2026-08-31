@@ -26,7 +26,6 @@ export type AnalyticsEventName =
   | 'result_shared'
   | 'leaderboard_viewed'
   | 'leaderboard_submitted'
-  | 'synergy_activated'
   | 'patch_notes_viewed'
   | 'background_pause'
   | 'upgrade_bought'

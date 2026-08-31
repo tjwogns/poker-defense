@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { UNIT_DEFS } from '../core/units';
 import { UI, makeButton, makeText } from './ui';
 import { HANDBOOK_ROWS } from './guideData';
-import { familyLabel } from '../core/synergies';
 import { HandRank, isHiddenHand } from '../core/cards/types';
 
 /** 족보 성립 조건과 획득 유닛을 게임 중 확인하는 모달 도감. */
@@ -56,7 +55,7 @@ export class GuideOverlay {
           scene,
           635,
           y,
-          discovered ? `${def.glyph}  ${row.unit} · ${familyLabel(row.rank).split(' · ').join('/')}` : '잠김',
+          discovered ? `${def.glyph}  ${row.unit}` : '잠김',
           11,
           discovered ? `#${def.color.toString(16).padStart(6, '0')}` : UI.textDim,
           true,
@@ -70,8 +69,8 @@ export class GuideOverlay {
       makeText(scene, 185, 582, '마운틴 10-J-Q-K-A: 피해 +25% · 백스트레이트 A-2-3-4-5: 공격 속도 +18%', 9, UI.text, true),
       makeText(scene, 120, 602, 'SUITS', 9, UI.accentText, true),
       makeText(scene, 170, 602, '♠ 보스 +12% · ♥ 공속 +11% · ♦ 처치 +1G(라운드 3G) · ♣ 일반 적 +10% · 2-2-1은 직접 선택', 9, UI.text, true),
-      makeText(scene, 120, 622, 'SYNERGY', 9, UI.accentText, true),
-      makeText(scene, 180, 622, '군단 2/4 · 정밀 2 · 마도 2/3 · 왕실 2/3 · 용족 2 · 서로 다른 유닛 종류만 집계', 9, UI.text, true),
+      makeText(scene, 120, 622, 'BUILD', 9, UI.accentText, true),
+      makeText(scene, 170, 622, '유물 · 족보 연마 · 대표 문양을 조합해 주력 화력을 완성하세요', 9, UI.text, true),
       makeText(scene, 120, 642, 'FUSION', 9, UI.gold, true),
       makeText(scene, 170, 642, '동일 3기 합성 · 세 유닛의 대표 문양이 같을 때만 문양 특성 계승', 9, UI.text, true),
       makeText(scene, 120, 668, 'H로 언제든 도감을 열 수 있습니다 · 히든 족보는 첫 발견 후 조건과 유닛이 공개됩니다.', 9, UI.textDim),

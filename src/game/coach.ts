@@ -35,6 +35,6 @@ export function firstRunCoachHint(game: Game): CoachHint | null {
   return {
     step: 3,
     title: '빌드 만들기',
-    body: '우측 BUILD에서 다음 시너지 조건을 확인하고, 합성과 유물로 화력을 집중하세요.',
+    body: '우측 BUILD에서 연마 상태를 확인하고, 합성과 유물로 화력을 집중하세요.',
   };
 }

@@ -35,12 +35,11 @@ describe('defeat analysis', () => {
 
     expect(analysis.cause).toContain('50초');
     expect(analysis.boss).toBe('생존 보스 R60 · HP 25%');
-    expect(analysis.synergies).toContain('군단 1단계');
-    expect(analysis.tips[0]).toContain('용족 2종');
+    expect(analysis.tips[0]).toContain('스페이드 대표 문양');
     expect(analysis.bossHpPercent).toBe(25);
   });
 
-  test('필드 상한 패배에서 위협도와 시너지 부재를 알려준다', () => {
+  test('필드 상한 패배에서 위협도와 정리 속도 조언을 알려준다', () => {
     const input = baseInput();
     input.enemies = Array.from({ length: 81 }, (_, index) => ({
       kind: 'normal', round: 24, hp: 10 + index, maxHp: 100, alive: true,
@@ -50,8 +49,7 @@ describe('defeat analysis', () => {
 
     expect(analysis.cause).toBe('필드 위협도 81 / 80 도달');
     expect(analysis.boss).toBe('생존 보스 없음');
-    expect(analysis.synergies).toBe('활성 시너지 없음');
-    expect(analysis.tips[0]).toContain('첫 시너지');
+    expect(analysis.tips[0]).toContain('주력 족보 연마');
     expect(analysis.aliveEnemies).toBe(81);
   });
 
@@ -67,7 +65,6 @@ describe('defeat analysis', () => {
     const analysis = analyzeDefeat(input);
 
     expect(analysis.boss).toBe('생존 보스 R20 · HP 34%');
-    expect(analysis.synergies).toContain('정밀 1단계');
     expect(analysis.tips[0]).toContain('R20 보스');
   });
 

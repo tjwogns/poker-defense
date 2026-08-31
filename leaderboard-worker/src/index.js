@@ -7,7 +7,7 @@ const ANALYTICS_EVENT_NAMES = new Set([
   'menu_view', 'consent_granted', 'run_started', 'tutorial_finished', 'hand_confirmed',
   'combat_started', 'round_reached', 'placement_blocked', 'unit_fused', 'relic_selected',
   'run_finished', 'run_abandoned', 'retry_clicked', 'result_shared', 'leaderboard_viewed',
-  'leaderboard_submitted', 'synergy_activated', 'patch_notes_viewed', 'background_pause',
+  'leaderboard_submitted', 'patch_notes_viewed', 'background_pause',
   'upgrade_bought', 'odds_opened', 'boss_encountered', 'boss_defeated', 'boss_survived',
   'deck_opened', 'deck_modified', 'maintenance_opened', 'maintenance_purchase',
   'maintenance_relic_purchase', 'maintenance_mastery_purchase', 'maintenance_closed', 'relic_sold', 'relic_triggered',

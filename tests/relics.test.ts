@@ -106,7 +106,7 @@ describe('relic effects', () => {
     const field = createField();
     const enemy = spawnEnemy(field, 'normal', 20, { dist: 2 * 44 });
     addUnit(field, HandRank.Pair, 3, 2);
-    tick(field, 1 / 30, 1, [], (unit, target, current) => (
+    tick(field, 1 / 30, 1, (unit, target, current) => (
       relicUnitDamageMultiplier(['underdog_banner'], unit, target, current)
     ));
     expect(enemy.maxHp - enemy.hp).toBeCloseTo(11.2 * 1.75, 3);

@@ -51,7 +51,7 @@ export class OddsOverlay {
 
     children.push(
       makeText(scene, 300, 590, '금색은 현재 족보보다 높은 결과입니다. 실제 교환은 현재 패 5장을 제외한 47장에서 뽑습니다.', 11, UI.textDim),
-      makeText(scene, 300, 614, '확률은 판단 정보이며 필드 시너지·필요 유닛·교환 비용에 따라 최선의 선택은 달라집니다.', 11, UI.textDim),
+      makeText(scene, 300, 614, '확률은 판단 정보이며 필요한 유닛·교환 비용·현재 빌드에 따라 최선의 선택은 달라집니다.', 11, UI.textDim),
     );
     this.root = scene.add.container(0, 0, children).setDepth(45);
   }

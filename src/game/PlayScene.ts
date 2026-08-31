@@ -24,7 +24,6 @@ import { ExitConfirmOverlay } from './ExitConfirmOverlay';
 import { Analytics, getAnalytics } from '../meta/analytics';
 import { tileCanReachPath } from '../core/map';
 import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
-import { SYNERGY_DEFS, UnitFamily } from '../core/synergies';
 import { pauseStateAfterFocus, safeFrameDelta, speedAfterFocus } from './timing';
 import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
@@ -72,7 +71,6 @@ export class PlayScene extends Phaser.Scene {
   private deckWasPaused = false;
   private exitOverlay: ExitConfirmOverlay | null = null;
   private exitWasPaused = false;
-  private synergyLevels = new Map<UnitFamily, number>();
   private analytics!: Analytics;
   private runId = '';
   private runStartedAt = 0;
@@ -124,7 +122,6 @@ export class PlayScene extends Phaser.Scene {
     this.deckWasPaused = false;
     this.exitOverlay = null;
     this.exitWasPaused = false;
-    this.synergyLevels.clear();
     this.lastTrackedRound = 1;
     this.firstCombatTracked = false;
     this.trackedBossEncounters.clear();
@@ -229,7 +226,6 @@ export class PlayScene extends Phaser.Scene {
             this.audio.play('click');
             this.selectedUnitId = null;
             this.moving = false;
-            this.syncSynergyFeedback();
           }
           this.refreshUI();
         }
@@ -425,7 +421,6 @@ export class PlayScene extends Phaser.Scene {
       }
       if (this.core.placeUnit(t.tx, t.ty)) {
         this.audio.play('click');
-        this.syncSynergyFeedback();
         this.refreshUI();
         return;
       }
@@ -509,7 +504,6 @@ export class PlayScene extends Phaser.Scene {
         fromTier: selected.tier,
         toTier: selected.tier + 1,
       }, this.runId);
-      this.syncSynergyFeedback();
       this.refreshUI();
     }
   }
@@ -519,23 +513,6 @@ export class PlayScene extends Phaser.Scene {
     this.paused = !this.paused;
     this.audio.play('click');
     this.refreshUI();
-  }
-
-  private syncSynergyFeedback(): void {
-    for (const status of this.core.synergies) {
-      const previous = this.synergyLevels.get(status.id) ?? 0;
-      if (status.level > previous && status.activeTier) {
-        const def = SYNERGY_DEFS[status.id];
-        this.flashCenter(`${def.glyph} ${def.name} ${status.activeTier.count} 시너지 활성`, def.color);
-        this.analytics.track('synergy_activated', {
-          round: this.core.round,
-          synergy: status.id,
-          level: status.level,
-          count: status.count,
-        }, this.runId);
-      }
-      this.synergyLevels.set(status.id, status.level);
-    }
   }
 
   private toggleSound(): void {
@@ -1150,7 +1127,6 @@ export class PlayScene extends Phaser.Scene {
         defeatCause: this.core.defeatReason ?? 'unknown',
         aliveEnemies: analysis.aliveEnemies,
         bossHpPercent: analysis.bossHpPercent,
-        activeSynergies: [...analysis.activeSynergyIds],
       } : {}),
     }, this.runId);
     const date = this.runDate;
@@ -1225,16 +1201,13 @@ export class PlayScene extends Phaser.Scene {
     this.add.text(226, 298, `${analysis.boss}   ·   ${analysis.build}`, {
       fontFamily: FONT, fontSize: '14px', color: UI.textDim,
     }).setDepth(22);
-    this.add.text(226, 328, `시너지  ${analysis.synergies}`, {
-      fontFamily: FONT, fontSize: '14px', color: UI.accentText,
-    }).setDepth(22);
-    this.add.text(226, 350, `연마 효율  ${analysis.mastery}`, {
+    this.add.text(226, 328, `연마 효율  ${analysis.mastery}`, {
       fontFamily: FONT, fontSize: '13px', color: '#f0c879',
     }).setDepth(22);
-    this.add.text(226, 366, '다음 시도', {
+    this.add.text(226, 356, '다음 시도', {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
     }).setDepth(22);
-    this.add.text(226, 397, analysis.tips.map((tip) => `• ${tip}`).join('\n'), {
+    this.add.text(226, 387, analysis.tips.map((tip) => `• ${tip}`).join('\n'), {
       fontFamily: FONT, fontSize: '14px', color: UI.text, lineSpacing: 8,
       wordWrap: { width: 820 },
     }).setDepth(22);

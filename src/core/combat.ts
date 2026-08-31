@@ -4,7 +4,6 @@ import { UNIT_DEFS, UnitDef, damagePerHit } from './units';
 import { ENEMY_BASE_SPEED, enemyHp, killGold, bossGold } from './balance';
 import { TILE, Pt, pointAt, tileCenter } from './map';
 import { bossModifiers } from './bosses';
-import { SynergyStatus, unitSynergyDamageMultiplier } from './synergies';
 import type { RelicId } from './relics';
 import { HandVariant, suitDamageMultiplier, suitPeriodMultiplier, variantDamageMultiplier, variantPeriodMultiplier } from './cards/handIdentity';
 import type { Suit } from './cards/types';
@@ -187,7 +186,6 @@ function performAttack(
   unit: Unit,
   def: UnitDef,
   globalMult: number,
-  synergies: readonly SynergyStatus[],
   relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number,
   result: TickResult,
 ): boolean {
@@ -206,7 +204,6 @@ function performAttack(
   const targetPos = enemyPos(target);
   const deathsBefore = result.deaths.length;
   const damageAgainst = (enemy: Enemy, amount: number) => amount
-    * unitSynergyDamageMultiplier(unit.tier, synergies, enemy.kind === 'boss')
     * relicDamageMultiplier(unit, enemy, field)
     * suitDamageMultiplier(unit.suit, enemy.kind === 'boss')
     * variantDamageMultiplier(unit.variant);
@@ -274,7 +271,6 @@ export function tick(
   field: Field,
   dt: number,
   globalDmgMult: number,
-  synergies: readonly SynergyStatus[] = [],
   relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number = () => 1,
 ): TickResult {
   const result = emptyResult();
@@ -300,7 +296,7 @@ export function tick(
     const def = UNIT_DEFS[unit.tier];
     unit.cooldown -= dt;
     while (unit.cooldown <= 0) {
-      if (!performAttack(field, unit, def, globalDmgMult, synergies, relicDamageMultiplier, result)) {
+      if (!performAttack(field, unit, def, globalDmgMult, relicDamageMultiplier, result)) {
         unit.cooldown = 0;
         break;
       }

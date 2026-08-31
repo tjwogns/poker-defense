@@ -33,7 +33,6 @@ import {
   VICTORY_SCORE,
 } from './scoring';
 import { bossDef } from './bosses';
-import { synergyStatuses, unitSynergyDamageMultiplier } from './synergies';
 import {
   createHandMasteryLevels, HandMasteryLevels, handMasteryCost, handMasteryMultiplier,
   handMasteryOffer, HAND_MASTERY_DAMAGE_PER_LEVEL, HAND_MASTERY_MAX_LEVEL, MasterableHandRank,
@@ -499,14 +498,9 @@ export class Game {
     return upgradeMultiplier(this.upgradeLevel) * relicModifiers(this.relics).damageMultiplier;
   }
 
-  get synergies() {
-    return synergyStatuses(this.field.units);
-  }
-
-  unitDamageMult(tier: HandRank, targetIsBoss = false): number {
+  unitDamageMult(tier: HandRank, _targetIsBoss = false): number {
     return this.dmgMult
-      * handMasteryMultiplier(this.handMastery, tier)
-      * unitSynergyDamageMultiplier(tier, this.synergies, targetIsBoss);
+      * handMasteryMultiplier(this.handMastery, tier);
   }
 
   unitDpsMult(unit: Pick<Unit, 'tier' | 'suit' | 'variant'>, targetIsBoss = false): number {
@@ -626,7 +620,6 @@ export class Game {
       this.field,
       dt,
       this.dmgMult,
-      this.synergies,
       (unit, enemy, field) => {
         const relicDamage = relicUnitDamageResult(this.relics, unit, enemy, field);
         for (const id of relicDamage.active) triggeredRelics.add(id);
