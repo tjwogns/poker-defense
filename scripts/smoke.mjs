@@ -44,7 +44,7 @@ await page.waitForFunction(() => window.__menuReady === true);
 await page.screenshot({ path: `${TMP}/shot1-menu.png` });
 
 // 새 게임 → 첫 실행 튜토리얼 건너뛰기
-await page.mouse.click(770, 327);
+await page.mouse.click(202, 500);
 await page.waitForFunction(() => Boolean(window.__game));
 await new Promise((r) => setTimeout(r, 300));
 await page.mouse.click(520, 500);
@@ -72,27 +72,29 @@ const state = () =>
 
 console.log('초기 상태:', JSON.stringify(await state()));
 
-// 대표 문양이 2-2-1로 동률이면 실제 UI 확정 규칙에 맞춰 첫 후보를 선택한다.
-await page.evaluate(() => {
-  const g = window.__game;
-  if (g?.dominantSuitChoicesNow?.length > 1) g.selectDominantSuit(g.dominantSuitChoicesNow[0]);
-});
+// 대표 문양이 2-2-1로 동률이면 버튼을 눌러 UI 상태까지 함께 갱신한다.
+const dominantChoices = await page.evaluate(() => window.__game?.dominantSuitChoicesNow ?? []);
+if (dominantChoices.length > 1) {
+  const suitIndex = ['S', 'H', 'D', 'C'].indexOf(dominantChoices[0]);
+  await page.mouse.click(488 + suitIndex * 58, 638);
+  await new Promise((r) => setTimeout(r, 150));
+}
 
-// 족보 확정 버튼 (694, 640)
-await page.mouse.click(694, 640);
+// 카드 도크의 족보 확정 버튼
+await page.mouse.click(646, 682);
 await new Promise((r) => setTimeout(r, 300));
 console.log('확정 후:', JSON.stringify(await state()));
 const charged = await state();
 if (!charged || charged.pending === 0) throw new Error('족보 확정 후 배치 유닛이 생성되지 않았습니다.');
 
 // 추천 초록 타일에 배치 — 화면 상단 중앙의 금빛 추천 칸
-await page.mouse.click(345, 126);
+await page.mouse.click(339, 173);
 await new Promise((r) => setTimeout(r, 300));
 console.log('배치 후:', JSON.stringify(await state()));
 await page.screenshot({ path: `${TMP}/shot3-placed.png` });
 
 // 전투 시작 (고정 컨트롤 섹션 중앙)
-await page.mouse.click(1022, 424);
+await page.mouse.click(1027, 228);
 await new Promise((r) => setTimeout(r, 4000));
 const combat = await state();
 console.log('전투 4초:', JSON.stringify(combat));

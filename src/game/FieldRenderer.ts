@@ -7,14 +7,14 @@ import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
 import {
   GRID_W, GRID_H, TILE, isPathTile, isPlaceable, pointAt, recommendedPlacementTiles, tileCanReachPath, tileCenter,
 } from '../core/map';
-import { UI, FONT } from './ui';
+import { UI, FONT, FONT_DISPLAY } from './ui';
 import { UNIT_SPRITE_KEYS } from './unitAssets';
 import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 import { bossSpriteKey } from './bossAssets';
 import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
 
-export const FIELD_X = 16;
-export const FIELD_Y = 16;
+export const FIELD_X = 24;
+export const FIELD_Y = 68;
 
 export function tileAtScreen(px: number, py: number): { tx: number; ty: number } | null {
   const tx = Math.floor((px - FIELD_X) / TILE);
@@ -232,22 +232,22 @@ export class FieldRenderer {
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
     this.bossAbilityG = scene.add.graphics().setDepth(4);
-    this.placementHint = scene.add.text(390, 29, '◆ 추천 3칸  ·  ✓ 배치 가능  ·  × 사거리 밖', {
+    this.placementHint = scene.add.text(381, 76, '◆ 금색 점선이 추천 위치입니다', {
       fontFamily: FONT,
-      fontSize: '12px',
+      fontSize: '11px',
       fontStyle: 'bold',
-      color: '#e6ebe5',
-      backgroundColor: '#07130cdd',
+      color: UI.gold,
+      backgroundColor: '#0d0d13e8',
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setDepth(6).setVisible(false);
   }
 
   private drawStatic(): void {
     const g = this.scene.add.graphics().setDepth(0);
-    g.fillStyle(0x000000, 0.32);
-    g.fillRoundedRect(FIELD_X - 4, FIELD_Y - 2, GRID_W * TILE + 8, GRID_H * TILE + 8, 8);
-    g.fillGradientStyle(0x10261a, 0x10261a, 0x08130d, 0x08130d, 1);
-    g.fillRoundedRect(FIELD_X - 1, FIELD_Y - 1, GRID_W * TILE + 2, GRID_H * TILE + 2, 6);
+    g.fillStyle(0x000000, 0.48);
+    g.fillRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 4, GRID_H * TILE + 4);
+    g.fillStyle(UI.gridLine, 1);
+    g.fillRect(FIELD_X - 1, FIELD_Y - 1, GRID_W * TILE + 2, GRID_H * TILE + 2);
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
         const sx = FIELD_X + x * TILE;
@@ -255,37 +255,32 @@ export class FieldRenderer {
         const path = isPathTile(x, y);
         const color = path ? UI.pathTile : UI.fieldTile;
         g.fillStyle(color, 1);
-        g.fillRoundedRect(sx + 1, sy + 1, TILE - 3, TILE - 3, path ? 5 : 3);
-        g.fillStyle(path ? 0x6d8a72 : 0x5cb187, path ? 0.055 : ((x + y) % 2 ? 0.025 : 0.045));
-        g.fillRoundedRect(sx + 3, sy + 3, TILE - 7, TILE - 7, 3);
-        if (path) {
-          g.lineStyle(1, 0x8eaf96, 0.08);
-          g.strokeRoundedRect(sx + 2, sy + 2, TILE - 5, TILE - 5, 4);
-        }
+        g.fillRect(sx + 1, sy + 1, TILE - 3, TILE - 3);
       }
     }
     // 경로 방향을 암시하는 작은 금빛 마커
-    g.fillStyle(0xe6c84f, 0.2);
+    g.fillStyle(UI.goldNum, 0.14);
     for (let x = 3; x <= 13; x += 3) {
       const cx = FIELD_X + x * TILE + TILE / 2;
       const cy = FIELD_Y + TILE + TILE / 2;
       g.fillTriangle(cx - 3, cy - 4, cx + 4, cy, cx - 3, cy + 4);
     }
-    g.lineStyle(2, UI.accent, 0.35);
-    g.strokeRoundedRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 3, GRID_H * TILE + 3, 4);
+    g.lineStyle(1, UI.goldNum, 0.1);
+    g.strokeRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 3, GRID_H * TILE + 3);
     // 스폰 지점 표시
     const s = tileCenter(1, 1);
-    g.fillStyle(UI.danger, 0.95);
+    g.fillStyle(UI.danger, 0.18);
     g.fillCircle(FIELD_X + s.x, FIELD_Y + s.y, 12);
-    g.fillStyle(0x2a1010, 0.9);
+    g.lineStyle(1.5, UI.danger, 0.95).strokeCircle(FIELD_X + s.x, FIELD_Y + s.y, 12);
+    g.fillStyle(UI.danger, 0.95);
     g.fillTriangle(
       FIELD_X + s.x - 5, FIELD_Y + s.y - 6,
       FIELD_X + s.x - 5, FIELD_Y + s.y + 6,
       FIELD_X + s.x + 7, FIELD_Y + s.y,
     );
-    this.scene.add.text(390, 270, '♠   ROYAL TABLE   ♦', {
-      fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: '#5cb187',
-    }).setOrigin(0.5).setAlpha(0.055).setDepth(0);
+    this.scene.add.text(FIELD_X + (GRID_W * TILE) / 2, FIELD_Y + (GRID_H * TILE) / 2, 'ROYAL TABLE', {
+      fontFamily: FONT_DISPLAY, fontSize: '42px', fontStyle: 'bold', color: UI.gold,
+    }).setOrigin(0.5).setAlpha(0.05).setDepth(0);
   }
 
   /** 매 프레임 호출: core 상태를 화면에 반영 */
@@ -487,24 +482,21 @@ export class FieldRenderer {
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
         if (isPlaceable(x, y) && !game.unitAt(x, y)) {
-          const canReach = tileCanReachPath(x, y, range);
           const sx = FIELD_X + x * TILE;
           const sy = FIELD_Y + y * TILE;
-          this.highlightG.fillStyle(canReach ? UI.placeable : UI.danger, canReach ? 0.19 : 0.1);
-          this.highlightG.fillRect(sx, sy, TILE - 1, TILE - 1);
-          if (!canReach) {
-            this.highlightG.lineStyle(1.4, UI.danger, 0.65);
-            this.highlightG.lineBetween(sx + 14, sy + 14, sx + 29, sy + 29);
-            this.highlightG.lineBetween(sx + 29, sy + 14, sx + 14, sy + 29);
-          } else if (recommended.has(`${x},${y}`)) {
-            this.highlightG.lineStyle(2.2, 0xe6c84f, 0.95);
-            this.highlightG.strokeRect(sx + 3, sy + 3, TILE - 7, TILE - 7);
-            this.highlightG.fillStyle(0xe6c84f, 0.95);
+          if (recommended.has(`${x},${y}`)) {
+            this.highlightG.fillStyle(UI.goldNum, 0.08);
+            this.highlightG.fillRect(sx + 2, sy + 2, TILE - 5, TILE - 5);
+            this.highlightG.lineStyle(1.5, UI.goldNum, 0.55);
+            const edge = TILE - 8;
+            for (let offset = 0; offset < edge; offset += 8) {
+              this.highlightG.lineBetween(sx + 4 + offset, sy + 4, sx + Math.min(10 + offset, edge + 4), sy + 4);
+              this.highlightG.lineBetween(sx + 4 + offset, sy + TILE - 4, sx + Math.min(10 + offset, edge + 4), sy + TILE - 4);
+              this.highlightG.lineBetween(sx + 4, sy + 4 + offset, sx + 4, sy + Math.min(10 + offset, edge + 4));
+              this.highlightG.lineBetween(sx + TILE - 4, sy + 4 + offset, sx + TILE - 4, sy + Math.min(10 + offset, edge + 4));
+            }
+            this.highlightG.fillStyle(UI.goldNum, 0.9);
             this.highlightG.fillCircle(sx + TILE / 2, sy + TILE / 2, 4);
-          } else {
-            this.highlightG.lineStyle(1.4, UI.accent, 0.7);
-            this.highlightG.lineBetween(sx + 15, sy + 23, sx + 20, sy + 28);
-            this.highlightG.lineBetween(sx + 20, sy + 28, sx + 30, sy + 16);
           }
         }
       }
@@ -520,10 +512,10 @@ export class FieldRenderer {
         const p = tileCenter(tile.tx, tile.ty);
         const def = UNIT_DEFS[placingTier];
         const canReach = tileCanReachPath(tile.tx, tile.ty, def.range);
-        const color = canReach ? UI.accent : UI.danger;
-        this.rangeG.fillStyle(color, 0.22);
+        const color = canReach ? UI.goldNum : UI.danger;
+        this.rangeG.fillStyle(color, 0.05);
         this.rangeG.fillCircle(FIELD_X + p.x, FIELD_Y + p.y, 5);
-        this.rangeG.lineStyle(2, color, 0.72);
+        this.rangeG.lineStyle(1, color, 0.3);
         this.rangeG.strokeCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
       }
       return;
@@ -533,7 +525,9 @@ export class FieldRenderer {
     if (!unit) return;
     const p = unitPos(unit);
     const def = UNIT_DEFS[unit.tier];
-    this.rangeG.lineStyle(1.5, UI.accent, 0.5);
+    this.rangeG.fillStyle(UI.goldNum, 0.03);
+    this.rangeG.fillCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
+    this.rangeG.lineStyle(1, UI.goldNum, 0.18);
     this.rangeG.strokeCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
   }
 

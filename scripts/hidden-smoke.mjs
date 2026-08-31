@@ -30,13 +30,13 @@ page.on('console', (message) => {
 await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
 await page.evaluate(() => {
   localStorage.clear();
-  localStorage.setItem('poker-defense:v2-beta:analytics', JSON.stringify({
+  localStorage.setItem('poker-defense:v2:analytics', JSON.stringify({
     version: 1, consent: 'denied', visitorId: '', events: [],
   }));
 });
 await page.reload({ waitUntil: 'networkidle0' });
 await page.waitForFunction(() => window.__menuReady === true);
-await page.mouse.click(770, 310);
+await page.mouse.click(202, 500);
 await page.waitForFunction(() => Boolean(window.__game));
 await page.mouse.click(520, 500);
 await new Promise((resolve) => setTimeout(resolve, 250));
@@ -58,11 +58,11 @@ await page.evaluate(() => {
   game.holds = Array(5).fill(false);
 });
 await new Promise((resolve) => setTimeout(resolve, 250));
-await page.mouse.click(694, 640);
+await page.keyboard.press('Enter');
 await new Promise((resolve) => setTimeout(resolve, 500));
 
 const discovered = await page.evaluate(() => {
-  const profile = JSON.parse(localStorage.getItem('poker-defense:v2-beta:profile') ?? '{}');
+  const profile = JSON.parse(localStorage.getItem('poker-defense:v2:profile') ?? '{}');
   return {
     rank: window.__game.lastHandRank,
     pending: [...window.__game.pendingUnits],
@@ -77,7 +77,7 @@ await page.screenshot({ path: `${TMP}/hidden-guide-unlocked.png` });
 
 await page.reload({ waitUntil: 'networkidle0' });
 const persisted = await page.evaluate(() => {
-  const profile = JSON.parse(localStorage.getItem('poker-defense:v2-beta:profile') ?? '{}');
+  const profile = JSON.parse(localStorage.getItem('poker-defense:v2:profile') ?? '{}');
   return profile.discoveredHands ?? [];
 });
 await browser.close();

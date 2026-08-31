@@ -5,7 +5,7 @@
 
 export const GRID_W = 17;
 export const GRID_H = 12;
-export const TILE = 44; // px
+export const TILE = 42; // px
 
 export interface Pt { x: number; y: number }
 

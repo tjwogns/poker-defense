@@ -2,22 +2,19 @@ import Phaser from 'phaser';
 import { Game } from '../core/game';
 import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
-import { HAND_NAMES_KO, SUIT_GLYPHS } from '../core/cards/types';
-import { HandRank } from '../core/cards/types';
-import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, UNIT_CAP } from '../core/balance';
+import { HAND_NAMES_KO, SUIT_GLYPHS, HandRank } from '../core/cards/types';
+import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, upgradeMultiplier } from '../core/balance';
 import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { RunMode } from '../meta/profile';
-import { Button, UI, makeButton, makeText } from './ui';
-import { PANEL_BOUNDS, PANEL_SECTIONS, UiRect } from './layout';
+import { Button, FONT, FONT_DISPLAY, FONT_MONO, UI, makeButton, makeText } from './ui';
+import { PANEL_SECTIONS, UiRect } from './layout';
 import { threatBand, threatLabel, threatTitle } from './threat';
-import { isCompactTouchDevice } from './device';
 import { createRelicIcon } from './relicAssets';
 import { MASTERABLE_HANDS } from '../core/mastery';
 import {
   HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
 } from '../core/cards/handIdentity';
 
-const PX = 808;
 const SPEEDS = [1, 2, 4] as const;
 
 export interface PanelCallbacks {
@@ -36,132 +33,196 @@ export interface PanelCallbacks {
 
 function traitLabel(def: UnitDef): string {
   const t = def.traits;
-  if (t.splash) return `스플래시 ${t.splash}타일`;
-  if (t.chain) return `체인 ${t.chain.count}체 (${t.chain.decay * 100}%)`;
-  if (t.slow) return `슬로우 ${t.slow.pct * 100}% / ${t.slow.dur}s`;
-  if (t.aura) return `오라: 아군 공격 +${t.aura.dmgPct * 100}%`;
-  if (t.execute) return `현재 HP ${t.execute.pct * 100}% 추가피해`;
+  if (t.splash) return `광역 ${t.splash}칸`;
+  if (t.chain) return `체인 ${t.chain.count}기`;
+  if (t.slow) return `감속 ${t.slow.pct * 100}%`;
+  if (t.aura) return `공격 오라 +${t.aura.dmgPct * 100}%`;
+  if (t.execute) return '체력 비례 피해';
   if (t.ignoreDefense) return '방어 무시';
-  return '단일 대상';
+  return '단일 공격';
 }
 
-function panelCard(scene: Phaser.Scene, rect: UiRect): void {
-  scene.add.rectangle(
-    rect.x + rect.width / 2,
-    rect.y + rect.height / 2 + 2,
-    rect.width,
-    rect.height,
-    0x000000,
-    0.24,
-  );
-  scene.add.rectangle(
-    rect.x + rect.width / 2,
-    rect.y + rect.height / 2,
-    rect.width,
-    rect.height,
-    UI.panelRaised,
-    0.96,
-  ).setStrokeStyle(1, UI.panelLine, 0.85);
+function railCard(scene: Phaser.Scene, rect: UiRect, dashed = false): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics();
+  g.fillStyle(UI.panel, 0.98).fillRect(rect.x, rect.y, rect.width, rect.height);
+  g.lineStyle(1, dashed ? UI.goldNum : 0xf2ede3, dashed ? 0.4 : 0.09);
+  if (!dashed) {
+    g.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    return g;
+  }
+  const segment = 8;
+  for (let x = rect.x; x < rect.x + rect.width; x += segment * 2) {
+    g.lineBetween(x, rect.y, Math.min(x + segment, rect.x + rect.width), rect.y);
+    g.lineBetween(x, rect.y + rect.height, Math.min(x + segment, rect.x + rect.width), rect.y + rect.height);
+  }
+  for (let y = rect.y; y < rect.y + rect.height; y += segment * 2) {
+    g.lineBetween(rect.x, y, rect.x, Math.min(y + segment, rect.y + rect.height));
+    g.lineBetween(rect.x + rect.width, y, rect.x + rect.width, Math.min(y + segment, rect.y + rect.height));
+  }
+  return g;
 }
 
-/** 우측 정보/컨트롤 패널 */
+const WAVE_HINTS = {
+  normal: '표준 병력 · 균형 잡힌 기본 웨이브',
+  fast: '이동이 빠름 · 입구와 코너 화력 집중',
+  tank: '받는 피해 −25% · 이동 느림 · 광역이 유리',
+  regen: '체력을 회복함 · 한 지점에 화력 집중',
+  splitter: '처치 시 분열 · 광역과 연쇄 공격이 유리',
+  boss: '강력한 우두머리 · 기믹과 제한시간 확인',
+} as const;
+
 export class SidePanel {
   private scene: Phaser.Scene;
   private game: Game;
   private roundText: Phaser.GameObjects.Text;
-  private waveText: Phaser.GameObjects.Text;
+  private roundSub: Phaser.GameObjects.Text;
+  private modeText: Phaser.GameObjects.Text;
+  private threatTitle: Phaser.GameObjects.Text;
   private gaugeFg: Phaser.GameObjects.Rectangle;
   private gaugeText: Phaser.GameObjects.Text;
-  private threatTitle: Phaser.GameObjects.Text;
-  private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
-  private goldText: Phaser.GameObjects.Text;
   private scoreText: Phaser.GameObjects.Text;
-  private upgradeText: Phaser.GameObjects.Text;
-  private upgradeBtn: Button;
-  private pendingText: Phaser.GameObjects.Text;
-  private unitName: Phaser.GameObjects.Text;
-  private unitStats: Phaser.GameObjects.Text;
-  private sellBtn: Button;
-  private moveBtn: Button;
-  private fuseBtn: Button;
+  private goldText: Phaser.GameObjects.Text;
+  private waveName: Phaser.GameObjects.Text;
+  private waveCount: Phaser.GameObjects.Text;
+  private waveHint: Phaser.GameObjects.Text;
+  private bossCountdown: Phaser.GameObjects.Text;
+  private directiveTitle: Phaser.GameObjects.Text;
+  private directiveBody: Phaser.GameObjects.Text;
   private startBtn: Button;
-  private speedBtns: Button[] = [];
-  private pauseBtn: Button;
-  private soundBtn: Button;
-  private relicText: Phaser.GameObjects.Text;
+  private interestText: Phaser.GameObjects.Text;
+  private upgradeSub: Phaser.GameObjects.Text;
+  private upgradeBtn: Button;
+  private buildCount: Phaser.GameObjects.Text;
+  private buildText: Phaser.GameObjects.Text;
+  private deckBtn: Button;
+  private guideBtn: Button;
+  private speedBtn: Button;
   private relicIcons: Phaser.GameObjects.Container[] = [];
   private relicIconIds = '';
   private relicTriggerText: Phaser.GameObjects.Text;
   private combatText: Phaser.GameObjects.Text;
-  private helpText: Phaser.GameObjects.Text;
+  private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
+  private inspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
+  private inspectorName: Phaser.GameObjects.Text;
+  private inspectorMeta: Phaser.GameObjects.Text;
+  private inspectorStats: Phaser.GameObjects.Text;
+  private sellBtn: Button;
+  private moveBtn: Button;
+  private fuseBtn: Button;
 
   constructor(scene: Phaser.Scene, game: Game, cb: PanelCallbacks) {
     this.scene = scene;
     this.game = game;
-    const compactTouch = isCompactTouchDevice();
 
-    const backdrop = scene.add.graphics();
-    backdrop.fillGradientStyle(UI.panelDeep, UI.panelDeep, UI.panel, UI.panel, 1);
-    backdrop.fillRoundedRect(PANEL_BOUNDS.x, PANEL_BOUNDS.y, PANEL_BOUNDS.width, PANEL_BOUNDS.height, 8);
-    backdrop.lineStyle(1, UI.panelGlow, 0.7);
-    backdrop.strokeRoundedRect(PANEL_BOUNDS.x, PANEL_BOUNDS.y, PANEL_BOUNDS.width, PANEL_BOUNDS.height, 8);
-    Object.values(PANEL_SECTIONS).forEach((rect) => panelCard(scene, rect));
-
-    this.roundText = makeText(scene, PX, 35, '', 20, UI.text, true);
-    this.waveText = makeText(scene, PX, 65, '', 13, UI.textDim);
-    makeButton(scene, 1208, 42, 72, 28, 'EXIT', cb.onHome, { fill: 0x34463c, fontSize: 10 });
-
-    this.threatTitle = makeText(scene, PX, 92, '', 10, UI.textDim, true);
-    scene.add.rectangle(PX, 114, 370, 12, UI.panelDeep, 0.95).setOrigin(0, 0.5);
-    this.gaugeFg = scene.add.rectangle(PX, 114, 0, 12, UI.accent).setOrigin(0, 0.5);
-    this.gaugeText = makeText(scene, 1198, 103, '', 12, UI.text, true).setOrigin(1, 0);
-
-    this.goldText = makeText(scene, PX, 191, '', 19, UI.gold, true);
-    this.scoreText = makeText(scene, 970, 194, '', 14, UI.text, true);
-    this.upgradeText = makeText(scene, PX, 222, '', 12, UI.textDim);
-    this.upgradeBtn = makeButton(scene, 1182, 216, 126, 34, '강화', cb.onUpgrade, { fontSize: 12 });
-
-    makeText(scene, PX, 266, 'ARMY', 10, UI.textDim, true);
-    this.pendingText = makeText(scene, PX, 283, '', 12, UI.accentText, true);
-    this.unitName = makeText(scene, PX, 304, '', 15, UI.text, true);
-    this.unitStats = makeText(scene, PX, 326, '', 11, UI.textDim).setWordWrapWidth(432, true).setLineSpacing(-2);
-    const unitActionHeight = compactTouch ? 40 : 32;
-    this.sellBtn = makeButton(scene, 846, 360, 96, unitActionHeight, '판매', cb.onSell, { fill: UI.danger, fontSize: 11 });
-    this.moveBtn = makeButton(scene, 951, 360, 96, unitActionHeight, '재배치', cb.onMove, { fontSize: 11 });
-    this.fuseBtn = makeButton(scene, 1098, 360, 174, unitActionHeight, '동일 3기 합성', cb.onFuse, { fill: 0x9f74cf, fontSize: 11 });
-
-    this.startBtn = makeButton(scene, 1022, 424, 432, compactTouch ? 58 : 48, '전투 시작  ▶', cb.onStart, { fontSize: 17 });
-    SPEEDS.forEach((n, index) => {
-      this.speedBtns.push(
-        makeButton(scene, 831 + index * 78, 414, 68, compactTouch ? 46 : 34, `×${n}`, () => cb.onSpeed(n), { fontSize: 12 }),
-      );
+    const top = scene.add.graphics();
+    top.fillStyle(UI.panelDeep, 1).fillRect(0, 0, 1280, 60);
+    top.lineStyle(1, UI.goldNum, 0.14).lineBetween(0, 59, 1280, 59);
+    this.roundText = scene.add.text(24, 9, '', {
+      fontFamily: FONT_DISPLAY, fontSize: '28px', fontStyle: 'bold', color: UI.text,
     });
-    this.pauseBtn = makeButton(scene, 1092, 414, 96, compactTouch ? 46 : 34, '일시정지', cb.onPause, { fill: 0x5d91c5, fontSize: 11 });
-    this.soundBtn = makeButton(scene, 1200, 414, 88, compactTouch ? 46 : 34, 'SOUND', cb.onSound, { fill: 0x34463c, fontSize: 10 });
-    this.combatText = makeText(scene, PX, 441, '', 11, UI.textDim);
-
-    makeText(scene, PX, 478, 'BUILD · MASTERY / RELIC', 10, UI.textDim, true);
-    this.relicText = makeText(scene, PX, 496, '', 10, UI.textDim).setWordWrapWidth(430, true).setLineSpacing(2);
-    this.relicTriggerText = makeText(scene, PX, 576, '', 10, UI.gold, true)
-      .setAlpha(0)
-      .setDepth(6);
-
-    this.helpText = makeText(
-      scene, PX, 596,
-      compactTouch
-        ? '카드를 탭해 HOLD · 아래 버튼으로 교환/출전\n유닛을 탭해 판매·재배치·합성'
-        : 'E 교환 · ENTER 확정 · 1/2/4 배속 · SPACE 정지\nD 덱 보기 · 카드 → 유닛 · 동일 3기 → 합성',
-      compactTouch ? 12 : 10, UI.textDim,
-    );
-    this.helpText.setLineSpacing(4);
-    makeButton(scene, 1098, 660, compactTouch ? 150 : 116, compactTouch ? 48 : 38, compactTouch ? '덱 보기' : '덱 보기  D', cb.onDeck, {
-      fill: 0x425f50,
-      fontSize: 10,
+    this.roundSub = scene.add.text(178, 24, '', {
+      fontFamily: FONT_MONO, fontSize: '13px', color: UI.textFaint,
     });
-    makeButton(scene, 1222, 660, compactTouch ? 88 : 116, compactTouch ? 48 : 38, compactTouch ? '도감' : '도감  H', cb.onGuide, {
-      fill: 0x78612b,
-      fontSize: 10,
+    this.modeText = scene.add.text(224, 20, '', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.textDim,
+      backgroundColor: '#17171f', padding: { x: 7, y: 3 }, letterSpacing: 1.4,
     });
+    this.threatTitle = scene.add.text(400, 12, 'FIELD THREAT', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.textDim, letterSpacing: 2,
+    });
+    scene.add.rectangle(400, 40, 400, 10, UI.panelRaised, 1).setOrigin(0, 0.5);
+    this.gaugeFg = scene.add.rectangle(400, 40, 0, 10, UI.safe, 1).setOrigin(0, 0.5);
+    scene.add.rectangle(640, 49, 1, 4, UI.goldNum, 0.4);
+    scene.add.rectangle(720, 49, 1, 4, UI.danger, 0.5);
+    this.gaugeText = scene.add.text(800, 8, '', {
+      fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
+    }).setOrigin(1, 0);
+    this.scoreText = scene.add.text(1085, 21, '', {
+      fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
+    }).setOrigin(1, 0);
+    this.goldText = scene.add.text(1200, 17, '', {
+      fontFamily: FONT_MONO, fontSize: '21px', fontStyle: 'bold', color: UI.gold,
+    }).setOrigin(1, 0);
+    makeButton(scene, 1236, 30, 36, 36, '×', cb.onHome, {
+      fill: UI.panelDeep, textColor: UI.textDim, fontSize: 16, radius: 18, strokeAlpha: 0.16,
+    });
+
+    railCard(scene, PANEL_SECTIONS.nextWave);
+    railCard(scene, PANEL_SECTIONS.directive, true);
+    railCard(scene, PANEL_SECTIONS.economy);
+    railCard(scene, PANEL_SECTIONS.build);
+    railCard(scene, PANEL_SECTIONS.utility);
+
+    makeText(scene, 816, 84, 'NEXT WAVE', 10, UI.textDim, true).setLetterSpacing(2);
+    this.bossCountdown = makeText(scene, 1238, 84, '', 10, UI.dangerText, true).setOrigin(1, 0);
+    this.waveName = makeText(scene, 816, 108, '', 25, UI.text, true);
+    this.waveCount = scene.add.text(930, 111, '', {
+      fontFamily: FONT_MONO, fontSize: '19px', fontStyle: 'bold', color: UI.gold,
+    });
+    this.waveHint = makeText(scene, 816, 144, '', 12, UI.textDim).setWordWrapWidth(410, true);
+
+    scene.add.circle(832, 228, 18, UI.goldNum, 0.15).setStrokeStyle(1, UI.goldNum, 0.35);
+    makeText(scene, 832, 228, '◆', 12, UI.gold, true).setOrigin(0.5);
+    this.directiveTitle = makeText(scene, 862, 207, '', 15, UI.text, true);
+    this.directiveBody = makeText(scene, 862, 230, '', 11, UI.textDim);
+    this.startBtn = makeButton(scene, 1027, 228, 438, 60, '', cb.onStart, {
+      fill: UI.panelRaised, textColor: UI.text, fontSize: 15, radius: 8, stroke: UI.goldNum, strokeAlpha: 0.2,
+    });
+    this.startBtn.container.setVisible(false);
+
+    makeText(scene, 816, 292, 'GOLD SPEND', 10, UI.textDim, true).setLetterSpacing(2);
+    this.interestText = makeText(scene, 1238, 292, '', 11, UI.textFaint).setOrigin(1, 0);
+    scene.add.rectangle(1027, 320, 422, 1, 0xf2ede3, 0.07);
+    makeText(scene, 816, 338, '전역 공격 강화', 14, UI.text, true);
+    this.upgradeSub = makeText(scene, 816, 361, '', 11, UI.textDim);
+    this.upgradeBtn = makeButton(scene, 1208, 354, 68, 40, '', cb.onUpgrade, {
+      fill: UI.panelRaised, textColor: UI.gold, fontSize: 13, radius: 6, stroke: UI.goldNum, strokeAlpha: 0.5,
+    });
+
+    makeText(scene, 816, 424, 'BUILD', 10, UI.textDim, true).setLetterSpacing(2);
+    this.buildCount = scene.add.text(1238, 424, '', {
+      fontFamily: FONT_MONO, fontSize: '11px', color: UI.textFaint,
+    }).setOrigin(1, 0);
+    this.buildText = makeText(scene, 816, 508, '', 11, UI.textDim, true)
+      .setWordWrapWidth(410, true).setLineSpacing(4);
+    this.relicTriggerText = makeText(scene, 816, 540, '', 10, UI.gold, true).setAlpha(0).setDepth(7);
+
+    this.deckBtn = makeButton(scene, 872, 595, 140, 48, '덱 · D', cb.onDeck, {
+      fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 0, strokeAlpha: 0.14,
+    });
+    this.guideBtn = makeButton(scene, 1027, 595, 140, 48, '도감 · H', cb.onGuide, {
+      fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 0, strokeAlpha: 0.14,
+    });
+    this.speedBtn = makeButton(scene, 1182, 595, 140, 48, '×1  ×2  ×4', () => {
+      const current = SPEEDS.indexOf((this.speedBtn.container.getData('speed') ?? 1) as 1 | 2 | 4);
+      cb.onSpeed(SPEEDS[(current + 1) % SPEEDS.length]);
+    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 12, radius: 0, strokeAlpha: 0.14 });
+    this.combatText = makeText(scene, 816, 638, '', 11, UI.textDim).setWordWrapWidth(420, true);
+
+    const inspectorBg = scene.add.rectangle(646, 382, 240, 172, UI.panelDeep, 0.98)
+      .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(10);
+    this.inspectorName = makeText(scene, 542, 310, '', 16, UI.text, true).setDepth(11);
+    this.inspectorMeta = makeText(scene, 542, 336, '', 11, UI.textDim).setDepth(11);
+    this.inspectorStats = scene.add.text(542, 360, '', {
+      fontFamily: FONT_MONO, fontSize: '12px', fontStyle: 'bold', color: UI.text, lineSpacing: 5,
+    }).setDepth(11);
+    this.moveBtn = makeButton(scene, 598, 430, 104, 36, '재배치', cb.onMove, {
+      fill: UI.panelDeep, textColor: UI.text, fontSize: 11, radius: 0, strokeAlpha: 0.18,
+    });
+    this.sellBtn = makeButton(scene, 710, 430, 104, 36, '판매', cb.onSell, {
+      fill: UI.panelDeep, textColor: UI.dangerText, fontSize: 11, radius: 0, stroke: UI.danger, strokeAlpha: 0.5,
+    });
+    this.fuseBtn = makeButton(scene, 654, 470, 216, 34, '동일 3기 합성', cb.onFuse, {
+      fill: UI.panelRaised, textColor: '#cda8e6', fontSize: 11, radius: 0, stroke: 0x9f74cf, strokeAlpha: 0.42,
+    });
+    this.moveBtn.container.setDepth(11);
+    this.sellBtn.container.setDepth(11);
+    this.fuseBtn.container.setDepth(11);
+    this.inspectorObjects = [
+      inspectorBg, this.inspectorName, this.inspectorMeta, this.inspectorStats,
+      this.moveBtn.container, this.sellBtn.container, this.fuseBtn.container,
+    ] as Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible>;
+    this.inspectorObjects.forEach((object) => object.setVisible(false));
   }
 
   pulseRelics(ids: readonly RelicId[]): void {
@@ -169,164 +230,116 @@ export class SidePanel {
     const names = ids.slice(0, 2).map((id) => RELIC_DEFS[id].name);
     const extra = ids.length > 2 ? ` 외 ${ids.length - 2}` : '';
     this.scene.tweens.killTweensOf(this.relicTriggerText);
-    this.relicTriggerText
-      .setText(`⚡ ${names.join(' · ')}${extra} 발동`)
-      .setAlpha(1)
-      .setScale(1.04);
+    this.relicTriggerText.setText(`⚡ ${names.join(' · ')}${extra} 발동`).setAlpha(1).setScale(1.04);
     this.scene.tweens.add({
-      targets: this.relicTriggerText,
-      alpha: 0,
-      scale: 1,
-      delay: 650,
-      duration: 450,
-      ease: 'Cubic.Out',
+      targets: this.relicTriggerText, alpha: 0, scale: 1, delay: 650, duration: 450, ease: 'Cubic.Out',
     });
   }
 
-  refresh(
-    selectedUnit: Unit | null,
-    speed: number,
-    paused: boolean,
-    soundEnabled: boolean,
-    mode: RunMode,
-  ): void {
+  refresh(selectedUnit: Unit | null, speed: number, paused: boolean, soundEnabled: boolean, mode: RunMode): void {
     const g = this.game;
     const inPrep = g.phase === 'prep';
+    this.roundText.setText(`ROUND ${g.round}`);
+    this.roundSub.setText(`/ ${ROUNDS}`);
+    this.modeText.setText(mode === 'daily' ? 'DAILY' : 'STANDARD');
 
-    this.roundText.setText(`ROUND ${g.round} / ${ROUNDS}   ·   ${mode === 'daily' ? 'DAILY' : 'STANDARD'}`);
-    const wave = g.nextWave();
     const alive = aliveEnemies(g.field).length;
     const ratio = Math.min(1, alive / g.fieldCap);
     const band = threatBand(alive, g.fieldCap);
-    const dangerPrep = inPrep && ratio >= 0.7;
-    this.waveText.setText(
-      inPrep
-        ? dangerPrep
-          ? `⚠ 적 ${alive}기 누적 · 교환·강화·합성 점검 필요`
-          : `다음 웨이브: ${wave.name} ×${wave.count}${wave.kind === 'boss' ? '  ⚠ 보스' : ''}`
-        : `웨이브 진행: ${wave.name}`,
-    );
-    this.waveText.setColor(dangerPrep ? UI.dangerText : UI.textDim);
-
-    const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? 0xe0a33c : UI.accent;
-    const threatTextColor = band === 'critical' ? UI.dangerText : band === 'warning' ? '#e0a33c' : UI.text;
-    this.gaugeFg.width = 370 * ratio;
+    const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? UI.goldNum : UI.safe;
+    this.gaugeFg.width = 400 * ratio;
     this.gaugeFg.setFillStyle(threatColor);
     this.threatTitle.setText(threatTitle(g.fieldCap));
-    this.gaugeText.setText(threatLabel(alive, g.fieldCap)).setColor(threatTextColor);
-    this.threatTitle.setColor(band === 'safe' ? UI.textDim : threatTextColor);
+    this.gaugeText.setText(threatLabel(alive, g.fieldCap));
     if (band !== this.lastThreatBand && band !== 'safe') {
       this.scene.tweens.killTweensOf(this.gaugeText);
       this.gaugeText.setScale(1.12);
       this.scene.tweens.add({ targets: this.gaugeText, scale: 1, duration: 260, ease: 'Back.Out' });
     }
     this.lastThreatBand = band;
-
-    this.goldText.setText(`G  ${g.gold.toLocaleString()}`);
     this.scoreText.setText(`SCORE  ${g.score.toLocaleString()}`);
+    this.goldText.setText(`G  ${g.gold.toLocaleString()}`);
 
-    this.upgradeText.setText(
-      `공격 강화 Lv${g.upgradeLevel} · ×${g.dmgMult.toFixed(2)}   |   다음 이자 +${g.interestNow}G`,
-    );
-    this.upgradeBtn.setLabel(`강화 ${g.upgradeCostNow}G`);
+    const wave = g.nextWave();
+    this.waveName.setText(wave.name);
+    this.waveCount.setText(`×${wave.count}`);
+    this.waveHint.setText(WAVE_HINTS[wave.kind]);
+    const nextBoss = Math.ceil(g.round / 10) * 10;
+    const bossDistance = nextBoss - g.round;
+    this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : `R${nextBoss} 보스까지 ${bossDistance}`);
+
+    const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
+    this.startBtn.container.setVisible(readyToStart);
+    this.directiveTitle.setVisible(!readyToStart);
+    this.directiveBody.setVisible(!readyToStart);
+    if (!inPrep) {
+      this.directiveTitle.setText(paused ? '전투가 일시정지되었습니다' : '전투 진행 중');
+      this.directiveBody.setText(paused ? 'SPACE로 계속합니다' : `×${speed} 배속 · SPACE 일시정지`);
+    } else if (!g.handConfirmed) {
+      this.directiveTitle.setText('패를 확정하세요');
+      this.directiveBody.setText('카드를 HOLD하고 교환한 뒤 군단을 선택합니다');
+    } else if (g.pendingUnits.length > 0) {
+      const unitName = UNIT_DEFS[g.pendingUnits[0]].name;
+      this.directiveTitle.setText(`${unitName} ${g.pendingUnits.length}기를 배치하세요`);
+      this.directiveBody.setText('금색 점선 칸이 추천 위치입니다');
+    } else {
+      this.directiveTitle.setText('전투 준비 완료');
+      this.directiveBody.setText('다음 웨이브를 시작할 수 있습니다');
+    }
+    this.startBtn.setFill(UI.goldNum, UI.goldInk);
+    this.startBtn.setLabel('전투 시작  ▶');
+
+    this.interestText.setText(`다음 이자 +${g.interestNow}G`);
+    this.upgradeSub.setText(`Lv${g.upgradeLevel} · ×${g.dmgMult.toFixed(2)} → ×${upgradeMultiplier(g.upgradeLevel + 1).toFixed(2)}`);
+    this.upgradeBtn.setLabel(`${g.upgradeCostNow}G`);
     this.upgradeBtn.setEnabled(inPrep && g.gold >= g.upgradeCostNow);
 
-    if (g.pendingUnits.length > 0) {
-      const names = g.pendingUnits.slice(0, 3).map((t) => UNIT_DEFS[t].name).join(', ');
-      const extra = g.pendingUnits.length > 3 ? ` 외 ${g.pendingUnits.length - 3}` : '';
-      this.pendingText.setText(`배치 대기 ${g.field.units.length}/${UNIT_CAP}  ·  ${names}${extra}`);
-      this.pendingText.setColor(UI.accentText);
-    } else {
-      const fusionTier = this.fusionReadyTier();
-      if (fusionTier !== null) {
-        this.pendingText.setText(
-          `배치 유닛 ${g.field.units.length}/${UNIT_CAP}  ·  합성 가능: ${UNIT_DEFS[fusionTier].name} 선택`,
-        );
-        this.pendingText.setColor(UI.gold);
-      } else {
-        this.pendingText.setText(`배치 유닛 ${g.field.units.length} / ${UNIT_CAP}`);
-        this.pendingText.setColor(UI.accentText);
-      }
-    }
-
-    if (selectedUnit) {
-      const def = UNIT_DEFS[selectedUnit.tier];
-      const variant = selectedUnit.variant ? ` · ${HAND_VARIANT_LABELS[selectedUnit.variant]}` : '';
-      const suitGlyph = selectedUnit.suit ? ` · ${SUIT_GLYPHS[selectedUnit.suit]}` : '';
-      this.unitName.setText(`${variantUnitName(def.name, selectedUnit.variant)}  ·  ${HAND_NAMES_KO[def.tier]}${variant}${suitGlyph}`);
-      this.unitStats.setText(
-        `${suitIdentityLabel(selectedUnit.suit)} · ${selectedUnit.suit ? SUIT_TRAIT_LABELS[selectedUnit.suit] : '합성으로 문양 특성 소실'}\n`
-        + `DPS ${def.dps} × ${g.unitDpsMult(selectedUnit).toFixed(2)}  ·  사거리 ${def.range}타일  ·  ${traitLabel(def)}`,
-      );
-      this.sellBtn.setLabel(`판매 +${SELL_REFUND[selectedUnit.tier]}G`);
-      this.sellBtn.setEnabled(inPrep);
-      this.moveBtn.setEnabled(inPrep);
-      const canFuse = selectedUnit.tier < HandRank.RoyalFlush
-        && g.fusionCandidates(selectedUnit.tier).length >= 3;
-      this.fuseBtn.setEnabled(inPrep && canFuse);
-      this.fuseBtn.setLabel(canFuse
-        ? `${def.name} 3기 → ${UNIT_DEFS[(selectedUnit.tier + 1) as HandRank].name}`
-        : '동일 3기 합성');
-    } else {
-      this.unitName.setText('—');
-      this.unitStats.setText('필드의 유닛을 클릭해 선택');
-      this.sellBtn.setEnabled(false);
-      this.moveBtn.setEnabled(false);
-      this.fuseBtn.setEnabled(false);
-      this.fuseBtn.setLabel('동일 3기 합성');
-    }
-
-    this.startBtn.container.setVisible(inPrep);
-    const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
-    this.startBtn.setEnabled(readyToStart);
-    this.startBtn.setLabel(
-      !g.handConfirmed ? '족보를 먼저 확정하세요'
-        : g.pendingUnits.length > 0 ? '유닛을 초록 타일에 배치하세요'
-          : '전투 시작  ▶',
-    );
-    for (let i = 0; i < SPEEDS.length; i++) {
-      const value = SPEEDS[i];
-      this.speedBtns[i].container.setVisible(!inPrep && g.phase === 'combat');
-      this.speedBtns[i].setLabel(speed === value ? `×${value} ●` : `×${value}`);
-    }
-    this.pauseBtn.container.setVisible(g.phase === 'combat');
-    this.pauseBtn.setLabel(paused ? '계속하기' : '일시정지');
-    this.soundBtn.container.setVisible(g.phase === 'combat');
-    this.soundBtn.setLabel(soundEnabled ? 'SOUND ON' : 'SOUND OFF');
-    const remaining = g.combatTimeRemaining;
-    this.combatText.setText(
-      g.phase !== 'combat'
-        ? ''
-        : g.round >= ROUNDS
-          ? remaining === null
-            ? `최종 보스 등장 중 · 등장 완료 후 제한시간 ${FINAL_BOSS_MAX_TIME}초`
-            : `최종 보스 제한시간 · ${Math.ceil(remaining)}초 안에 격파하세요`
-          : remaining === null
-            ? '적 등장 중 · 모든 적 등장 후 라운드 제한시간 시작'
-            : `라운드 종료까지 ${Math.ceil(remaining)}초 · 생존 적은 다음 라운드로 이월`,
-    );
-    this.combatText.setVisible(g.phase === 'combat');
-    const relics = g.relics.map((id) => RELIC_DEFS[id].name).join(' · ');
+    this.buildCount.setText(`${g.relics.length} / ${RELIC_SLOT_CAP}`);
     const relicIconIds = g.relics.join(',');
     if (relicIconIds !== this.relicIconIds) {
       this.relicIcons.forEach((icon) => icon.destroy(true));
-      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 823 + index * 38, 552, 28));
+      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 834 + index * 46, 468, 36).setDepth(3));
       this.relicIconIds = relicIconIds;
     }
-    const masteries = MASTERABLE_HANDS
-      .filter((rank) => g.handMastery[rank] > 0)
-      .map((rank) => `${HAND_NAMES_KO[rank]} Lv${g.handMastery[rank]}`)
-      .join(' · ');
-    this.relicText.setText(
-      `${masteries ? `연마  ${masteries}` : '연마  —'}\n`
-      + `${relics ? `유물 ${g.relics.length}/${RELIC_SLOT_CAP}  ${relics}` : `유물 0/${RELIC_SLOT_CAP}  — 보스 보상`}`,
+    const masteries = MASTERABLE_HANDS.filter((rank) => g.handMastery[rank] > 0).slice(0, 2)
+      .map((rank) => `${HAND_NAMES_KO[rank]} Lv${g.handMastery[rank]}`);
+    this.buildText.setText(masteries.join('   ') || '연마 효과가 여기에 표시됩니다');
+
+    this.speedBtn.container.setData('speed', speed);
+    this.speedBtn.setLabel(`×1  ${speed === 2 ? '×2 ●' : '×2'}  ${speed === 4 ? '×4 ●' : '×4'}`);
+    this.deckBtn.setEnabled(true);
+    this.guideBtn.setEnabled(true);
+    const remaining = g.combatTimeRemaining;
+    this.combatText.setText(
+      g.phase !== 'combat' ? ''
+        : g.round >= ROUNDS
+          ? remaining === null ? `최종 보스 등장 중 · 제한시간 ${FINAL_BOSS_MAX_TIME}초` : `최종 보스 제한시간 ${Math.ceil(remaining)}초`
+          : remaining === null ? `적 등장 중 · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}` : `라운드 종료까지 ${Math.ceil(remaining)}초`,
     );
+
+    this.refreshInspector(selectedUnit, inPrep);
   }
 
-  private fusionReadyTier(): HandRank | null {
-    for (let tier = HandRank.HighCard; tier < HandRank.RoyalFlush; tier++) {
-      if (this.game.fusionCandidates(tier).length >= 3) return tier;
-    }
-    return null;
+  private refreshInspector(selectedUnit: Unit | null, inPrep: boolean): void {
+    const visible = selectedUnit !== null;
+    this.inspectorObjects.forEach((object) => object.setVisible(visible));
+    if (!selectedUnit) return;
+    const def = UNIT_DEFS[selectedUnit.tier];
+    const variant = selectedUnit.variant ? ` · ${HAND_VARIANT_LABELS[selectedUnit.variant]}` : '';
+    const suit = selectedUnit.suit ? `${SUIT_GLYPHS[selectedUnit.suit]} ${suitIdentityLabel(selectedUnit.suit)}` : '무문양';
+    this.inspectorName.setText(`${variantUnitName(def.name, selectedUnit.variant)}   ${selectedUnit.suit ? SUIT_GLYPHS[selectedUnit.suit] : ''}`);
+    this.inspectorMeta.setText(`${HAND_NAMES_KO[def.tier]}${variant} · ${suit}`);
+    this.inspectorStats.setText(
+      `DPS  ${def.dps} × ${this.game.unitDpsMult(selectedUnit).toFixed(2)}\n`
+      + `사거리  ${def.range.toFixed(1)}    ${traitLabel(def)}`
+      + `${selectedUnit.suit ? `\n${SUIT_TRAIT_LABELS[selectedUnit.suit]}` : ''}`,
+    );
+    this.sellBtn.setLabel(`판매 +${SELL_REFUND[selectedUnit.tier]}G`);
+    this.sellBtn.setEnabled(inPrep);
+    this.moveBtn.setEnabled(inPrep);
+    const canFuse = selectedUnit.tier < HandRank.RoyalFlush
+      && this.game.fusionCandidates(selectedUnit.tier).length >= 3;
+    this.fuseBtn.container.setVisible(canFuse);
+    this.fuseBtn.setEnabled(inPrep && canFuse);
   }
 }

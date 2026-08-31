@@ -42,7 +42,7 @@ const canvas = await page.evaluate(() => {
 });
 if (!canvas) throw new Error('캔버스 없음');
 const scale = canvas.width / 1280;
-await page.touchscreen.tap(canvas.x + 770 * scale, canvas.y + 310 * scale);
+await page.touchscreen.tap(canvas.x + 202 * scale, canvas.y + 500 * scale);
 await page.waitForFunction(() => Boolean(window.__game));
 await page.touchscreen.tap(canvas.x + 520 * scale, canvas.y + 500 * scale);
 await new Promise((resolve) => setTimeout(resolve, 180));

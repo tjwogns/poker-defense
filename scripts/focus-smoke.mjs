@@ -33,7 +33,7 @@ await page.evaluate(() => {
 });
 await page.reload({ waitUntil: 'networkidle0' });
 await page.waitForFunction(() => window.__menuReady === true);
-await page.mouse.click(770, 310);
+await page.mouse.click(202, 500);
 await page.waitForFunction(() => Boolean(window.__game && window.__playDebug));
 await page.mouse.click(520, 500);
 await page.evaluate(() => {

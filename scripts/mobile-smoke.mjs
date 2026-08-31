@@ -30,7 +30,7 @@ page.on('console', (message) => {
 await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
 await page.evaluate(() => {
   localStorage.clear();
-  localStorage.setItem('poker-defense:v2-beta:analytics', JSON.stringify({
+  localStorage.setItem('poker-defense:v2:analytics', JSON.stringify({
     version: 1, consent: 'denied', visitorId: '', events: [],
   }));
 });
@@ -49,8 +49,8 @@ await page.screenshot({ path: `${TMP}/s26-landscape-menu.png` });
 if (!landscape.canvas) throw new Error('캔버스 없음');
 const scale = landscape.canvas.width / 1280;
 await page.touchscreen.tap(
-  landscape.canvas.x + 770 * scale,
-  landscape.canvas.y + 310 * scale,
+  landscape.canvas.x + 202 * scale,
+  landscape.canvas.y + 500 * scale,
 );
 await page.waitForFunction(() => Boolean(window.__game));
 await page.screenshot({ path: `${TMP}/s26-landscape-game.png` });
