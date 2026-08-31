@@ -36,8 +36,8 @@ export const UI = {
 } as const;
 
 export const FONT = 'Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
-export const FONT_DISPLAY = '"Bodoni Moda", "Times New Roman", serif';
-export const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
+export const FONT_DISPLAY = 'Georgia, "Times New Roman", serif';
+export const FONT_MONO = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
 
 export interface Button {
   container: Phaser.GameObjects.Container;
