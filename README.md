@@ -52,6 +52,9 @@ npm test           # 코어 로직 단위 테스트 (vitest)
 npm run sim -- 30  # 헤드리스 밸런스 시뮬레이션 30판
 npm run sim -- 30 compare  # 같은 시드로 정비소 4전략 경제 비교
 npm run sim -- 30 relic-compare  # 미구매/무조건/선별 유물 구매 비교
+npm run sim -- 5 clear           # 클리어 기준선: 즉시 강화·양쪽 인장·선별 유물·저족보 연마
+npm run sim -- 5 clear-delay30   # 비교 실험: R1~30 강화 보류, R31부터 강화
+npm run sim -- 5 clear-high6     # 고점 실험: 풀하우스3·포카드2·스트레이트플러시1 강제
 npm run sim -- 30 hidden-compare  # 기본/복제/히든 추적 전략 비교
 npm run sim -- 30 mastery-compare # 미구매/전부/저족보/고족보 연마 전략 비교
 npm run build      # 타입체크 + 프로덕션 빌드 (dist/)

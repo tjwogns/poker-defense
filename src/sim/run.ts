@@ -26,6 +26,16 @@ const RELIC_PRIORITY: RelicId[] = [
   'royal_bloodline', 'glass_crown', 'frozen_clover', 'blood_contract', 'greedy_ledger',
 ];
 
+/** 60라운드 중 현실적인 고점 6회를 가정한 화력 상한 실험용 패. */
+const HIGH_HAND_SCHEDULE = new Map<number, readonly Card[]>([
+  [5, cards('AS AH AD KS KH')],
+  [15, cards('QS QH QD JS JH')],
+  [25, cards('8S 8H 8D 8C AS')],
+  [35, cards('10S 10H 10D 9S 9H')],
+  [45, cards('7S 7H 7D 7C KS')],
+  [55, cards('9S 10S JS QS KS')],
+]);
+
 /** 경로에 가까운 타일부터 선호하는 배치 순서 */
 function placementOrder(): Array<[number, number]> {
   const tiles: Array<[number, number, number]> = [];
@@ -91,6 +101,8 @@ function playPrep(
   strategy: MaintenanceStrategy,
   relicStrategy: RelicStrategy,
   masteryStrategy: MasteryStrategy,
+  upgradeFromRound: number,
+  forcedHands: ReadonlyMap<number, readonly Card[]>,
 ): void {
   if (g.relicChoices.length > 0) {
     const chosen = RELIC_PRIORITY.find((id) => g.relicChoices.includes(id)) ?? g.relicChoices[0];
@@ -98,6 +110,8 @@ function playPrep(
     g.chooseRelic(chosen, replacement);
   }
   if (g.maintenancePending) playMaintenance(g, stats, strategy, relicStrategy, masteryStrategy);
+  const forcedHand = forcedHands.get(g.round);
+  if (forcedHand) g.hand = forcedHand.map((card) => ({ ...card }));
   // 이미 트리플 이상이면 그대로 확정, 아니면 무료 교환 1회
   if (evaluateHand(g.hand) < HandRank.Trips) {
     chooseHolds(g, strategy);
@@ -148,7 +162,7 @@ function playPrep(
   }
 
   // 강화: 예비 골드를 남기고 전부 투자
-  while (g.gold >= g.upgradeCostNow + GOLD_RESERVE) g.buyUpgrade();
+  while (g.round >= upgradeFromRound && g.gold >= g.upgradeCostNow + GOLD_RESERVE) g.buyUpgrade();
 
   g.startCombat();
 }
@@ -241,6 +255,16 @@ function cardKey(card: Card): string {
   return `${card.rank}${card.suit}`;
 }
 
+function cards(value: string): Card[] {
+  return value.split(' ').map((token) => {
+    const suit = token.slice(-1) as Card['suit'];
+    const rankToken = token.slice(0, -1);
+    const rank = rankToken === 'A' ? 14 : rankToken === 'K' ? 13
+      : rankToken === 'Q' ? 12 : rankToken === 'J' ? 11 : Number(rankToken);
+    return { rank, suit };
+  });
+}
+
 interface GameStats {
   seed: number;
   result: 'victory' | 'defeat';
@@ -265,6 +289,8 @@ function playGame(
   strategy: MaintenanceStrategy,
   relicStrategy: RelicStrategy = 'skip',
   masteryStrategy: MasteryStrategy = 'skip',
+  upgradeFromRound = 1,
+  forcedHands: ReadonlyMap<number, readonly Card[]> = new Map(),
 ): GameStats {
   const g = new Game(seed);
   const stats: GameStats = {
@@ -278,7 +304,9 @@ function playGame(
   const dt = 1 / 30;
   let guard = 0;
   while (g.phase !== 'victory' && g.phase !== 'defeat' && guard++ < 1_000_000) {
-    if (g.phase === 'prep') playPrep(g, stats, strategy, relicStrategy, masteryStrategy);
+    if (g.phase === 'prep') {
+      playPrep(g, stats, strategy, relicStrategy, masteryStrategy, upgradeFromRound, forcedHands);
+    }
     else {
       g.tickCombat(dt);
     }
@@ -301,6 +329,9 @@ if (strategyArg === 'compare') printComparison(games);
 else if (strategyArg === 'relic-compare') printRelicComparison(games);
 else if (strategyArg === 'hidden-compare') printHiddenComparison(games);
 else if (strategyArg === 'mastery-compare') printMasteryComparison(games);
+else if (strategyArg === 'clear') printClearAttempt(runClearGames(games, 1), 1);
+else if (strategyArg === 'clear-delay30') printClearAttempt(runClearGames(games, 31), 31);
+else if (strategyArg === 'clear-high6') printClearAttempt(runHighHandGames(games), 1, '고족보 6회');
 else if (MAINTENANCE_STRATEGIES.includes(strategyArg as MaintenanceStrategy)) {
   printDetails(runGames(games, strategyArg as MaintenanceStrategy), strategyArg as MaintenanceStrategy);
 } else {
@@ -319,6 +350,21 @@ function runMasteryGames(count: number, strategy: MasteryStrategy): GameStats[] 
   return Array.from(
     { length: count },
     (_, index) => playGame(index + 1, 'both', 'targeted', strategy),
+  );
+}
+
+/** 클리어 지향 빌드의 강화 시작 라운드를 바꿔 동일 시드로 비교한다. */
+function runClearGames(count: number, upgradeFromRound: number): GameStats[] {
+  return Array.from(
+    { length: count },
+    (_, index) => playGame(index + 1, 'both', 'targeted', 'low', upgradeFromRound),
+  );
+}
+
+function runHighHandGames(count: number): GameStats[] {
+  return Array.from(
+    { length: count },
+    (_, index) => playGame(index + 1, 'both', 'targeted', 'low', 1, HIGH_HAND_SCHEDULE),
   );
 }
 
@@ -415,6 +461,28 @@ function printMasteryComparison(count: number): void {
       + `${(avg((game) => game.finalBossHpPct) * 100).toFixed(1).padStart(10)}%`,
     );
   }
+}
+
+function printClearAttempt(all: GameStats[], upgradeFromRound: number, extraLabel = ''): void {
+  const wins = all.filter((game) => game.result === 'victory').length;
+  const upgradeLabel = upgradeFromRound <= 1 ? '즉시 강화' : `R${upgradeFromRound} 강화 시작`;
+  const scenario = extraLabel ? `${extraLabel} · ` : '';
+  console.log(`\n=== v2 클리어 도전 (${all.length}판 · ${scenario}${upgradeLabel} · 인장 both · 선별 유물 · 저족보 연마) ===`);
+  console.log('시드  결과    도달   강화  유물구매  연마구매  덱크기  종료G  최종보스HP');
+  for (const game of all) {
+    console.log(
+      `${String(game.seed).padStart(4)}  ${(game.result === 'victory' ? '클리어' : '패배').padEnd(6)} `
+      + `${`R${game.roundReached}`.padStart(5)} `
+      + `${String(game.upgradeLevel).padStart(6)} `
+      + `${String(game.relicPurchases).padStart(8)} `
+      + `${String(game.masteryPurchases).padStart(8)} `
+      + `${String(game.deckSize).padStart(7)} `
+      + `${String(game.goldEnd).padStart(6)} `
+      + `${game.roundReached >= 60 ? `${(game.finalBossHpPct * 100).toFixed(1)}%` : '미도달'}`,
+    );
+  }
+  const avgRound = all.reduce((sum, game) => sum + game.roundReached, 0) / all.length;
+  console.log(`클리어율 ${((wins / all.length) * 100).toFixed(1)}% (${wins}/${all.length}) · 평균 도달 R${avgRound.toFixed(1)}`);
 }
 
 function printDetails(all: GameStats[], strategy: MaintenanceStrategy): void {
