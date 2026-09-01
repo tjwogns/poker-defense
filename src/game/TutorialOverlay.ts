@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { UI, makeButton, makeText } from './ui';
+import { isPortraitLayout } from './device';
 
 const STEPS = [
   ['1 · 홀드가 생존을 결정합니다', '같은 숫자·같은 무늬 카드는 눌러 HOLD하고 나머지만 교환하세요.\n낮은 족보가 반복되면 적이 빠르게 누적됩니다. 첫 교환은 무료입니다.'],
@@ -16,14 +17,17 @@ export class TutorialOverlay {
   private step = 0;
 
   constructor(scene: Phaser.Scene, onComplete: (result: 'completed' | 'skipped') => void) {
-    const dim = scene.add.rectangle(640, 360, 1280, 720, 0x06100a, 0.88).setInteractive();
-    const panel = scene.add.rectangle(640, 350, 650, 330, UI.panel, 1)
+    const portrait = isPortraitLayout();
+    const cx = portrait ? 195 : 640;
+    const dim = scene.add.rectangle(cx, portrait ? 422 : 360, portrait ? 390 : 1280, portrait ? 844 : 720, 0x06100a, 0.88).setInteractive();
+    const panel = scene.add.rectangle(cx, portrait ? 414 : 350, portrait ? 350 : 650, portrait ? 450 : 330, UI.panel, 1)
       .setStrokeStyle(2, UI.accent, 0.75);
-    const eyebrow = makeText(scene, 640, 230, 'QUICK BRIEFING', 13, UI.accentText, true).setOrigin(0.5);
-    this.title = makeText(scene, 640, 278, '', 30, UI.text, true).setOrigin(0.5);
-    this.body = makeText(scene, 640, 340, '', 17, UI.textDim).setOrigin(0.5, 0).setAlign('center').setLineSpacing(8);
-    this.counter = makeText(scene, 640, 455, '', 13, UI.textDim).setOrigin(0.5);
-    const next = makeButton(scene, 720, 500, 180, 46, '다음', () => {
+    const eyebrow = makeText(scene, cx, portrait ? 236 : 230, 'QUICK BRIEFING', 13, UI.accentText, true).setOrigin(0.5);
+    this.title = makeText(scene, cx, portrait ? 282 : 278, '', portrait ? 22 : 30, UI.text, true).setOrigin(0.5);
+    this.body = makeText(scene, cx, portrait ? 338 : 340, '', portrait ? 14 : 17, UI.textDim).setOrigin(0.5, 0).setAlign('center').setLineSpacing(8);
+    this.body.setWordWrapWidth(portrait ? 302 : 600, true);
+    this.counter = makeText(scene, cx, portrait ? 502 : 455, '', 13, UI.textDim).setOrigin(0.5);
+    const next = makeButton(scene, portrait ? 286 : 720, portrait ? 570 : 500, portrait ? 158 : 180, portrait ? 52 : 46, '다음', () => {
       if (this.step < STEPS.length - 1) {
         this.step++;
         this.refresh(next);
@@ -32,7 +36,7 @@ export class TutorialOverlay {
         onComplete('completed');
       }
     });
-    const skip = makeButton(scene, 520, 500, 150, 46, '건너뛰기', () => {
+    const skip = makeButton(scene, portrait ? 104 : 520, portrait ? 570 : 500, portrait ? 158 : 150, portrait ? 52 : 46, '건너뛰기', () => {
       this.root.destroy(true);
       onComplete('skipped');
     }, { fill: 0x42544a });

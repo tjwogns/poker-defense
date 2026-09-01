@@ -5,10 +5,10 @@ import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
 import { TICK_RATE } from '../core/balance';
-import { FIELD_X, FIELD_Y, FieldRenderer, Fx, tileAtScreen } from './FieldRenderer';
+import { FieldRenderer, Fx, fieldScreenPoint, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
-import { FONT, UI, makeButton, makeText } from './ui';
+import { FONT, FONT_DISPLAY, FONT_MONO, UI, makeButton, makeText } from './ui';
 import {
   RELIC_DEFS, RELIC_RARITY_COLORS, RELIC_RARITY_LABELS, RELIC_SLOT_CAP, RelicId, relicSellPrice,
 } from '../core/relics';
@@ -31,7 +31,7 @@ import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
 import { DeckOverlay } from './DeckOverlay';
 import { MaintenanceOverlay } from './MaintenanceOverlay';
 import { FirstRunCoach } from './FirstRunCoach';
-import { isCompactTouchDevice } from './device';
+import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { attackFxBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
@@ -104,6 +104,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    if (isPortraitLayout()) this.cameras.main.setBackgroundColor('#0a0a0f');
     this.core = new Game(this.seedValue);
     this.speed = 1;
     this.acc = 0;
@@ -840,19 +841,28 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private flashCenter(labelText: string, color: number, depth = 16): void {
-    const label = makeText(this, 390, 270, labelText, 30, `#${color.toString(16).padStart(6, '0')}`, true)
+    const portrait = isPortraitLayout();
+    const label = makeText(
+      this, portrait ? 195 : 390, portrait ? 330 : 270, labelText, portrait ? 20 : 30,
+      `#${color.toString(16).padStart(6, '0')}`, true,
+    )
       .setOrigin(0.5).setDepth(depth).setShadow(0, 3, '#000000', 8);
     this.tweens.add({
-      targets: label, y: 230, alpha: 0, duration: 1200, ease: 'Cubic.Out',
+      targets: label, y: portrait ? 300 : 230, alpha: 0, duration: 1200, ease: 'Cubic.Out',
       onComplete: () => label.destroy(),
     });
   }
 
   private celebrate(rank: HandRank, newlyDiscovered = false): void {
+    const portrait = isPortraitLayout();
     const text = newlyDiscovered
       ? `${HAND_NAMES_KO[rank]}!\nHIDDEN DISCOVERED`
       : `${HAND_NAMES_KO[rank]}!`;
-    const label = makeText(this, 390, 280, text, newlyDiscovered ? 34 : 44, newlyDiscovered ? '#ffe27a' : UI.gold, true)
+    const label = makeText(
+      this, portrait ? 195 : 390, portrait ? 318 : 280, text,
+      portrait ? newlyDiscovered ? 22 : 28 : newlyDiscovered ? 34 : 44,
+      newlyDiscovered ? '#ffe27a' : UI.gold, true,
+    )
       .setOrigin(0.5)
       .setAlign('center')
       .setDepth(10)
@@ -867,7 +877,7 @@ export class PlayScene extends Phaser.Scene {
         this.tweens.add({
           targets: label,
           alpha: 0,
-          y: 240,
+          y: portrait ? 286 : 240,
           delay: 900,
           duration: 500,
           onComplete: () => label.destroy(),
@@ -926,10 +936,11 @@ export class PlayScene extends Phaser.Scene {
       });
       if (!this.damageLabelShownThisFrame) {
         this.damageLabelShownThisFrame = true;
+        const damageAt = fieldScreenPoint(to.x, to.y);
         const damage = makeText(
           this,
-          FIELD_X + to.x,
-          FIELD_Y + to.y - 12,
+          damageAt.x,
+          damageAt.y - (isPortraitLayout() ? 7 : 12),
           Math.round(atk.damage).toLocaleString(),
           11,
           '#f5e7a8',
@@ -1074,28 +1085,36 @@ export class PlayScene extends Phaser.Scene {
       handMastery: this.core.handMastery,
       handDamage: this.core.handDamage,
     });
-    this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.72).setDepth(20);
+    const portrait = isPortraitLayout();
+    const centerX = portrait ? 195 : 640;
+    this.add.rectangle(centerX, portrait ? 422 : 360, portrait ? 390 : 1280, portrait ? 844 : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
+    if (portrait) {
+      this.add.text(30, 78, won ? '60 ROUNDS CLEARED · STANDARD' : `RUN ENDED · ${this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
+        fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
+        letterSpacing: 2.2,
+      }).setDepth(21);
+    }
     this.add
-      .text(640, won ? 280 : 96, won ? '승리!' : '패배 분석', {
-        fontFamily: FONT, fontSize: won ? '56px' : '42px', fontStyle: 'bold',
+      .text(centerX, portrait ? 102 : won ? 280 : 96, portrait ? won ? 'VICTORY' : `ROUND ${this.core.round}` : won ? '승리!' : '패배 분석', {
+        fontFamily: portrait ? FONT_DISPLAY : FONT, fontSize: portrait ? won ? '62px' : '54px' : won ? '56px' : '42px', fontStyle: 'bold',
         color: won ? UI.gold : UI.dangerText,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(640, won ? 350 : 154, endMessage, {
-        fontFamily: FONT, fontSize: '20px', color: UI.text,
+      .text(centerX, portrait ? 174 : won ? 350 : 154, portrait && !won ? `필드가 뚫렸습니다 · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다` : endMessage, {
+        fontFamily: FONT, fontSize: portrait ? '14px' : '20px', color: portrait ? '#a8a5b2' : UI.text,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(640, won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
-        fontFamily: FONT, fontSize: '18px', color: UI.gold,
+      .text(centerX, portrait ? 226 : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
+        fontFamily: portrait ? FONT_MONO : FONT, fontSize: portrait ? '16px' : '18px', color: UI.gold,
       })
       .setOrigin(0.5)
       .setDepth(21);
     if (won) {
-      this.add.text(640, 424, `연마 효율  ${this.masteryOutcomeLabel()}`, {
+      this.add.text(centerX, portrait ? 278 : 424, `연마 효율  ${this.masteryOutcomeLabel()}`, {
         fontFamily: FONT, fontSize: '14px', color: '#f0c879',
       }).setOrigin(0.5).setDepth(21);
     }
@@ -1130,15 +1149,21 @@ export class PlayScene extends Phaser.Scene {
       } : {}),
     }, this.runId);
     const date = this.runDate;
-    const btn = makeButton(this, 640, won ? 474 : 510, 220, 52, '다시 시작', () => {
+    const btn = makeButton(this, centerX, portrait ? 700 : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? '같은 조건으로 다시 도전' : '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
-    }, { fontSize: 18 });
+    }, {
+      fill: portrait ? UI.goldNum : UI.accent,
+      textColor: portrait ? UI.goldInk : UI.goldInk,
+      fontSize: portrait ? 17 : 18,
+      stroke: portrait ? UI.goldNum : UI.accent,
+      strokeAlpha: 0.5,
+    });
     btn.container.setDepth(22);
-    const actionY = won ? 536 : 568;
+    const actionY = portrait ? 770 : won ? 536 : 568;
     if (this.mode === 'daily') {
-      const ranking = makeButton(this, 384, actionY, 220, 42, '일일 랭킹 등록', async () => {
+      const ranking = makeButton(this, portrait ? centerX : 384, portrait ? 632 : actionY, portrait ? 330 : 220, portrait ? 44 : 42, '일일 랭킹 등록', async () => {
         ranking.setEnabled(false);
         ranking.setLabel('등록 중…');
         try {
@@ -1167,9 +1192,9 @@ export class PlayScene extends Phaser.Scene {
         ranking.setEnabled(false);
       }
     }
-    const shareX = this.mode === 'daily' ? 640 : 512;
-    const cardX = this.mode === 'daily' ? 896 : 768;
-    const share = makeButton(this, shareX, actionY, 220, 42, '결과 공유', async () => {
+    const shareX = portrait ? 75 : this.mode === 'daily' ? 640 : 512;
+    const cardX = portrait ? 195 : this.mode === 'daily' ? 896 : 768;
+    const share = makeButton(this, shareX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? '공유' : '결과 공유', async () => {
       try {
         const result = await shareRun(summary, this.mode, date);
         this.analytics.track('result_shared', { method: result, mode: this.mode }, this.runId);
@@ -1179,16 +1204,41 @@ export class PlayScene extends Phaser.Scene {
       }
     }, { fill: 0xe6c84f, fontSize: 14 });
     share.container.setDepth(22);
-    const card = makeButton(this, cardX, actionY, 220, 42, 'PNG 카드 저장', () => {
+    const card = makeButton(this, cardX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? 'PNG' : 'PNG 카드 저장', () => {
       downloadShareCard(summary, this.mode, date);
       this.flashCenter('PNG 카드를 저장했습니다', 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
     card.container.setDepth(22);
-    const home = makeButton(this, 640, won ? 594 : 626, 180, 40, '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
+    const home = makeButton(this, portrait ? 315 : 640, portrait ? actionY : won ? 594 : 626, portrait ? 102 : 180, portrait ? 50 : 40, portrait ? '메인' : '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
     home.container.setDepth(22);
   }
 
   private renderDefeatAnalysis(analysis: DefeatAnalysis): void {
+    if (isPortraitLayout()) {
+      this.add.rectangle(195, 384, 330, 174, UI.panelDeep, 0.98)
+        .setStrokeStyle(1, UI.panelLine, 1).setDepth(21);
+      this.add.rectangle(31, 316, 2, 136, UI.danger, 1).setOrigin(0, 0).setDepth(22);
+      this.add.text(46, 330, '사망 원인', {
+        fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: UI.dangerText,
+      }).setDepth(22);
+      this.add.text(46, 355, analysis.cause, {
+        fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: UI.text,
+        wordWrap: { width: 292 },
+      }).setDepth(22);
+      this.add.text(46, 404, `${analysis.boss} · ${analysis.build}`, {
+        fontFamily: FONT, fontSize: '12px', color: UI.textDim, wordWrap: { width: 292 },
+      }).setDepth(22);
+      this.add.rectangle(195, 536, 330, 142, UI.panel, 0.98)
+        .setStrokeStyle(1, UI.goldNum, 0.22).setDepth(21);
+      this.add.text(46, 476, 'NEXT RUN', {
+        fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold, letterSpacing: 2,
+      }).setDepth(22);
+      this.add.text(46, 500, analysis.tips.slice(0, 3).map((tip, index) => `0${index + 1}  ${tip}`).join('\n'), {
+        fontFamily: FONT, fontSize: '12px', color: UI.text, lineSpacing: 12,
+        wordWrap: { width: 292 },
+      }).setDepth(22);
+      return;
+    }
     this.add.rectangle(640, 342, 900, 250, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.panelLine, 1)
       .setDepth(21);

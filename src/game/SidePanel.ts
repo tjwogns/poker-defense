@@ -14,6 +14,7 @@ import { MASTERABLE_HANDS } from '../core/mastery';
 import {
   HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
 } from '../core/cards/handIdentity';
+import { isPortraitLayout } from './device';
 
 const SPEEDS = [1, 2, 4] as const;
 
@@ -74,45 +75,52 @@ const WAVE_HINTS = {
 export class SidePanel {
   private scene: Phaser.Scene;
   private game: Game;
-  private roundText: Phaser.GameObjects.Text;
-  private roundSub: Phaser.GameObjects.Text;
-  private modeText: Phaser.GameObjects.Text;
-  private threatTitle: Phaser.GameObjects.Text;
-  private gaugeFg: Phaser.GameObjects.Rectangle;
-  private gaugeText: Phaser.GameObjects.Text;
-  private scoreText: Phaser.GameObjects.Text;
-  private goldText: Phaser.GameObjects.Text;
-  private waveName: Phaser.GameObjects.Text;
-  private waveCount: Phaser.GameObjects.Text;
-  private waveHint: Phaser.GameObjects.Text;
-  private bossCountdown: Phaser.GameObjects.Text;
-  private directiveTitle: Phaser.GameObjects.Text;
-  private directiveBody: Phaser.GameObjects.Text;
-  private startBtn: Button;
-  private interestText: Phaser.GameObjects.Text;
-  private upgradeSub: Phaser.GameObjects.Text;
-  private upgradeBtn: Button;
-  private buildCount: Phaser.GameObjects.Text;
-  private buildText: Phaser.GameObjects.Text;
-  private deckBtn: Button;
-  private guideBtn: Button;
-  private speedBtn: Button;
+  private roundText!: Phaser.GameObjects.Text;
+  private roundSub!: Phaser.GameObjects.Text;
+  private modeText!: Phaser.GameObjects.Text;
+  private threatTitle!: Phaser.GameObjects.Text;
+  private gaugeFg!: Phaser.GameObjects.Rectangle;
+  private gaugeText!: Phaser.GameObjects.Text;
+  private scoreText!: Phaser.GameObjects.Text;
+  private goldText!: Phaser.GameObjects.Text;
+  private waveName!: Phaser.GameObjects.Text;
+  private waveCount!: Phaser.GameObjects.Text;
+  private waveHint!: Phaser.GameObjects.Text;
+  private bossCountdown!: Phaser.GameObjects.Text;
+  private directiveTitle!: Phaser.GameObjects.Text;
+  private directiveBody!: Phaser.GameObjects.Text;
+  private startBtn!: Button;
+  private interestText!: Phaser.GameObjects.Text;
+  private upgradeSub!: Phaser.GameObjects.Text;
+  private upgradeBtn!: Button;
+  private buildCount!: Phaser.GameObjects.Text;
+  private buildText!: Phaser.GameObjects.Text;
+  private deckBtn!: Button;
+  private guideBtn!: Button;
+  private speedBtn!: Button;
   private relicIcons: Phaser.GameObjects.Container[] = [];
   private relicIconIds = '';
-  private relicTriggerText: Phaser.GameObjects.Text;
-  private combatText: Phaser.GameObjects.Text;
+  private relicTriggerText!: Phaser.GameObjects.Text;
+  private combatText!: Phaser.GameObjects.Text;
   private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
   private inspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
-  private inspectorName: Phaser.GameObjects.Text;
-  private inspectorMeta: Phaser.GameObjects.Text;
-  private inspectorStats: Phaser.GameObjects.Text;
-  private sellBtn: Button;
-  private moveBtn: Button;
-  private fuseBtn: Button;
+  private inspectorName!: Phaser.GameObjects.Text;
+  private inspectorMeta!: Phaser.GameObjects.Text;
+  private inspectorStats!: Phaser.GameObjects.Text;
+  private sellBtn!: Button;
+  private moveBtn!: Button;
+  private fuseBtn!: Button;
+  private portrait = false;
+  private placementBg?: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene, game: Game, cb: PanelCallbacks) {
     this.scene = scene;
     this.game = game;
+    this.portrait = isPortraitLayout();
+    if (this.portrait) {
+      this.createPortrait(scene, cb);
+      return;
+    }
 
     const top = scene.add.graphics();
     top.fillStyle(UI.panelDeep, 1).fillRect(0, 0, 1280, 60);
@@ -225,6 +233,94 @@ export class SidePanel {
     this.inspectorObjects.forEach((object) => object.setVisible(false));
   }
 
+  private createPortrait(scene: Phaser.Scene, cb: PanelCallbacks): void {
+    const top = scene.add.graphics();
+    top.fillStyle(UI.panelDeep, 1).fillRect(0, 0, 390, 96);
+    top.lineStyle(1, UI.goldNum, 0.16).lineBetween(0, 95, 390, 95);
+    this.roundText = scene.add.text(16, 57, '', {
+      fontFamily: FONT_DISPLAY, fontSize: '21px', fontStyle: 'bold', color: UI.text,
+    });
+    this.roundSub = scene.add.text(51, 65, '', {
+      fontFamily: FONT_MONO, fontSize: '12px', color: UI.textFaint,
+    });
+    this.modeText = scene.add.text(0, 0, '').setVisible(false);
+    this.threatTitle = scene.add.text(80, 55, 'THREAT', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#74727e', letterSpacing: 1.6,
+    });
+    scene.add.rectangle(80, 81, 180, 8, UI.panelRaised, 1).setOrigin(0, 0.5);
+    this.gaugeFg = scene.add.rectangle(80, 81, 0, 8, UI.safe, 1).setOrigin(0, 0.5);
+    this.gaugeText = scene.add.text(260, 55, '', {
+      fontFamily: FONT_MONO, fontSize: '12px', fontStyle: 'bold', color: UI.text,
+    }).setOrigin(1, 0);
+    this.scoreText = scene.add.text(0, 0, '').setVisible(false);
+    this.goldText = scene.add.text(374, 60, '', {
+      fontFamily: FONT_MONO, fontSize: '19px', fontStyle: 'bold', color: UI.gold,
+    }).setOrigin(1, 0);
+
+    railCard(scene, { x: 8, y: 382, width: 374, height: 58 });
+    makeText(scene, 22, 391, '다음 웨이브', 12, UI.textDim);
+    this.waveName = makeText(scene, 22, 410, '', 18, UI.text, true);
+    this.waveCount = scene.add.text(130, 412, '', {
+      fontFamily: FONT_MONO, fontSize: '16px', fontStyle: 'bold', color: UI.gold,
+    });
+    this.waveHint = makeText(scene, 368, 414, '', 12, UI.textDim).setOrigin(1, 0);
+    this.bossCountdown = makeText(scene, 368, 392, '', 12, UI.dangerText, true).setOrigin(1, 0);
+
+    this.placementBg = scene.add.rectangle(195, 702, 374, 56, UI.panelDeep, 0.98)
+      .setStrokeStyle(1, UI.goldNum, 0.45).setDepth(4).setVisible(false);
+    this.directiveTitle = makeText(scene, 195, 684, '', 15, UI.text, true).setOrigin(0.5, 0).setDepth(5);
+    this.directiveBody = makeText(scene, 195, 709, '', 12, UI.textDim).setOrigin(0.5, 0).setDepth(5);
+    this.startBtn = makeButton(scene, 195, 702, 374, 56, '', () => {
+      if (this.game.phase === 'combat') cb.onPause();
+      else cb.onStart();
+    }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 17, radius: 8, stroke: UI.goldNum, strokeAlpha: 0.5 });
+
+    this.interestText = scene.add.text(0, 0, '').setVisible(false);
+    this.upgradeSub = scene.add.text(0, 0, '').setVisible(false);
+    this.buildCount = scene.add.text(0, 0, '').setVisible(false);
+    this.buildText = scene.add.text(0, 0, '').setVisible(false);
+    this.combatText = scene.add.text(0, 0, '').setVisible(false);
+    this.relicTriggerText = makeText(scene, 195, 372, '', 12, UI.gold, true).setOrigin(0.5).setAlpha(0).setDepth(7);
+
+    this.deckBtn = makeButton(scene, 53, 769, 82, 50, '덱', cb.onDeck, {
+      fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14,
+    });
+    this.guideBtn = makeButton(scene, 143, 769, 82, 50, '도감', cb.onGuide, {
+      fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14,
+    });
+    this.upgradeBtn = makeButton(scene, 248, 769, 112, 50, '강화', cb.onUpgrade, {
+      fill: UI.panelDeep, textColor: UI.gold, fontSize: 13, radius: 4, stroke: UI.goldNum, strokeAlpha: 0.4,
+    });
+    this.speedBtn = makeButton(scene, 345, 769, 74, 50, '×1', () => {
+      const current = SPEEDS.indexOf((this.speedBtn.container.getData('speed') ?? 1) as 1 | 2 | 4);
+      cb.onSpeed(SPEEDS[(current + 1) % SPEEDS.length]);
+    }, { fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14 });
+
+    const sheetBg = scene.add.rectangle(195, 744, 390, 200, UI.panelDeep, 0.99)
+      .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(12);
+    const handle = scene.add.rectangle(195, 652, 36, 4, 0xf2ede3, 0.2).setDepth(13);
+    this.inspectorName = makeText(scene, 24, 672, '', 18, UI.text, true).setDepth(13);
+    this.inspectorMeta = makeText(scene, 24, 700, '', 12, UI.textDim).setDepth(13);
+    this.inspectorStats = scene.add.text(24, 726, '', {
+      fontFamily: FONT_MONO, fontSize: '12px', fontStyle: 'bold', color: UI.text, lineSpacing: 4,
+    }).setDepth(13);
+    this.moveBtn = makeButton(scene, 75, 797, 102, 50, '재배치', cb.onMove, {
+      fill: UI.panelDeep, textColor: UI.text, fontSize: 12, radius: 4, strokeAlpha: 0.18,
+    });
+    this.sellBtn = makeButton(scene, 195, 797, 122, 50, '판매', cb.onSell, {
+      fill: UI.panelDeep, textColor: UI.dangerText, fontSize: 12, radius: 4, stroke: UI.danger, strokeAlpha: 0.5,
+    });
+    this.fuseBtn = makeButton(scene, 325, 797, 118, 50, '동일 3기 합성', cb.onFuse, {
+      fill: UI.panelRaised, textColor: '#cda8e6', fontSize: 11, radius: 4, stroke: 0x9f74cf, strokeAlpha: 0.42,
+    });
+    [this.moveBtn, this.sellBtn, this.fuseBtn].forEach((button) => button.container.setDepth(13));
+    this.inspectorObjects = [
+      sheetBg, handle, this.inspectorName, this.inspectorMeta, this.inspectorStats,
+      this.moveBtn.container, this.sellBtn.container, this.fuseBtn.container,
+    ] as Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible>;
+    this.inspectorObjects.forEach((object) => object.setVisible(false));
+  }
+
   pulseRelics(ids: readonly RelicId[]): void {
     if (ids.length === 0) return;
     const names = ids.slice(0, 2).map((id) => RELIC_DEFS[id].name);
@@ -237,6 +333,10 @@ export class SidePanel {
   }
 
   refresh(selectedUnit: Unit | null, speed: number, paused: boolean, soundEnabled: boolean, mode: RunMode): void {
+    if (this.portrait) {
+      this.refreshPortrait(selectedUnit, speed, paused, mode);
+      return;
+    }
     const g = this.game;
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`ROUND ${g.round}`);
@@ -317,6 +417,51 @@ export class SidePanel {
           : remaining === null ? `적 등장 중 · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}` : `라운드 종료까지 ${Math.ceil(remaining)}초`,
     );
 
+    this.refreshInspector(selectedUnit, inPrep);
+  }
+
+  private refreshPortrait(selectedUnit: Unit | null, speed: number, paused: boolean, mode: RunMode): void {
+    const g = this.game;
+    const inPrep = g.phase === 'prep';
+    this.roundText.setText(`R${g.round}`);
+    this.roundSub.setText(`/${ROUNDS}`);
+    this.modeText.setText(mode === 'daily' ? 'DAILY' : 'STANDARD');
+    const alive = aliveEnemies(g.field).length;
+    const ratio = Math.min(1, alive / g.fieldCap);
+    const band = threatBand(alive, g.fieldCap);
+    const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? UI.goldNum : UI.safe;
+    this.gaugeFg.width = 180 * ratio;
+    this.gaugeFg.setFillStyle(threatColor);
+    this.gaugeText.setText(threatLabel(alive, g.fieldCap));
+    this.goldText.setText(`G ${g.gold.toLocaleString()}`);
+
+    const wave = g.nextWave();
+    this.waveName.setText(wave.name);
+    this.waveCount.setText(`×${wave.count}`);
+    const nextBoss = Math.ceil(g.round / 10) * 10;
+    this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : `R${nextBoss} 보스까지 ${nextBoss - g.round}`);
+    this.waveHint.setText(wave.kind === 'tank' || wave.kind === 'splitter' ? '광역이 유리' : WAVE_HINTS[wave.kind].split(' · ')[1] ?? '화력 집중');
+
+    const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
+    const placing = inPrep && g.handConfirmed && g.pendingUnits.length > 0;
+    const inCombat = g.phase === 'combat';
+    this.startBtn.container.setVisible(readyToStart || inCombat);
+    this.placementBg?.setVisible(placing);
+    this.directiveTitle.setVisible(placing);
+    this.directiveBody.setVisible(placing);
+    if (placing) {
+      this.directiveTitle.setText(`◆ ${UNIT_DEFS[g.pendingUnits[0]].name} ${g.pendingUnits.length}기를 배치하세요`);
+      this.directiveBody.setText('금색 점선 칸이 추천 위치입니다');
+    }
+    this.startBtn.setFill(inCombat ? UI.panelRaised : UI.goldNum, inCombat ? UI.text : UI.goldInk);
+    this.startBtn.setLabel(inCombat ? paused ? '전투 계속 ▶' : `일시정지 · ×${speed}` : '전투 시작 ▶');
+
+    this.upgradeBtn.setLabel(`강화 ${g.upgradeCostNow}G`);
+    this.upgradeBtn.setEnabled(inPrep && g.gold >= g.upgradeCostNow);
+    this.speedBtn.container.setData('speed', speed);
+    this.speedBtn.setLabel(`×${speed}`);
+    this.deckBtn.setEnabled(true);
+    this.guideBtn.setEnabled(true);
     this.refreshInspector(selectedUnit, inPrep);
   }
 

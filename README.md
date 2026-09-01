@@ -3,6 +3,17 @@
 포커 족보로 유닛을 뽑아 순환 경로를 도는 적을 막는 웹 디펜스 게임.
 카드 조합, 군단 성장, 순환형 전장을 결합한 독립 오리지널 프로젝트다.
 
+## v2.1 Portrait Command
+
+- 정식 게임 주소: https://tjwogns.github.io/poker-defense/
+- 390×844·412×915급 휴대폰에서 회전 없이 세로 플레이 지원
+- 세로 메뉴·전장·웨이브·손패·리롤 판단·대표 문양·배치·전투·패배 분석 UI
+- 카드 66×92, 주요 행동 56px, 하단 유틸 50px의 터치 우선 조작
+- 게임 규칙 좌표와 렌더링 좌표를 분리해 기존 전투 판정·밸런스 유지
+- 360px 미만 또는 극단적으로 작은 가로 화면만 최소 크기 안내
+- 데스크톱과 모바일 가로 모드는 기존 레이아웃 유지
+- 보조 오버레이의 전용 세로 디자인은 후속 확장 예정
+
 ## v2.0 Deck Foundation
 
 - 정식 게임 주소: https://tjwogns.github.io/poker-defense/
@@ -66,7 +77,7 @@ SINGLEFILE=1 npm run build  # 단일 HTML 파일 빌드 (배포/공유용)
 node scripts/smoke.mjs      # E2E 스모크 (Chrome 필요, 프리뷰 서버 선행)
 npm run smoke:hidden        # 히든 발견·도감 해금·저장 유지 E2E
 npm run smoke:focus         # Chrome 탭 전환 후 선택 배속 유지 E2E
-npm run smoke:mobile        # 가로 모바일 실행·터치 진입·세로 안내 E2E
+npm run smoke:mobile        # 가로·390×844 세로 모바일 실행과 터치 진입 E2E
 npm run smoke:bosses        # 보스 6종 로딩·배치·최종 광폭화 비주얼 E2E
 ```
 

@@ -12,13 +12,34 @@ import { UNIT_SPRITE_KEYS } from './unitAssets';
 import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 import { bossSpriteKey } from './bossAssets';
 import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
+import { isPortraitLayout } from './device';
 
 export const FIELD_X = 24;
 export const FIELD_Y = 68;
 
+export interface FieldMetrics {
+  x: number;
+  y: number;
+  tile: number;
+  scale: number;
+  portrait: boolean;
+}
+
+export function currentFieldMetrics(): FieldMetrics {
+  const portrait = isPortraitLayout();
+  const tile = portrait ? 22 : TILE;
+  return { x: portrait ? 8 : FIELD_X, y: portrait ? 106 : FIELD_Y, tile, scale: tile / TILE, portrait };
+}
+
+export function fieldScreenPoint(x: number, y: number): { x: number; y: number } {
+  const metrics = currentFieldMetrics();
+  return { x: metrics.x + x * metrics.scale, y: metrics.y + y * metrics.scale };
+}
+
 export function tileAtScreen(px: number, py: number): { tx: number; ty: number } | null {
-  const tx = Math.floor((px - FIELD_X) / TILE);
-  const ty = Math.floor((py - FIELD_Y) / TILE);
+  const metrics = currentFieldMetrics();
+  const tx = Math.floor((px - metrics.x) / metrics.tile);
+  const ty = Math.floor((py - metrics.y) / metrics.tile);
   if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return null;
   return { tx, ty };
 }
@@ -224,15 +245,17 @@ export class FieldRenderer {
   private placementHint: Phaser.GameObjects.Text;
   private enemyViews = new Map<number, EnemyView>();
   private unitViews = new Map<number, UnitView>();
+  private metrics: FieldMetrics;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    this.metrics = currentFieldMetrics();
     this.drawStatic();
     this.highlightG = scene.add.graphics().setDepth(1);
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
     this.bossAbilityG = scene.add.graphics().setDepth(4);
-    this.placementHint = scene.add.text(381, 76, '◆ 금색 점선이 추천 위치입니다', {
+    this.placementHint = scene.add.text(this.metrics.portrait ? 195 : 381, this.metrics.portrait ? 374 : 76, '◆ 금색 점선이 추천 위치입니다', {
       fontFamily: FONT,
       fontSize: '11px',
       fontStyle: 'bold',
@@ -243,44 +266,46 @@ export class FieldRenderer {
   }
 
   private drawStatic(): void {
+    const { x: fieldX, y: fieldY, tile, portrait } = this.metrics;
     const g = this.scene.add.graphics().setDepth(0);
     g.fillStyle(0x000000, 0.48);
-    g.fillRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 4, GRID_H * TILE + 4);
+    g.fillRect(fieldX - 2, fieldY - 2, GRID_W * tile + 4, GRID_H * tile + 4);
     g.fillStyle(UI.gridLine, 1);
-    g.fillRect(FIELD_X - 1, FIELD_Y - 1, GRID_W * TILE + 2, GRID_H * TILE + 2);
+    g.fillRect(fieldX - 1, fieldY - 1, GRID_W * tile + 2, GRID_H * tile + 2);
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
-        const sx = FIELD_X + x * TILE;
-        const sy = FIELD_Y + y * TILE;
+        const sx = fieldX + x * tile;
+        const sy = fieldY + y * tile;
         const path = isPathTile(x, y);
         const color = path ? UI.pathTile : UI.fieldTile;
         g.fillStyle(color, 1);
-        g.fillRect(sx + 1, sy + 1, TILE - 3, TILE - 3);
+        g.fillRect(sx + 1, sy + 1, tile - (portrait ? 2 : 3), tile - (portrait ? 2 : 3));
       }
     }
     // 경로 방향을 암시하는 작은 금빛 마커
     g.fillStyle(UI.goldNum, 0.14);
     for (let x = 3; x <= 13; x += 3) {
-      const cx = FIELD_X + x * TILE + TILE / 2;
-      const cy = FIELD_Y + TILE + TILE / 2;
+      const cx = fieldX + x * tile + tile / 2;
+      const cy = fieldY + tile + tile / 2;
       g.fillTriangle(cx - 3, cy - 4, cx + 4, cy, cx - 3, cy + 4);
     }
     g.lineStyle(1, UI.goldNum, 0.1);
-    g.strokeRect(FIELD_X - 2, FIELD_Y - 2, GRID_W * TILE + 3, GRID_H * TILE + 3);
+    g.strokeRect(fieldX - 2, fieldY - 2, GRID_W * tile + 3, GRID_H * tile + 3);
     // 스폰 지점 표시
-    const s = tileCenter(1, 1);
+    const s = { x: tile * 1.5, y: tile * 1.5 };
+    const spawnRadius = portrait ? 7 : 12;
     g.fillStyle(UI.danger, 0.18);
-    g.fillCircle(FIELD_X + s.x, FIELD_Y + s.y, 12);
-    g.lineStyle(1.5, UI.danger, 0.95).strokeCircle(FIELD_X + s.x, FIELD_Y + s.y, 12);
+    g.fillCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
+    g.lineStyle(portrait ? 1 : 1.5, UI.danger, 0.95).strokeCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
     g.fillStyle(UI.danger, 0.95);
     g.fillTriangle(
-      FIELD_X + s.x - 5, FIELD_Y + s.y - 6,
-      FIELD_X + s.x - 5, FIELD_Y + s.y + 6,
-      FIELD_X + s.x + 7, FIELD_Y + s.y,
+      fieldX + s.x - spawnRadius * 0.4, fieldY + s.y - spawnRadius * 0.55,
+      fieldX + s.x - spawnRadius * 0.4, fieldY + s.y + spawnRadius * 0.55,
+      fieldX + s.x + spawnRadius * 0.6, fieldY + s.y,
     );
-    this.scene.add.text(FIELD_X + (GRID_W * TILE) / 2, FIELD_Y + (GRID_H * TILE) / 2, 'ROYAL TABLE', {
+    this.scene.add.text(fieldX + (GRID_W * tile) / 2, fieldY + (GRID_H * tile) / 2, 'ROYAL TABLE', {
       fontFamily: FONT_DISPLAY, fontSize: '42px', fontStyle: 'bold', color: UI.gold,
-    }).setOrigin(0.5).setAlpha(0.05).setDepth(0);
+    }).setOrigin(0.5).setAlpha(portrait ? 0 : 0.05).setDepth(0);
   }
 
   /** 매 프레임 호출: core 상태를 화면에 반영 */
@@ -331,8 +356,11 @@ export class FieldRenderer {
         ? 1
         : Math.min(1, (this.scene.time.now - view.introStartedAt) / introDuration);
       const introScale = introDuration === 0 ? 1 : Phaser.Math.Easing.Back.Out(introProgress);
-      view.root.setPosition(FIELD_X + p.x + recoilX, FIELD_Y + p.y + bob + recoilY);
-      view.root.setScale((selected ? 1.12 : 1) * (1 + recoil * 0.06) * introScale);
+      view.root.setPosition(
+        this.metrics.x + (p.x + recoilX) * this.metrics.scale,
+        this.metrics.y + (p.y + bob + recoilY) * this.metrics.scale,
+      );
+      view.root.setScale(this.metrics.scale * (selected ? 1.12 : 1) * (1 + recoil * 0.06) * introScale);
       view.root.setAlpha(introDuration === 0 ? 1 : 0.5 + introProgress * 0.5);
       view.halo.setScale(introDuration === 0 ? 1 : 1 + (1 - introProgress) * 0.75);
       view.selection.setVisible(selected);
@@ -366,8 +394,8 @@ export class FieldRenderer {
         this.enemyViews.set(e.id, view);
       }
       const p = enemyPos(e);
-      const sx = FIELD_X + p.x;
-      const sy = FIELD_Y + p.y;
+      const sx = this.metrics.x + p.x * this.metrics.scale;
+      const sy = this.metrics.y + p.y * this.metrics.scale;
       const r = ENEMY_RADIUS[e.kind];
       const ratio = Math.max(0, e.hp / e.maxHp);
       view.root.setPosition(sx, sy);
@@ -378,22 +406,22 @@ export class FieldRenderer {
         const pulse = enraged
           ? 1 + Math.sin(game.field.time * 11) * 0.085
           : 1 + Math.sin(game.field.time * 5) * 0.045;
-        view.root.setScale(entranceScale * pulse);
+        view.root.setScale(this.metrics.scale * entranceScale * pulse);
         if (enraged) {
           view.introRing?.setScale(1.35 + Math.sin(game.field.time * 8) * 0.12).setAlpha(0.58);
         } else {
           view.introRing?.setScale(1 + intro * 1.4).setAlpha(Math.max(0, 1 - intro));
         }
       } else {
-        view.root.setScale(1);
+        view.root.setScale(this.metrics.scale);
       }
       view.root.setAlpha(game.field.time < e.stunUntil ? 0.62 : 1);
-      const barY = sy - (e.kind === 'boss' ? bossSpriteExtent(e.round) / 2 + 6 : r + 6);
+      const barY = sy - (e.kind === 'boss' ? bossSpriteExtent(e.round) / 2 + 6 : r + 6) * this.metrics.scale;
       view.hpBg.setPosition(sx, barY);
       view.hpFg.setPosition(sx - view.barWidth / 2 + (view.barWidth * ratio) / 2, barY);
       view.hpFg.width = view.barWidth * ratio;
       view.hpFg.setFillStyle(ratio > 0.5 ? 0x76d67a : ratio > 0.25 ? 0xe0a33c : 0xd06258);
-      const showHp = e.kind === 'boss' || ratio < 0.995;
+      const showHp = !this.metrics.portrait && (e.kind === 'boss' || ratio < 0.995);
       view.hpBg.setVisible(showHp);
       view.hpFg.setVisible(showHp);
     }
@@ -413,8 +441,8 @@ export class FieldRenderer {
     for (const enemy of game.field.enemies) {
       if (!enemy.alive || enemy.kind !== 'boss') continue;
       const p = enemyPos(enemy);
-      const x = FIELD_X + p.x;
-      const y = FIELD_Y + p.y;
+      const x = this.metrics.x + p.x * this.metrics.scale;
+      const y = this.metrics.y + p.y * this.metrics.scale;
       if (enemy.round === 10) {
         const pulse = 0.45 + Math.sin(t * 4) * 0.12;
         this.bossAbilityG.lineStyle(2, 0xa9c4dd, pulse);
@@ -448,7 +476,12 @@ export class FieldRenderer {
           for (const distance of [enemy.dist - 12, enemy.dist + 12]) {
             const portal = pointAt(distance);
             this.bossAbilityG.lineStyle(2, color, 0.35 + progress * 0.55);
-            this.bossAbilityG.strokeEllipse(FIELD_X + portal.x, FIELD_Y + portal.y + 5, 18, 8);
+            this.bossAbilityG.strokeEllipse(
+              this.metrics.x + portal.x * this.metrics.scale,
+              this.metrics.y + (portal.y + 5) * this.metrics.scale,
+              18 * this.metrics.scale,
+              8 * this.metrics.scale,
+            );
           }
         }
       } else if (enemy.round >= 60 && enemy.hp / enemy.maxHp <= 0.5) {
@@ -470,7 +503,7 @@ export class FieldRenderer {
 
   private updateHighlight(game: Game, placingTier: HandRank | null): void {
     this.highlightG.clear();
-    this.placementHint.setVisible(placingTier !== null);
+    this.placementHint.setVisible(placingTier !== null && !this.metrics.portrait);
     if (placingTier === null) return;
     const range = UNIT_DEFS[placingTier].range;
     const recommended = new Set(
@@ -482,21 +515,21 @@ export class FieldRenderer {
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
         if (isPlaceable(x, y) && !game.unitAt(x, y)) {
-          const sx = FIELD_X + x * TILE;
-          const sy = FIELD_Y + y * TILE;
+          const sx = this.metrics.x + x * this.metrics.tile;
+          const sy = this.metrics.y + y * this.metrics.tile;
           if (recommended.has(`${x},${y}`)) {
             this.highlightG.fillStyle(UI.goldNum, 0.08);
-            this.highlightG.fillRect(sx + 2, sy + 2, TILE - 5, TILE - 5);
+            this.highlightG.fillRect(sx + 2, sy + 2, this.metrics.tile - 5, this.metrics.tile - 5);
             this.highlightG.lineStyle(1.5, UI.goldNum, 0.55);
-            const edge = TILE - 8;
+            const edge = this.metrics.tile - 8;
             for (let offset = 0; offset < edge; offset += 8) {
               this.highlightG.lineBetween(sx + 4 + offset, sy + 4, sx + Math.min(10 + offset, edge + 4), sy + 4);
-              this.highlightG.lineBetween(sx + 4 + offset, sy + TILE - 4, sx + Math.min(10 + offset, edge + 4), sy + TILE - 4);
+              this.highlightG.lineBetween(sx + 4 + offset, sy + this.metrics.tile - 4, sx + Math.min(10 + offset, edge + 4), sy + this.metrics.tile - 4);
               this.highlightG.lineBetween(sx + 4, sy + 4 + offset, sx + 4, sy + Math.min(10 + offset, edge + 4));
-              this.highlightG.lineBetween(sx + TILE - 4, sy + 4 + offset, sx + TILE - 4, sy + Math.min(10 + offset, edge + 4));
+              this.highlightG.lineBetween(sx + this.metrics.tile - 4, sy + 4 + offset, sx + this.metrics.tile - 4, sy + Math.min(10 + offset, edge + 4));
             }
             this.highlightG.fillStyle(UI.goldNum, 0.9);
-            this.highlightG.fillCircle(sx + TILE / 2, sy + TILE / 2, 4);
+            this.highlightG.fillCircle(sx + this.metrics.tile / 2, sy + this.metrics.tile / 2, this.metrics.portrait ? 2.5 : 4);
           }
         }
       }
@@ -505,6 +538,7 @@ export class FieldRenderer {
 
   private updateRange(game: Game, selectedUnitId: number | null, placingTier: HandRank | null): void {
     this.rangeG.clear();
+    if (this.metrics.portrait) return;
     if (placingTier !== null) {
       const pointer = this.scene.input.activePointer;
       const tile = tileAtScreen(pointer.x, pointer.y);
@@ -547,10 +581,10 @@ export class FieldRenderer {
   private drawFx(f: Fx): void {
     const fade = Math.max(0, Math.min(1, f.ttl / f.duration));
     const progress = 1 - fade;
-    const x1 = FIELD_X + f.x1;
-    const y1 = FIELD_Y + f.y1;
-    const x2 = FIELD_X + f.x2;
-    const y2 = FIELD_Y + f.y2;
+    const x1 = this.metrics.x + f.x1 * this.metrics.scale;
+    const y1 = this.metrics.y + f.y1 * this.metrics.scale;
+    const x2 = this.metrics.x + f.x2 * this.metrics.scale;
+    const y2 = this.metrics.y + f.y2 * this.metrics.scale;
     const px = Phaser.Math.Linear(x1, x2, Math.min(1, progress * 1.45));
     const py = Phaser.Math.Linear(y1, y2, Math.min(1, progress * 1.45));
     const dx = x2 - x1;

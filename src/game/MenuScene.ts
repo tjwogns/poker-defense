@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  ACHIEVEMENTS, dailyDate, dailySeed, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, saveProfile,
+  ACHIEVEMENTS, dailyDate, dailySeed, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, Profile, saveProfile,
 } from '../meta/profile';
 import { dailyDateFromSearch } from '../meta/share';
 import { getAnalytics } from '../meta/analytics';
@@ -10,7 +10,7 @@ import { LeaderboardOverlay } from './LeaderboardOverlay';
 import { PatchNotesOverlay } from './PatchNotesOverlay';
 import { CURRENT_VERSION } from '../meta/patchNotes';
 import { leaderboardConfigured } from '../meta/leaderboard';
-import { isCompactTouchDevice } from './device';
+import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { preloadUnitSprites, UNIT_SPRITE_KEYS } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
@@ -38,6 +38,10 @@ export class MenuScene extends Phaser.Scene {
     const date = dailyDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
+    if (isPortraitLayout()) {
+      this.createPortraitMenu(profile, challengeDate, hasChallenge);
+      return;
+    }
     const graphics = this.add.graphics();
     graphics.fillGradientStyle(0x0d0c14, 0x1a1424, 0x08080c, 0x0d0c14, 1);
     graphics.fillRect(0, 0, 1280, 720);
@@ -189,6 +193,94 @@ export class MenuScene extends Phaser.Scene {
     analytics.track('menu_view', { challenge: hasChallenge });
     if (analytics.consent === 'unknown') {
       openData();
+    }
+    (window as unknown as { __menuReady?: boolean }).__menuReady = true;
+  }
+
+  private createPortraitMenu(initialProfile: Profile, challengeDate: string, hasChallenge: boolean): void {
+    let profile = initialProfile;
+    const analytics = getAnalytics();
+    const graphics = this.add.graphics();
+    graphics.fillGradientStyle(0x1a1424, 0x17121f, 0x08080c, 0x0d0c14, 1);
+    graphics.fillRect(0, 0, 390, 844);
+    graphics.lineStyle(1, UI.goldNum, 0.15).strokeRect(18, 18, 354, 808);
+
+    this.add.text(195, 290, '♠', {
+      fontFamily: FONT_DISPLAY, fontSize: '460px', color: UI.gold, fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0.03);
+    const dragon = this.add.image(195, 306, UNIT_SPRITE_KEYS[HandRank.RoyalFlush]!)
+      .setDisplaySize(264, 264).setAlpha(0.14).setTint(0xc9bda4);
+    this.tweens.add({ targets: dragon, y: 300, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+
+    graphics.lineStyle(1, UI.goldNum, 0.9).lineBetween(32, 102, 52, 102);
+    this.add.text(62, 95, 'POKER DEFENSE', {
+      fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold, letterSpacing: 3.3,
+    });
+    this.add.text(32, 118, 'ROYAL\nSIEGE', {
+      fontFamily: FONT_DISPLAY, fontSize: '82px', fontStyle: 'bold', color: UI.text, lineSpacing: -21,
+    });
+    makeText(
+      this, 32, 292,
+      '다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.',
+      15, '#a8a5b2',
+    ).setLineSpacing(8);
+
+    const left = 32;
+    const right = 358;
+    this.add.text(left, 432, 'COMMANDER RECORD', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#74727e', letterSpacing: 2.6,
+    });
+    const line = (y: number, gold = false) => graphics.lineStyle(
+      1, gold ? UI.goldNum : 0xf2ede3, gold ? 0.2 : 0.09,
+    ).lineBetween(left, y, right, y);
+    line(456, true);
+    makeText(this, left, 481, '최고 점수', 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, 465, profile.bestScore.toLocaleString(), {
+      fontFamily: FONT_DISPLAY, fontSize: '34px', fontStyle: 'bold', color: UI.gold,
+    }).setOrigin(1, 0);
+    line(516);
+    makeText(this, left, 538, '최고 라운드', 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, 526, `${profile.bestRound} / 60`, {
+      fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
+    }).setOrigin(1, 0);
+    line(560);
+    makeText(this, left, 582, '승리 · 출전', 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, 570, `${profile.wins} · ${profile.totalRuns}`, {
+      fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
+    }).setOrigin(1, 0);
+    line(604, true);
+    this.add.text(left, 615, 'DAILY TOP 10', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold, letterSpacing: 1.8,
+    });
+    makeText(this, right, 614, leaderboardConfigured() ? '내 순위 보기 →' : '랭킹 연결 대기', 12, UI.textDim)
+      .setOrigin(1, 0);
+
+    makeButton(this, 195, 667, 326, 62, '새 원정 시작', () => {
+      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
+    }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 19, radius: 31, stroke: UI.goldNum, strokeAlpha: 0.5 });
+    makeButton(this, 195, 735, 326, 54, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
+      this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 15, radius: 27, stroke: 0xf2ede3, strokeAlpha: 0.22 });
+
+    const sound = makeButton(this, 54, 796, 36, 36, profile.soundEnabled ? '♪' : '×', () => {
+      profile = { ...profile, soundEnabled: !profile.soundEnabled };
+      saveProfile(localStorage, profile);
+      sound.setLabel(profile.soundEnabled ? '♪' : '×');
+    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 14, radius: 18, strokeAlpha: 0.16 });
+    makeButton(this, 98, 796, 36, 36, 'i', () => {
+      new AnalyticsConsentOverlay(this, (allowed) => analytics.setConsent(allowed ? 'granted' : 'denied'));
+    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 18, strokeAlpha: 0.16 });
+    this.add.text(286, 791, CURRENT_VERSION, {
+      fontFamily: FONT_MONO, fontSize: '11px', color: UI.textFaint,
+    }).setOrigin(1, 0);
+    makeText(this, 358, 790, '패치 NEW', 11, UI.gold, true).setOrigin(1, 0);
+
+    analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait' });
+    if (analytics.consent === 'unknown') {
+      new AnalyticsConsentOverlay(this, (allowed) => {
+        analytics.setConsent(allowed ? 'granted' : 'denied');
+        if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge, layout: 'portrait' });
+      });
     }
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
   }

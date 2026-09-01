@@ -9,14 +9,39 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.0';
+export const CURRENT_VERSION = 'v2.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1',
+    title: 'PORTRAIT COMMAND',
+    date: '2026-09-01',
+    current: true,
+    sections: [
+      {
+        heading: '세로 모드',
+        items: [
+          '390×844 휴대폰에서 회전 안내 없이 메뉴·인게임·패배 분석을 바로 실행',
+          '17×12 전장을 세로 폭에 맞추고 손패·확정·배치·전투 조작을 하단 엄지 영역에 재배치',
+          '대표 문양 선택 버튼을 가능한 문양 수에 맞춰 중앙 정렬하고 안내 문구와 겹치지 않게 분리',
+          '패 확정 뒤 교환·확정 버튼을 배치 안내로 전환해 조작 영역 중복 제거',
+        ],
+      },
+      {
+        heading: '모바일 안정성',
+        items: [
+          '세로 화면을 차단하던 회전 오버레이를 제거하고 360px 미만 화면만 최소 크기 안내',
+          '게임 규칙 좌표와 화면 렌더링 좌표를 분리해 세로 전장에서도 동일한 사거리·전투 판정 유지',
+          '세로 보스 HUD·첫 실행 튜토리얼·익명 기록 동의·종료 화면을 모바일 크기에 맞게 조정',
+          '모바일 스모크와 레이아웃 회귀 테스트에 390×844·412×915 세로 화면 추가',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.0',
     title: 'DECK FOUNDATION',
     date: '2026-08-28',
-    current: true,
     sections: [
       {
         heading: '영속 덱과 정비소',

@@ -40,7 +40,6 @@ const landscape = await page.evaluate(() => {
   const canvas = document.querySelector('canvas');
   const rect = canvas?.getBoundingClientRect();
   return {
-    rotate: getComputedStyle(document.querySelector('#rotate')).display,
     gate: getComputedStyle(document.querySelector('#mobile-gate')).display,
     canvas: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
   };
@@ -77,22 +76,29 @@ await page.evaluate(() => {
 await new Promise((resolve) => setTimeout(resolve, 1800));
 await page.screenshot({ path: `${TMP}/s26-landscape-combat.png` });
 
-await page.setViewport({ width: 360, height: 780, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
-await new Promise((resolve) => setTimeout(resolve, 250));
+await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+await page.reload({ waitUntil: 'networkidle0' });
+await page.waitForFunction(() => window.__menuReady === true);
 const portrait = await page.evaluate(() => ({
-  rotate: getComputedStyle(document.querySelector('#rotate')).display,
   gate: getComputedStyle(document.querySelector('#mobile-gate')).display,
+  canvas: (() => {
+    const rect = document.querySelector('canvas')?.getBoundingClientRect();
+    return rect ? { width: rect.width, height: rect.height } : null;
+  })(),
 }));
 await browser.close();
 
 if (errors.length > 0) throw new Error(`브라우저 오류: ${errors.join(' | ')}`);
-if (landscape.rotate !== 'none' || landscape.gate !== 'none') {
+if (landscape.gate !== 'none') {
   throw new Error(`가로 실행 차단: ${JSON.stringify(landscape)}`);
 }
 if (landscape.canvas.width > 780 || landscape.canvas.height > 360) {
   throw new Error(`캔버스 화면 이탈: ${JSON.stringify(landscape.canvas)}`);
 }
-if (portrait.rotate === 'none') throw new Error(`세로 회전 안내 미표시: ${JSON.stringify(portrait)}`);
+if (portrait.gate !== 'none' || !portrait.canvas) throw new Error(`세로 실행 차단: ${JSON.stringify(portrait)}`);
+if (portrait.canvas.width > 390 || portrait.canvas.height > 844) {
+  throw new Error(`세로 캔버스 화면 이탈: ${JSON.stringify(portrait.canvas)}`);
+}
 console.log('MOBILE_SMOKE_OK');
 console.log(JSON.stringify({ landscape, portrait }));
 console.log('screenshots:', TMP);

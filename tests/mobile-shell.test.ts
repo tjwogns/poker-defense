@@ -11,6 +11,12 @@ describe('mobile shell', () => {
     expect(html).not.toContain('(max-height: 519px)');
   });
 
+  test('세로 화면을 회전 안내로 막지 않는다', () => {
+    expect(html).not.toContain('id="rotate"');
+    expect(html).not.toContain('화면을 가로로 돌려주세요');
+    expect(html).toContain('(max-width: 359px)');
+  });
+
   test('모바일 주소창 변화와 터치 스크롤을 제어한다', () => {
     expect(html).toContain('viewport-fit=cover');
     expect(html).toContain('height: 100dvh');

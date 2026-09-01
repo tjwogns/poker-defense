@@ -22,6 +22,21 @@ export const HAND_ODDS_SUMMARY_BOUNDS: UiRect = { x: 472, y: 616, width: 172, he
 export const HAND_ODDS_BUTTON_BOUNDS: UiRect = { x: 650, y: 616, width: 80, height: 42 };
 export const HAND_ACTION_BOUNDS: UiRect = { x: 472, y: 658, width: 247, height: 48 };
 
+export const PORTRAIT_LAYOUT = {
+  width: 390,
+  height: 844,
+  hud: { x: 0, y: 44, width: 390, height: 52 },
+  field: { x: 8, y: 106, width: 374, height: 264 },
+  nextWave: { x: 8, y: 382, width: 374, height: 58 },
+  handDividerY: 452,
+  handY: 524,
+  handSummaryY: 588,
+  coach: { x: 8, y: 622, width: 374, height: 36 },
+  action: { x: 8, y: 674, width: 374, height: 56 },
+  utility: { x: 8, y: 744, width: 374, height: 50 },
+  tile: 22,
+} as const;
+
 export function rectsOverlap(a: UiRect, b: UiRect): boolean {
   return a.x < b.x + b.width
     && a.x + a.width > b.x
