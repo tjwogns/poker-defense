@@ -3,14 +3,14 @@
 포커 족보로 유닛을 뽑아 순환 경로를 도는 적을 막는 웹 디펜스 게임.
 카드 조합, 군단 성장, 순환형 전장을 결합한 독립 오리지널 프로젝트다.
 
-## v2.2 Life Economy Lab (local prototype)
+## v2.2 Life Economy Lab (public experiment)
 
-- 공개 v2.1.2와 분리된 LAB 주소: `https://tjwogns.github.io/poker-defense/lab/` (배포 전)
+- 공개 v2.1.2와 분리된 LAB 주소: https://tjwogns.github.io/poker-defense/lab/
 - 로컬 개발 주소: `http://127.0.0.1:5173/?experiment=life`
 - 라이프 20, 일반 적의 침투 5칸당 −1, 보스 탈출 시 즉시 −3
 - 라운드당 무료 교환 3회, `날렵한 셔플` 등 교환 유물로 상한 증가
 - 이자 5%·기본 상한 25G 실험, 기존 강화·덱 개조·유물 구매 골드 소비처 유지
-- 아직 LAB 공개 배포·밸런스 확정 전이며 루트 클래식 모드는 변경하지 않음
+- LAB는 공개 실험 중이며 밸런스 확정 전, 루트 클래식 모드는 변경하지 않음
 
 ## v2.1.2 Relic Choice
 
