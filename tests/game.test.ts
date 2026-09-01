@@ -3,8 +3,9 @@ import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
 import {
-  START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME,
+  START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES,
 } from '../src/core/balance';
+import { PATH_LENGTH } from '../src/core/map';
 import { h } from './helpers';
 
 /** 라운드가 끝나 prep으로 돌아오거나 게임이 끝날 때까지 틱 진행 */
@@ -49,6 +50,25 @@ describe('Game state machine', () => {
     expect(g.doExchange()).toBe(true); // 10G
     expect(g.gold).toBe(START_GOLD - 10);
     expect(g.doExchange()).toBe(false); // 25G > 잔액 20G
+  });
+
+  test('생명·경제 실험 모드는 라운드당 무료 교환 3회로 제한한다', () => {
+    const g = new Game(202, 'life-economy');
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES);
+    expect(g.maxExchangesNow).toBe(3);
+    expect(g.exchangeCostNow).toBe(0);
+    expect(g.doExchange()).toBe(true);
+    expect(g.doExchange()).toBe(true);
+    expect(g.doExchange()).toBe(true);
+    expect(g.doExchange()).toBe(false);
+    expect(g.gold).toBe(START_GOLD);
+    expect(g.exchangesRemaining).toBe(0);
+  });
+
+  test('교환 유물은 생명·경제 실험 모드의 최대 교환 횟수를 늘린다', () => {
+    const g = new Game(203, 'life-economy');
+    g.relics.push('swift_shuffle');
+    expect(g.maxExchangesNow).toBe(4);
   });
 
   test('배치: 경로 타일 불가, 정상 타일 성공, 중복 타일 불가', () => {
@@ -183,6 +203,53 @@ describe('Game state machine', () => {
     for (let i = 0; i <= FIELD_CAP; i++) spawnEnemy(g.field, 'normal', 1, { dist: i });
     g.tickCombat(1 / 30);
     expect(g.phase).toBe('defeat');
+  });
+
+  test('생명 모드에서 적이 한 바퀴를 완주하면 제거되고 침투가 누적된다', () => {
+    const g = new Game(204, 'life-economy');
+    g.handConfirmed = true;
+    expect(g.startCombat()).toBe(true);
+    spawnEnemy(g.field, 'normal', 1, { dist: PATH_LENGTH - 1 });
+
+    const result = g.tickCombat(1 / 30)!;
+
+    expect(result.escaped).toHaveLength(1);
+    expect(result.escaped[0].alive).toBe(false);
+    expect(result.escaped[0].escaped).toBe(true);
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES);
+    expect(g.breach).toBe(1);
+    expect(g.escapedEnemies).toBe(1);
+    expect(g.gold).toBe(START_GOLD);
+  });
+
+  test('침투 5 이상이 쌓이면 라이프를 깎고 0이면 패배한다', () => {
+    const g = new Game(205, 'life-economy');
+    g.lives = 1;
+    g.handConfirmed = true;
+    g.startCombat();
+    for (let i = 0; i < 3; i++) spawnEnemy(g.field, 'tank', 12, { dist: PATH_LENGTH - 1 });
+
+    g.tickCombat(1 / 30);
+
+    expect(g.lives).toBe(0);
+    expect(g.breach).toBe(1);
+    expect(g.phase).toBe('defeat');
+    expect(g.defeatReason).toBe('life-depleted');
+  });
+
+  test('보스 탈출은 침투 게이지와 별개로 라이프 3을 즉시 깎는다', () => {
+    const g = new Game(206, 'life-economy');
+    g.lives = 3;
+    g.round = 10;
+    g.handConfirmed = true;
+    g.startCombat();
+    spawnEnemy(g.field, 'boss', 10, { dist: PATH_LENGTH - 1 });
+
+    g.tickCombat(1 / 30);
+
+    expect(g.lives).toBe(0);
+    expect(g.breach).toBe(0);
+    expect(g.defeatReason).toBe('life-depleted');
   });
 
   test('60라운드 최종 보스를 처치하지 못하면 제한시간 후 패배', () => {

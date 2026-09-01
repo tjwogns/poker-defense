@@ -20,6 +20,7 @@ export interface Enemy {
   bounty: number;
   round: number;     // 스폰된 라운드 (클리어 보너스 판정용)
   alive: boolean;
+  escaped: boolean;  // 생명 모드에서 한 바퀴를 완주해 전장을 이탈했는지
 }
 
 export interface Unit {
@@ -46,6 +47,7 @@ export interface AttackEvent {
 export interface TickResult {
   goldEarned: number;
   deaths: Enemy[];
+  escaped: Enemy[];
   attacks: AttackEvent[];
   bossEvents: BossEvent[];
   relicTriggers: RelicId[];
@@ -87,6 +89,7 @@ export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts:
     bounty: opts.bounty ?? (kind === 'boss' ? bossGold(round) : killGold(round)),
     round,
     alive: true,
+    escaped: false,
   };
   field.enemies.push(enemy);
   return enemy;
@@ -119,7 +122,7 @@ export function aliveEnemies(field: Field): Enemy[] {
 }
 
 function emptyResult(): TickResult {
-  return { goldEarned: 0, deaths: [], attacks: [], bossEvents: [], relicTriggers: [] };
+  return { goldEarned: 0, deaths: [], escaped: [], attacks: [], bossEvents: [], relicTriggers: [] };
 }
 
 function dist2(a: Pt, b: Pt): number {
@@ -142,6 +145,7 @@ function acquireTarget(field: Field, origin: Pt, rangePx: number): Enemy | null 
 
 function die(field: Field, enemy: Enemy, result: TickResult): void {
   enemy.alive = false;
+  enemy.escaped = false;
   result.goldEarned += enemy.bounty;
   result.deaths.push(enemy);
   if (ENEMY_KINDS[enemy.kind].splits) {
@@ -272,6 +276,7 @@ export function tick(
   dt: number,
   globalDmgMult: number,
   relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number = () => 1,
+  escapeDistance = Infinity,
 ): TickResult {
   const result = emptyResult();
   field.time += dt;
@@ -286,6 +291,12 @@ export function tick(
     const stunned = field.time < e.stunUntil;
     const speed = stunned ? 0 : ENEMY_BASE_SPEED * def.speedMult * boss.speedMultiplier * (slowed ? 1 - e.slowPct : 1);
     e.dist += speed * dt;
+    if (e.dist >= escapeDistance) {
+      e.alive = false;
+      e.escaped = true;
+      result.escaped.push(e);
+      continue;
+    }
     const regenPct = def.regenPctPerSec + boss.regenPctPerSec;
     if (regenPct > 0) {
       e.hp = Math.min(e.maxHp, e.hp + e.maxHp * regenPct * dt);

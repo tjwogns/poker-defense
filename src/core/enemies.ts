@@ -37,3 +37,10 @@ export function waveKind(round: number): EnemyKindId {
   const unlocked = ROTATION.filter((id) => ENEMY_KINDS[id].unlockRound <= round);
   return unlocked[round % unlocked.length];
 }
+
+/** 한 바퀴를 완주한 일반 적이 누적시키는 침투 게이지. */
+export function enemyBreachPoints(kind: EnemyKindId): number {
+  if (kind === 'boss') return 0;
+  if (kind === 'tank' || kind === 'regen' || kind === 'splitter') return 2;
+  return 1;
+}

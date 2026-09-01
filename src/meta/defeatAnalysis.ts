@@ -3,8 +3,9 @@ import { HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { HandMasteryLevels, MASTERABLE_HANDS } from '../core/mastery';
 
 export interface DefeatAnalysisInput {
-  reason: 'field-cap' | 'final-boss-timeout' | null;
+  reason: 'field-cap' | 'life-depleted' | 'final-boss-timeout' | null;
   round: number;
+  lives?: number;
   fieldCap: number;
   enemies: readonly {
     kind: string;
@@ -72,6 +73,9 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
   if (input.reason === 'final-boss-timeout') {
     addTip('최종 보스에는 스페이드 대표 문양과 고등급 단일 화력 유닛을 집중해보세요.');
   }
+  if (input.reason === 'life-depleted') {
+    addTip('입구와 마지막 코너에 화력을 나눠 배치해 빠른 적의 탈출을 먼저 막아보세요.');
+  }
   if (aliveBoss && input.reason === 'field-cap') {
     addTip(`R${aliveBoss.round} 보스가 이월 중입니다. 보스 집중 화력과 주력 족보 강화를 준비해보세요.`);
   } else if (input.reason === 'field-cap') {
@@ -86,6 +90,8 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
 
   const cause = input.reason === 'final-boss-timeout'
     ? `최종 보스 제한시간 ${FINAL_BOSS_MAX_TIME}초 종료`
+    : input.reason === 'life-depleted'
+      ? `왕국 라이프 ${input.lives ?? 0} · 적 탈출로 방어선 붕괴`
     : `필드 위협도 ${alive.length} / ${input.fieldCap} 도달`;
   const boss = aliveBoss
     ? `생존 보스 R${aliveBoss.round} · HP ${bossHpPercent}%`

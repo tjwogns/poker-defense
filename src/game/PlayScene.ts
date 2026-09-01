@@ -4,7 +4,7 @@ import { Enemy, TickResult, addUnit, enemyPos, spawnEnemy, unitPos } from '../co
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
-import { TICK_RATE } from '../core/balance';
+import { LIFE_MODE_BREACH_THRESHOLD, TICK_RATE } from '../core/balance';
 import { FieldRenderer, Fx, fieldScreenPoint, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
@@ -35,6 +35,7 @@ import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { attackFxBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
+import { isLifeLabLocation } from './experiment';
 
 const DT = 1 / TICK_RATE;
 
@@ -98,14 +99,15 @@ export class PlayScene extends Phaser.Scene {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
     this.runDate = data.date ?? dailyDate();
-    this.analytics = getAnalytics();
+    this.analytics = getAnalytics(isLifeLabLocation());
     this.runId = this.analytics.beginRun({ mode: this.mode, retry: data.retry ?? false });
     this.runStartedAt = performance.now();
   }
 
   create(): void {
     if (isPortraitLayout()) this.cameras.main.setBackgroundColor('#0a0a0f');
-    this.core = new Game(this.seedValue);
+    const localLifeExperiment = isLifeLabLocation();
+    this.core = new Game(this.seedValue, localLifeExperiment ? 'life-economy' : 'classic');
     this.speed = 1;
     this.acc = 0;
     this.fx = [];
@@ -915,6 +917,16 @@ export class PlayScene extends Phaser.Scene {
 
   private collectFx(result: TickResult): void {
     this.showRelicTriggers(result.relicTriggers, 'combat');
+    if (result.escaped.length > 0) {
+      this.flashCenter(
+        this.core.lastLifeDamage > 0
+          ? `라이프 −${this.core.lastLifeDamage} · 남은 ${this.core.lives}`
+          : `적 ${result.escaped.length}기 침투 · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
+        UI.danger,
+      );
+      if (!this.reducedMotion()) this.cameras.main.shake(140, 0.003);
+      this.audio.play('lose');
+    }
     for (const event of result.bossEvents) {
       if (event.type === 'tax') {
         this.flashCenter(`황금 폭군  −${event.amount}G`, UI.danger);
@@ -1096,6 +1108,8 @@ export class PlayScene extends Phaser.Scene {
       ? '최종 보스를 격파하고 왕좌를 지켰습니다'
       : this.core.defeatReason === 'final-boss-timeout'
         ? '제한시간 안에 최종 보스를 격파하지 못했습니다'
+        : this.core.defeatReason === 'life-depleted'
+          ? `라운드 ${this.core.round}에서 왕국의 라이프를 모두 잃었습니다`
         : `라운드 ${this.core.round}에서 필드가 뚫렸습니다`;
     this.audio.play(won ? 'win' : 'lose');
     this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
@@ -1103,6 +1117,7 @@ export class PlayScene extends Phaser.Scene {
     const analysis = won ? null : analyzeDefeat({
       reason: this.core.defeatReason,
       round: this.core.round,
+      lives: this.core.lives,
       fieldCap: this.core.fieldCap,
       enemies: this.core.field.enemies,
       unitTiers: this.core.field.units.map((unit) => unit.tier),

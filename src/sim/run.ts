@@ -3,7 +3,7 @@
  * 휴리스틱 전략으로 자동 플레이해 클리어율/도달 라운드 통계를 낸다.
  * core만 import — 렌더링 의존성 없음.
  */
-import { DeckSealId, Game } from '../core/game';
+import { DeckSealId, Game, GameRuleset } from '../core/game';
 import { Card, HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
 import { GRID_W, GRID_H, isPlaceable, tileCanReachPath } from '../core/map';
@@ -282,6 +282,9 @@ interface GameStats {
   deckSize: number;
   goldEnd: number;
   finalBossHpPct: number;
+  livesEnd: number;
+  escapedEnemies: number;
+  lifeDamageTaken: number;
 }
 
 function playGame(
@@ -291,8 +294,9 @@ function playGame(
   masteryStrategy: MasteryStrategy = 'skip',
   upgradeFromRound = 1,
   forcedHands: ReadonlyMap<number, readonly Card[]> = new Map(),
+  ruleset: GameRuleset = 'classic',
 ): GameStats {
-  const g = new Game(seed);
+  const g = new Game(seed, ruleset);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
     handCounts: Array(HandRank.FlushFive + 1).fill(0), score: 0,
@@ -300,6 +304,7 @@ function playGame(
     sealSpend: 0, relicPurchases: 0, relicSpend: 0, masteryPurchases: 0, masterySpend: 0,
     deckSize: 52, goldEnd: 0,
     finalBossHpPct: 1,
+    livesEnd: g.lives, escapedEnemies: 0, lifeDamageTaken: 0,
   };
   const dt = 1 / 30;
   let guard = 0;
@@ -317,6 +322,9 @@ function playGame(
   stats.score = g.score;
   stats.deckSize = g.deckSize;
   stats.goldEnd = g.gold;
+  stats.livesEnd = g.lives;
+  stats.escapedEnemies = g.escapedEnemies;
+  stats.lifeDamageTaken = g.lifeDamageTaken;
   const finalBoss = g.field.enemies.find((enemy) => enemy.kind === 'boss' && enemy.round === 60);
   stats.finalBossHpPct = finalBoss ? Math.max(0, finalBoss.hp / finalBoss.maxHp) : 0;
   return stats;
@@ -329,6 +337,7 @@ if (strategyArg === 'compare') printComparison(games);
 else if (strategyArg === 'relic-compare') printRelicComparison(games);
 else if (strategyArg === 'hidden-compare') printHiddenComparison(games);
 else if (strategyArg === 'mastery-compare') printMasteryComparison(games);
+else if (strategyArg === 'life-compare') printLifeComparison(games);
 else if (strategyArg === 'clear') printClearAttempt(runClearGames(games, 1), 1);
 else if (strategyArg === 'clear-delay30') printClearAttempt(runClearGames(games, 31), 31);
 else if (strategyArg === 'clear-high6') printClearAttempt(runHighHandGames(games), 1, '고족보 6회');
@@ -351,6 +360,32 @@ function runMasteryGames(count: number, strategy: MasteryStrategy): GameStats[] 
     { length: count },
     (_, index) => playGame(index + 1, 'both', 'targeted', strategy),
   );
+}
+
+function runLifeGames(count: number): GameStats[] {
+  return Array.from(
+    { length: count },
+    (_, index) => playGame(index + 1, 'both', 'targeted', 'low', 1, new Map(), 'life-economy'),
+  );
+}
+
+function printLifeComparison(count: number): void {
+  const classic = runClearGames(count, 1);
+  const life = runLifeGames(count);
+  const summary = (label: string, games: GameStats[]) => {
+    const wins = games.filter((game) => game.result === 'victory').length;
+    const average = (pick: (game: GameStats) => number) => games.reduce((sum, game) => sum + pick(game), 0) / games.length;
+    console.log(
+      `${label.padEnd(12)} 승리 ${String(wins).padStart(3)}/${games.length}`
+      + ` · 평균 R${average((game) => game.roundReached).toFixed(1)}`
+      + ` · 골드 ${average((game) => game.goldEnd).toFixed(0)}`
+      + ` · 라이프 ${average((game) => game.livesEnd).toFixed(1)}`
+      + ` · 탈출 ${average((game) => game.escapedEnemies).toFixed(1)}`,
+    );
+  };
+  console.log(`\n생명·경제 실험 비교 · 동일 시드 ${count}판`);
+  summary('기존 규칙', classic);
+  summary('LIFE LAB', life);
 }
 
 /** 클리어 지향 빌드의 강화 시작 라운드를 바꿔 동일 시드로 비교한다. */

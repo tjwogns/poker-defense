@@ -15,6 +15,7 @@ import { preloadUnitSprites, UNIT_SPRITE_KEYS } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
 import { preloadRelicSprites } from './relicAssets';
+import { isLifeLabLocation } from './experiment';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -34,12 +35,13 @@ export class MenuScene extends Phaser.Scene {
 
     let profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, profile);
-    const analytics = getAnalytics();
+    const lifeLab = isLifeLabLocation();
+    const analytics = getAnalytics(lifeLab);
     const date = dailyDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
     if (isPortraitLayout()) {
-      this.createPortraitMenu(profile, challengeDate, hasChallenge);
+      this.createPortraitMenu(profile, challengeDate, hasChallenge, lifeLab);
       return;
     }
     const graphics = this.add.graphics();
@@ -64,6 +66,9 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold,
       letterSpacing: 3.7,
     });
+    if (lifeLab) {
+      makeText(this, 330, 91, 'LIFE ECONOMY LAB', 11, '#7fd9a4', true).setLetterSpacing(2);
+    }
     this.add.text(88, 112, 'ROYAL\nSIEGE', {
       fontFamily: FONT_DISPLAY,
       fontSize: '112px',
@@ -73,11 +78,13 @@ export class MenuScene extends Phaser.Scene {
     });
     makeText(
       this, 92, 382,
-      '다섯 장의 패로 군단을 뽑고, 순환하는 전장에서 60라운드를 버텨냅니다.',
+      lifeLab
+        ? '라이프 20과 침투 게이지를 지키며 새로운 경제 규칙을 시험합니다.'
+        : '다섯 장의 패로 군단을 뽑고, 순환하는 전장에서 60라운드를 버텨냅니다.',
       17, '#a8a5b2',
     ).setWordWrapWidth(470, true).setLineSpacing(10);
 
-    makeButton(this, 202, 500, 228, 66, '새 원정 시작', () => {
+    makeButton(this, 202, 500, 228, 66, lifeLab ? 'LIFE LAB 시작' : '새 원정 시작', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fill: UI.goldNum, fontSize: 19, radius: 33, stroke: UI.goldNum, strokeAlpha: 0.5 });
     makeButton(this, 402, 500, 168, 66, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
@@ -191,15 +198,15 @@ export class MenuScene extends Phaser.Scene {
       11, UI.textFaint,
     );
     analytics.track('menu_view', { challenge: hasChallenge });
-    if (analytics.consent === 'unknown') {
+    if (!lifeLab && analytics.consent === 'unknown') {
       openData();
     }
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
   }
 
-  private createPortraitMenu(initialProfile: Profile, challengeDate: string, hasChallenge: boolean): void {
+  private createPortraitMenu(initialProfile: Profile, challengeDate: string, hasChallenge: boolean, lifeLab: boolean): void {
     let profile = initialProfile;
-    const analytics = getAnalytics();
+    const analytics = getAnalytics(lifeLab);
     const graphics = this.add.graphics();
     graphics.fillGradientStyle(0x1a1424, 0x17121f, 0x08080c, 0x0d0c14, 1);
     graphics.fillRect(0, 0, 390, 844);
@@ -216,12 +223,15 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(62, 95, 'POKER DEFENSE', {
       fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold, letterSpacing: 3.3,
     });
+    if (lifeLab) makeText(this, 358, 95, 'LIFE LAB', 10, '#7fd9a4', true).setOrigin(1, 0);
     this.add.text(32, 118, 'ROYAL\nSIEGE', {
       fontFamily: FONT_DISPLAY, fontSize: '82px', fontStyle: 'bold', color: UI.text, lineSpacing: -21,
     });
     makeText(
       this, 32, 292,
-      '다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.',
+      lifeLab
+        ? '라이프 20과 침투 게이지로\n새로운 방어 규칙을 시험합니다.'
+        : '다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.',
       15, '#a8a5b2',
     ).setLineSpacing(8);
 
@@ -255,7 +265,7 @@ export class MenuScene extends Phaser.Scene {
     makeText(this, right, 614, leaderboardConfigured() ? '내 순위 보기 →' : '랭킹 연결 대기', 12, UI.textDim)
       .setOrigin(1, 0);
 
-    makeButton(this, 195, 667, 326, 62, '새 원정 시작', () => {
+    makeButton(this, 195, 667, 326, 62, lifeLab ? 'LIFE LAB 시작' : '새 원정 시작', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 19, radius: 31, stroke: UI.goldNum, strokeAlpha: 0.5 });
     makeButton(this, 195, 735, 326, 54, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
@@ -276,7 +286,7 @@ export class MenuScene extends Phaser.Scene {
     makeText(this, 358, 790, '패치 NEW', 11, UI.gold, true).setOrigin(1, 0);
 
     analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait' });
-    if (analytics.consent === 'unknown') {
+    if (!lifeLab && analytics.consent === 'unknown') {
       new AnalyticsConsentOverlay(this, (allowed) => {
         analytics.setConsent(allowed ? 'granted' : 'denied');
         if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge, layout: 'portrait' });

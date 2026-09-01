@@ -230,10 +230,15 @@ export class HandBar {
     }
 
     const cost = g.exchangeCostNow;
-    this.exchangeBtn.setLabel(this.portrait
-      ? cost === 0 ? '교환\n무료' : `교환\n${cost}G`
-      : cost === 0 ? '교환\n무료 · E' : `교환\n${cost}G · E`);
-    this.exchangeBtn.setEnabled(inPrep && !g.handConfirmed && g.gold >= cost);
+    const remaining = g.exchangesRemaining;
+    this.exchangeBtn.setLabel(g.lifeMode
+      ? this.portrait ? `교환\n${remaining}회 남음` : `교환 ${remaining}/${g.maxExchangesNow}\nE`
+      : this.portrait
+        ? cost === 0 ? '교환\n무료' : `교환\n${cost}G`
+        : cost === 0 ? '교환\n무료 · E' : `교환\n${cost}G · E`);
+    this.exchangeBtn.setEnabled(
+      inPrep && !g.handConfirmed && g.gold >= cost && (remaining === null || remaining > 0),
+    );
     this.confirmBtn.setLabel(needsSuitChoice ? '문양 선택 필요' : this.portrait ? '이 패로 확정' : '이 패로 확정\nENTER');
     this.confirmBtn.setEnabled(inPrep && !g.handConfirmed && !needsSuitChoice);
     if (this.portrait) {

@@ -196,8 +196,20 @@ export class Analytics {
 }
 
 let singleton: Analytics | null = null;
+let localOnlySingleton: Analytics | null = null;
 
-export function getAnalytics(): Analytics {
+export function getAnalytics(localOnly = false): Analytics {
+  if (localOnly) {
+    if (!localOnlySingleton) {
+      const memory = new Map<string, string>();
+      localOnlySingleton = new Analytics({
+        getItem: (key) => memory.get(key) ?? null,
+        setItem: (key, value) => { memory.set(key, value); },
+      }, { endpoint: '' });
+      localOnlySingleton.setConsent('denied');
+    }
+    return localOnlySingleton;
+  }
   if (!singleton) {
     singleton = new Analytics(localStorage, {
       endpoint: import.meta.env.VITE_ANALYTICS_ENDPOINT,

@@ -23,14 +23,18 @@ export function firstRunCoachHint(game: Game): CoachHint | null {
     return {
       step: 1,
       title: '첫 전투',
-      body: `필드 적 ${aliveEnemies(game.field).length}/${game.fieldCap} · ${game.fieldCap}기를 초과하기 전에 처치하세요.`,
+      body: game.lifeMode
+        ? `왕국 라이프 ${game.lives} · 적이 한 바퀴를 완주하기 전에 처치하세요.`
+        : `필드 적 ${aliveEnemies(game.field).length}/${game.fieldCap} · ${game.fieldCap}기를 초과하기 전에 처치하세요.`,
     };
   }
   if (game.round === 2) {
     if (game.phase === 'prep') {
       return { step: 2, title: '사거리와 성장', body: '추천 칸은 경로에 닿습니다. 필요하면 강화하거나 기존 유닛을 재배치하세요.' };
     }
-    return { step: 2, title: '위험도 읽기', body: '필드 적 수가 60%·80%에 닿으면 주황·빨강 경고가 표시됩니다.' };
+    return game.lifeMode
+      ? { step: 2, title: '라이프 지키기', body: '빠른 적은 입구와 마지막 코너 양쪽에서 공격해 탈출을 막으세요.' }
+      : { step: 2, title: '위험도 읽기', body: '필드 적 수가 60%·80%에 닿으면 주황·빨강 경고가 표시됩니다.' };
   }
   return {
     step: 3,

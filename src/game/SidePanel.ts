@@ -3,7 +3,10 @@ import { Game } from '../core/game';
 import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO, SUIT_GLYPHS, HandRank } from '../core/cards/types';
-import { FINAL_BOSS_MAX_TIME, ROUNDS, SELL_REFUND, upgradeMultiplier } from '../core/balance';
+import {
+  FINAL_BOSS_MAX_TIME, LIFE_MODE_BREACH_THRESHOLD, LIFE_MODE_STARTING_LIVES,
+  ROUNDS, SELL_REFUND, upgradeMultiplier,
+} from '../core/balance';
 import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, FONT, FONT_DISPLAY, FONT_MONO, UI, makeButton, makeText } from './ui';
@@ -341,16 +344,22 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`ROUND ${g.round}`);
     this.roundSub.setText(`/ ${ROUNDS}`);
-    this.modeText.setText(mode === 'daily' ? 'DAILY' : 'STANDARD');
+    this.modeText.setText(g.lifeMode ? 'LIFE LAB' : mode === 'daily' ? 'DAILY' : 'STANDARD');
 
     const alive = aliveEnemies(g.field).length;
-    const ratio = Math.min(1, alive / g.fieldCap);
-    const band = threatBand(alive, g.fieldCap);
+    const ratio = g.lifeMode
+      ? Math.max(0, Math.min(1, g.lives / LIFE_MODE_STARTING_LIVES))
+      : Math.min(1, alive / g.fieldCap);
+    const band = g.lifeMode
+      ? g.lives <= 5 ? 'critical' : g.lives <= 10 ? 'warning' : 'safe'
+      : threatBand(alive, g.fieldCap);
     const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? UI.goldNum : UI.safe;
     this.gaugeFg.width = 400 * ratio;
     this.gaugeFg.setFillStyle(threatColor);
-    this.threatTitle.setText(threatTitle(g.fieldCap));
-    this.gaugeText.setText(threatLabel(alive, g.fieldCap));
+    this.threatTitle.setText(g.lifeMode ? '왕국 라이프 · 적 한 바퀴 완주 시 감소' : threatTitle(g.fieldCap));
+    this.gaugeText.setText(
+      g.lifeMode ? `♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · 침투 ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}` : threatLabel(alive, g.fieldCap),
+    );
     if (band !== this.lastThreatBand && band !== 'safe') {
       this.scene.tweens.killTweensOf(this.gaugeText);
       this.gaugeText.setScale(1.12);
@@ -425,14 +434,21 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`R${g.round}`);
     this.roundSub.setText(`/${ROUNDS}`);
-    this.modeText.setText(mode === 'daily' ? 'DAILY' : 'STANDARD');
+    this.modeText.setText(g.lifeMode ? 'LIFE LAB' : mode === 'daily' ? 'DAILY' : 'STANDARD');
     const alive = aliveEnemies(g.field).length;
-    const ratio = Math.min(1, alive / g.fieldCap);
-    const band = threatBand(alive, g.fieldCap);
+    const ratio = g.lifeMode
+      ? Math.max(0, Math.min(1, g.lives / LIFE_MODE_STARTING_LIVES))
+      : Math.min(1, alive / g.fieldCap);
+    const band = g.lifeMode
+      ? g.lives <= 5 ? 'critical' : g.lives <= 10 ? 'warning' : 'safe'
+      : threatBand(alive, g.fieldCap);
     const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? UI.goldNum : UI.safe;
     this.gaugeFg.width = 180 * ratio;
     this.gaugeFg.setFillStyle(threatColor);
-    this.gaugeText.setText(threatLabel(alive, g.fieldCap));
+    this.threatTitle.setText(g.lifeMode ? 'LIFE' : 'THREAT');
+    this.gaugeText.setText(
+      g.lifeMode ? `♥ ${g.lives} · 침투 ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}` : threatLabel(alive, g.fieldCap),
+    );
     this.goldText.setText(`G ${g.gold.toLocaleString()}`);
 
     const wave = g.nextWave();

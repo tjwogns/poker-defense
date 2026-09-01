@@ -51,8 +51,9 @@ jobs:
 
       - name: Assemble site
         run: |
-          mkdir -p site/v2
+          mkdir -p site/v2 site/lab
           cp -R release/dist/. site/
+          cp -R release/dist/. site/lab/
           printf '%s\n' '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>포커 디펜스</title><script>location.replace("../"+location.search+location.hash)</script><a href="../">포커 디펜스 실행</a>' > site/v2/index.html
 
       - name: Configure Pages

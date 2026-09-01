@@ -7,13 +7,15 @@ import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
   FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
+  LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BOSS_ESCAPE_DAMAGE, LIFE_MODE_BREACH_THRESHOLD,
+  LIFE_MODE_FIELD_CAP, LIFE_MODE_STARTING_LIVES,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
-import { EnemyKindId, ENEMY_KINDS, waveKind } from './enemies';
+import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveKind } from './enemies';
 import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
-import { isPlaceable, tileCanReachPath } from './map';
+import { PATH_LENGTH, isPlaceable, tileCanReachPath } from './map';
 import { UNIT_DEFS } from './units';
 import {
   RelicId,
@@ -43,7 +45,8 @@ import {
 } from './cards/handIdentity';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
-export type DefeatReason = 'field-cap' | 'final-boss-timeout';
+export type DefeatReason = 'field-cap' | 'life-depleted' | 'final-boss-timeout';
+export type GameRuleset = 'classic' | 'life-economy';
 export type DeckSealId = 'banish' | 'duplicate';
 export type DeckEditStatus =
   | 'ready'
@@ -69,6 +72,11 @@ export class Game {
   kills = 0;
   bestHand: HandRank = HandRank.HighCard;
   defeatReason: DefeatReason | null = null;
+  lives: number;
+  breach = 0;
+  escapedEnemies = 0;
+  lifeDamageTaken = 0;
+  lastLifeDamage = 0;
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -98,6 +106,7 @@ export class Game {
   field: Field = createField();
 
   readonly seed: number;
+  readonly ruleset: GameRuleset;
   private readonly runDeck: RunDeck;
   private rng: Rng;
   private spawnQueue: EnemyKindId[] = [];
@@ -114,8 +123,10 @@ export class Game {
   private maintenanceMasteries = new Map<number, MasterableHandRank | null>();
   private pendingMaintenanceRound: number | null = null;
 
-  constructor(seed: number) {
+  constructor(seed: number, ruleset: GameRuleset = 'classic') {
     this.seed = seed;
+    this.ruleset = ruleset;
+    this.lives = ruleset === 'life-economy' ? LIFE_MODE_STARTING_LIVES : 0;
     this.rng = mulberry32(seed);
     this.runDeck = new RunDeck();
     this.hand = this.runDeck.draw(this.rng);
@@ -330,6 +341,7 @@ export class Game {
   }
 
   get exchangeCostNow(): number {
+    if (this.lifeMode) return 0;
     const mods = relicModifiers(this.relics, this.deckSize);
     return Math.ceil(
       exchangeCost(Math.max(0, this.exchangesUsed - (mods.freeExchanges - 1)))
@@ -339,6 +351,7 @@ export class Game {
 
   doExchange(): boolean {
     if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return false;
+    if (this.exchangesUsed >= this.maxExchangesNow) return false;
     const cost = this.exchangeCostNow;
     if (this.gold < cost) return false;
     const baseFreeExchanges = this.relics.includes('swift_shuffle') ? 2 : 1;
@@ -512,15 +525,32 @@ export class Game {
   }
 
   get fieldCap(): number {
-    return Math.max(20, FIELD_CAP + relicModifiers(this.relics).fieldCapBonus);
+    const base = this.lifeMode ? LIFE_MODE_FIELD_CAP : FIELD_CAP;
+    return Math.max(20, base + relicModifiers(this.relics).fieldCapBonus);
+  }
+
+  get lifeMode(): boolean {
+    return this.ruleset === 'life-economy';
+  }
+
+  get maxExchangesNow(): number {
+    if (!this.lifeMode) return Infinity;
+    const relicBonus = Math.max(0, relicModifiers(this.relics, this.deckSize).freeExchanges - 1);
+    return LIFE_MODE_BASE_EXCHANGES + relicBonus;
+  }
+
+  get exchangesRemaining(): number | null {
+    return this.lifeMode ? Math.max(0, this.maxExchangesNow - this.exchangesUsed) : null;
   }
 
   get interestNow(): number {
     const mods = relicModifiers(this.relics);
+    const rulesetRate = this.lifeMode ? INTEREST_RATE * 0.5 : INTEREST_RATE;
+    const rulesetCap = this.lifeMode ? Math.floor(INTEREST_CAP * 0.5) : INTEREST_CAP;
     return interest(
       this.gold,
-      INTEREST_RATE * mods.interestMultiplier,
-      INTEREST_CAP + mods.interestCapBonus,
+      rulesetRate * mods.interestMultiplier,
+      rulesetCap + mods.interestCapBonus,
     );
   }
 
@@ -615,6 +645,7 @@ export class Game {
 
   tickCombat(dt: number): TickResult | null {
     if (this.phase !== 'combat') return null;
+    this.lastLifeDamage = 0;
 
     this.spawnTimer -= dt;
     while (this.spawnQueue.length > 0 && this.spawnTimer <= 0) {
@@ -632,6 +663,7 @@ export class Game {
         for (const id of relicDamage.active) triggeredRelics.add(id);
         return relicDamage.multiplier * handMasteryMultiplier(this.handMastery, unit.tier);
       },
+      this.lifeMode ? PATH_LENGTH : Infinity,
     );
     result.relicTriggers = [...triggeredRelics];
     let diamondBonusGold = 0;
@@ -653,6 +685,30 @@ export class Game {
       (total, enemy) => total + scoreForKills(enemy.round, 1),
       0,
     );
+
+    if (this.lifeMode && result.escaped.length > 0) {
+      const bossDamage = result.escaped.reduce(
+        (total, enemy) => total + (enemy.kind === 'boss' ? LIFE_MODE_BOSS_ESCAPE_DAMAGE : 0),
+        0,
+      );
+      const breachAdded = result.escaped.reduce(
+        (total, enemy) => total + enemyBreachPoints(enemy.kind),
+        0,
+      );
+      const accumulatedBreach = this.breach + breachAdded;
+      const breachDamage = Math.floor(accumulatedBreach / LIFE_MODE_BREACH_THRESHOLD);
+      this.breach = accumulatedBreach % LIFE_MODE_BREACH_THRESHOLD;
+      const damage = bossDamage + breachDamage;
+      this.lastLifeDamage = damage;
+      this.escapedEnemies += result.escaped.length;
+      this.lifeDamageTaken += damage;
+      this.lives = Math.max(0, this.lives - damage);
+      if (this.lives === 0) {
+        this.defeatReason = 'life-depleted';
+        this.phase = 'defeat';
+        return result;
+      }
+    }
 
     const taxBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 40);
     while (taxBoss && this.field.time >= this.nextBossTaxAt) {
@@ -698,17 +754,22 @@ export class Game {
 
   private endRound(): void {
     const completedRound = this.round;
+    const completedBoss = this.field.enemies.find(
+      (enemy) => enemy.kind === 'boss' && enemy.round === completedRound,
+    );
     const bossDefeated = completedRound % BOSS_EVERY === 0
-      && !this.field.enemies.some(
-        (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === completedRound,
-      );
+      && completedBoss !== undefined
+      && !completedBoss.alive
+      && !completedBoss.escaped;
 
     // 보스는 제한시간 후 다음 라운드로 이월될 수 있다. 처치한 시점의 현재
     // 라운드가 아니라 보스가 등장한 라운드를 기준으로 미수령 보상을 적립한다.
     this.queueDefeatedBossRewards();
 
     // 이번 라운드 스폰분(분열 자식 포함) 전멸 시 클리어 보너스
-    const roundCleared = !this.field.enemies.some((e) => e.round === completedRound && e.alive);
+    // 생명 모드에서는 탈출 자체가 이미 라이프 손실이므로, 웨이브가 모두
+    // 해결됐다면 성장 골드까지 중복으로 박탈하지 않는다.
+    const roundCleared = !this.field.enemies.some((enemy) => enemy.round === completedRound && enemy.alive);
     if (roundCleared) {
       this.gold += clearBonus(completedRound);
       this.score += scoreForRoundClear(completedRound);
@@ -748,6 +809,7 @@ export class Game {
       if (
         boss.kind !== 'boss'
         || boss.alive
+        || boss.escaped
         || boss.round >= ROUNDS
         || this.queuedBossRewardRounds.has(boss.round)
       ) continue;

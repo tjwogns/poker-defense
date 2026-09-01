@@ -53,6 +53,17 @@ describe('defeat analysis', () => {
     expect(analysis.aliveEnemies).toBe(81);
   });
 
+  test('라이프 소진 패배는 적 탈출 원인과 배치 조언을 알려준다', () => {
+    const input = baseInput();
+    input.reason = 'life-depleted';
+    input.lives = 0;
+
+    const analysis = analyzeDefeat(input);
+
+    expect(analysis.cause).toContain('적 탈출');
+    expect(analysis.tips[0]).toContain('입구와 마지막 코너');
+  });
+
   test('이월 보스가 남은 필드 패배에는 보스 대응 조언을 제공한다', () => {
     const input = baseInput();
     input.bestHand = HandRank.Flush;

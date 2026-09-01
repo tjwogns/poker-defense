@@ -16,6 +16,13 @@ export const UNIT_CAP = 30;           // 배치 상한
 export const BOSS_EVERY = 10;
 export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;
 
+// ── v2.2 생명·경제 실험 모드 ─────────────────────────
+export const LIFE_MODE_STARTING_LIVES = 20;
+export const LIFE_MODE_FIELD_CAP = 120; // 렌더링·성능 보호용 비상 상한
+export const LIFE_MODE_BASE_EXCHANGES = 3;
+export const LIFE_MODE_BREACH_THRESHOLD = 5;
+export const LIFE_MODE_BOSS_ESCAPE_DAMAGE = 3;
+
 // ── 적 ────────────────────────────────────────────────
 export const ENEMY_BASE_HP = 18;
 export const ENEMY_HP_GROWTH = 1.14;
