@@ -15,7 +15,7 @@ import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveKind } from './enemies
 import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
-import { PATH_LENGTH, isPlaceable, tileCanReachPath } from './map';
+import { MapId, isPlaceable, pathLength, tileCanReachPath } from './map';
 import { UNIT_DEFS } from './units';
 import {
   RelicId,
@@ -103,10 +103,11 @@ export class Game {
   lastRelicGoldBonus = 0;
   lastPairBrokerBonus = false;
   lastRelicTriggers: RelicId[] = [];
-  field: Field = createField();
+  field: Field;
 
   readonly seed: number;
   readonly ruleset: GameRuleset;
+  readonly mapId: MapId;
   private readonly runDeck: RunDeck;
   private rng: Rng;
   private spawnQueue: EnemyKindId[] = [];
@@ -126,6 +127,8 @@ export class Game {
   constructor(seed: number, ruleset: GameRuleset = 'classic') {
     this.seed = seed;
     this.ruleset = ruleset;
+    this.mapId = ruleset === 'life-economy' ? 'cross-road' : 'classic-ring';
+    this.field = createField(this.mapId);
     this.lives = ruleset === 'life-economy' ? LIFE_MODE_STARTING_LIVES : 0;
     this.rng = mulberry32(seed);
     this.runDeck = new RunDeck();
@@ -431,8 +434,8 @@ export class Game {
     if (this.pendingUnits.length === 0) return false;
     if (this.field.units.length >= UNIT_CAP) return false;
     const tier = this.pendingUnits[0];
-    if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
-    if (!tileCanReachPath(tx, ty, UNIT_DEFS[tier].range)) return false;
+    if (!isPlaceable(tx, ty, this.mapId) || this.unitAt(tx, ty)) return false;
+    if (!tileCanReachPath(tx, ty, UNIT_DEFS[tier].range, this.mapId)) return false;
     addUnit(
       this.field,
       this.pendingUnits.shift()!,
@@ -458,8 +461,8 @@ export class Game {
     if (this.phase !== 'prep' || this.maintenancePending) return false;
     const unit = this.field.units.find((u) => u.id === unitId);
     if (!unit) return false;
-    if (!isPlaceable(tx, ty) || this.unitAt(tx, ty)) return false;
-    if (!tileCanReachPath(tx, ty, UNIT_DEFS[unit.tier].range)) return false;
+    if (!isPlaceable(tx, ty, this.mapId) || this.unitAt(tx, ty)) return false;
+    if (!tileCanReachPath(tx, ty, UNIT_DEFS[unit.tier].range, this.mapId)) return false;
     unit.tx = tx;
     unit.ty = ty;
     return true;
@@ -663,7 +666,7 @@ export class Game {
         for (const id of relicDamage.active) triggeredRelics.add(id);
         return relicDamage.multiplier * handMasteryMultiplier(this.handMastery, unit.tier);
       },
-      this.lifeMode ? PATH_LENGTH : Infinity,
+      this.lifeMode ? pathLength(this.mapId) : Infinity,
     );
     result.relicTriggers = [...triggeredRelics];
     let diamondBonusGold = 0;

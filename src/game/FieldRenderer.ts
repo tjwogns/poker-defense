@@ -5,7 +5,8 @@ import { enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
 import {
-  GRID_W, GRID_H, TILE, isPathTile, isPlaceable, pointAt, recommendedPlacementTiles, tileCanReachPath, tileCenter,
+  GRID_W, GRID_H, MapId, TILE, isPathTile, isPlaceable, pathCorners, pointAt,
+  recommendedPlacementTiles, tileCanReachPath, tileCenter,
 } from '../core/map';
 import { UI, FONT, FONT_DISPLAY } from './ui';
 import { UNIT_SPRITE_KEYS } from './unitAssets';
@@ -246,9 +247,11 @@ export class FieldRenderer {
   private enemyViews = new Map<number, EnemyView>();
   private unitViews = new Map<number, UnitView>();
   private metrics: FieldMetrics;
+  private mapId: MapId;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, mapId: MapId = 'classic-ring') {
     this.scene = scene;
+    this.mapId = mapId;
     this.metrics = currentFieldMetrics();
     this.drawStatic();
     this.highlightG = scene.add.graphics().setDepth(1);
@@ -276,23 +279,44 @@ export class FieldRenderer {
       for (let y = 0; y < GRID_H; y++) {
         const sx = fieldX + x * tile;
         const sy = fieldY + y * tile;
-        const path = isPathTile(x, y);
+        const path = isPathTile(x, y, this.mapId);
         const color = path ? UI.pathTile : UI.fieldTile;
         g.fillStyle(color, 1);
         g.fillRect(sx + 1, sy + 1, tile - (portrait ? 2 : 3), tile - (portrait ? 2 : 3));
       }
     }
-    // 경로 방향을 암시하는 작은 금빛 마커
-    g.fillStyle(UI.goldNum, 0.14);
-    for (let x = 3; x <= 13; x += 3) {
-      const cx = fieldX + x * tile + tile / 2;
-      const cy = fieldY + tile + tile / 2;
-      g.fillTriangle(cx - 3, cy - 4, cx + 4, cy, cx - 3, cy + 4);
+    // 클래식은 기존 윗길 표시를 보존하고, LAB은 각 구간의 진행 방향을 선명하게 표시한다.
+    const corners = pathCorners(this.mapId);
+    if (this.mapId === 'classic-ring') {
+      g.fillStyle(UI.goldNum, 0.14);
+      for (let x = 3; x <= 13; x += 3) {
+        const cx = fieldX + x * tile + tile / 2;
+        const cy = fieldY + tile + tile / 2;
+        g.fillTriangle(cx - 3, cy - 4, cx + 4, cy, cx - 3, cy + 4);
+      }
+    } else {
+      g.fillStyle(UI.goldNum, 0.34);
+      for (let i = 0; i < corners.length - 1; i++) {
+        const from = corners[i];
+        const to = corners[i + 1];
+        const dx = Math.sign(to.x - from.x);
+        const dy = Math.sign(to.y - from.y);
+        for (const progress of [0.35, 0.7]) {
+          const cx = fieldX + (from.x + (to.x - from.x) * progress + 0.5) * tile;
+          const cy = fieldY + (from.y + (to.y - from.y) * progress + 0.5) * tile;
+          const bx = cx - dx * 5;
+          const by = cy - dy * 5;
+          const px = -dy * 4;
+          const py = dx * 4;
+          g.fillTriangle(cx + dx * 5, cy + dy * 5, bx + px, by + py, bx - px, by - py);
+        }
+      }
     }
     g.lineStyle(1, UI.goldNum, 0.1);
     g.strokeRect(fieldX - 2, fieldY - 2, GRID_W * tile + 3, GRID_H * tile + 3);
     // 스폰 지점 표시
-    const s = { x: tile * 1.5, y: tile * 1.5 };
+    const start = corners[0];
+    const s = { x: tile * (start.x + 0.5), y: tile * (start.y + 0.5) };
     const spawnRadius = portrait ? 7 : 12;
     g.fillStyle(UI.danger, 0.18);
     g.fillCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
@@ -303,6 +327,16 @@ export class FieldRenderer {
       fieldX + s.x - spawnRadius * 0.4, fieldY + s.y + spawnRadius * 0.55,
       fieldX + s.x + spawnRadius * 0.6, fieldY + s.y,
     );
+    if (this.mapId === 'cross-road') {
+      const end = corners[corners.length - 1];
+      const exitX = fieldX + (end.x + 0.5) * tile;
+      const exitY = fieldY + (end.y + 0.5) * tile;
+      g.lineStyle(portrait ? 1.5 : 2, 0x66d9a8, 0.9);
+      g.strokeCircle(exitX, exitY, spawnRadius);
+      g.lineBetween(exitX, exitY + 3, exitX, exitY - spawnRadius - 7);
+      g.lineBetween(exitX, exitY - spawnRadius - 7, exitX - 4, exitY - spawnRadius - 2);
+      g.lineBetween(exitX, exitY - spawnRadius - 7, exitX + 4, exitY - spawnRadius - 2);
+    }
     this.scene.add.text(fieldX + (GRID_W * tile) / 2, fieldY + (GRID_H * tile) / 2, 'ROYAL TABLE', {
       fontFamily: FONT_DISPLAY, fontSize: '42px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(0.5).setAlpha(portrait ? 0 : 0.05).setDepth(0);
@@ -474,7 +508,7 @@ export class FieldRenderer {
         this.bossAbilityG.strokeCircle(x, y, 40 - progress * 16);
         if (enemy.round === 50) {
           for (const distance of [enemy.dist - 12, enemy.dist + 12]) {
-            const portal = pointAt(distance);
+            const portal = pointAt(distance, enemy.mapId);
             this.bossAbilityG.lineStyle(2, color, 0.35 + progress * 0.55);
             this.bossAbilityG.strokeEllipse(
               this.metrics.x + portal.x * this.metrics.scale,
@@ -510,11 +544,13 @@ export class FieldRenderer {
       recommendedPlacementTiles(
         range,
         game.field.units.map((unit) => ({ x: unit.tx, y: unit.ty })),
+        3,
+        game.mapId,
       ).map((point) => `${point.x},${point.y}`),
     );
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
-        if (isPlaceable(x, y) && !game.unitAt(x, y)) {
+        if (isPlaceable(x, y, game.mapId) && !game.unitAt(x, y)) {
           const sx = this.metrics.x + x * this.metrics.tile;
           const sy = this.metrics.y + y * this.metrics.tile;
           if (recommended.has(`${x},${y}`)) {
@@ -542,10 +578,10 @@ export class FieldRenderer {
     if (placingTier !== null) {
       const pointer = this.scene.input.activePointer;
       const tile = tileAtScreen(pointer.x, pointer.y);
-      if (tile && isPlaceable(tile.tx, tile.ty) && !game.unitAt(tile.tx, tile.ty)) {
+      if (tile && isPlaceable(tile.tx, tile.ty, game.mapId) && !game.unitAt(tile.tx, tile.ty)) {
         const p = tileCenter(tile.tx, tile.ty);
         const def = UNIT_DEFS[placingTier];
-        const canReach = tileCanReachPath(tile.tx, tile.ty, def.range);
+        const canReach = tileCanReachPath(tile.tx, tile.ty, def.range, game.mapId);
         const color = canReach ? UI.goldNum : UI.danger;
         this.rangeG.fillStyle(color, 0.05);
         this.rangeG.fillCircle(FIELD_X + p.x, FIELD_Y + p.y, 5);

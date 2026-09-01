@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   GRID_W, GRID_H, TILE, PATH_LENGTH,
-  pointAt, recommendedPlacementTiles, tileCenter, isPathTile, isPlaceable, tileCanReachPath,
+  pathLength, pointAt, recommendedPlacementTiles, tileCenter, isPathTile, isPlaceable, tileCanReachPath,
 } from '../src/core/map';
 
 describe('map & path', () => {
@@ -35,6 +35,31 @@ describe('map & path', () => {
     expect(isPlaceable(-1, 0)).toBe(false); // 그리드 밖
     expect(isPlaceable(GRID_W, 0)).toBe(false);
     expect(isPlaceable(0, GRID_H)).toBe(false);
+  });
+});
+
+describe('LIFE LAB cross-road map', () => {
+  const mapId = 'cross-road' as const;
+
+  test('아래 중앙에서 진입해 중앙에서 좌회전한 뒤 왼쪽 위로 탈출한다', () => {
+    expect(pointAt(0, mapId)).toEqual(tileCenter(8, 11));
+    expect(pointAt(5 * TILE, mapId)).toEqual(tileCenter(8, 6));
+    expect(pointAt(12 * TILE, mapId)).toEqual(tileCenter(1, 6));
+    expect(pointAt(pathLength(mapId), mapId)).toEqual(tileCenter(1, 0));
+  });
+
+  test('개방형 경로는 끝에서 시작점으로 순환하지 않는다', () => {
+    expect(pointAt(pathLength(mapId) + TILE, mapId)).toEqual(tileCenter(1, 0));
+  });
+
+  test('중앙 통로와 좌측 출구는 배치할 수 없고 네 구역은 배치할 수 있다', () => {
+    expect(isPathTile(8, 9, mapId)).toBe(true);
+    expect(isPathTile(5, 6, mapId)).toBe(true);
+    expect(isPathTile(1, 2, mapId)).toBe(true);
+    expect(isPlaceable(5, 3, mapId)).toBe(true);
+    expect(isPlaceable(12, 3, mapId)).toBe(true);
+    expect(isPlaceable(5, 9, mapId)).toBe(true);
+    expect(isPlaceable(12, 9, mapId)).toBe(true);
   });
 });
 

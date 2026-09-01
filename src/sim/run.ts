@@ -6,7 +6,7 @@
 import { DeckSealId, Game, GameRuleset } from '../core/game';
 import { Card, HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
-import { GRID_W, GRID_H, isPlaceable, tileCanReachPath } from '../core/map';
+import { GRID_W, GRID_H, MapId, distanceToPathTiles, isPlaceable, tileCanReachPath } from '../core/map';
 import { UNIT_CAP } from '../core/balance';
 import { RelicId } from '../core/relics';
 import { UNIT_DEFS } from '../core/units';
@@ -37,23 +37,21 @@ const HIGH_HAND_SCHEDULE = new Map<number, readonly Card[]>([
 ]);
 
 /** 경로에 가까운 타일부터 선호하는 배치 순서 */
-function placementOrder(): Array<[number, number]> {
+function placementOrder(mapId: MapId): Array<[number, number]> {
   const tiles: Array<[number, number, number]> = [];
   for (let x = 0; x < GRID_W; x++) {
     for (let y = 0; y < GRID_H; y++) {
-      if (!isPlaceable(x, y)) continue;
-      // 경로 링(테두리 x=1..15, y=1..10)까지의 최소 거리
-      const dPath = Math.min(
-        Math.abs(y - 1), Math.abs(y - 10),
-        Math.abs(x - 1), Math.abs(x - 15),
-      );
-      tiles.push([x, y, dPath]);
+      if (!isPlaceable(x, y, mapId)) continue;
+      tiles.push([x, y, distanceToPathTiles(x, y, mapId)]);
     }
   }
   tiles.sort((a, b) => a[2] - b[2]);
   return tiles.map(([x, y]) => [x, y]);
 }
-const PLACEMENT = placementOrder();
+const PLACEMENTS: Record<MapId, Array<[number, number]>> = {
+  'classic-ring': placementOrder('classic-ring'),
+  'cross-road': placementOrder('cross-road'),
+};
 
 /** 홀드 전략: 페어 이상 랭크 그룹 유지, 없으면 4장 플러시 드로우 유지 */
 function chooseHolds(g: Game, strategy: MaintenanceStrategy): void {
@@ -141,8 +139,8 @@ function playPrep(
       }
       g.sellUnit(weakest.id);
     }
-    const spot = PLACEMENT.find(([x, y]) => (
-      !g.unitAt(x, y) && tileCanReachPath(x, y, UNIT_DEFS[tier].range)
+    const spot = PLACEMENTS[g.mapId].find(([x, y]) => (
+      !g.unitAt(x, y) && tileCanReachPath(x, y, UNIT_DEFS[tier].range, g.mapId)
     ));
     if (!spot) break;
     g.placeUnit(spot[0], spot[1]);

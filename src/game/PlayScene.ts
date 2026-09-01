@@ -187,7 +187,7 @@ export class PlayScene extends Phaser.Scene {
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
 
-    this.fieldView = new FieldRenderer(this);
+    this.fieldView = new FieldRenderer(this, this.core.mapId);
     this.handBar = new HandBar(
       this,
       this.core,
@@ -391,7 +391,7 @@ export class PlayScene extends Phaser.Scene {
     }
     if (this.core.phase === 'prep' && this.moving && this.selectedUnitId !== null) {
       const movingUnit = this.core.field.units.find((unit) => unit.id === this.selectedUnitId);
-      if (movingUnit && !tileCanReachPath(t.tx, t.ty, UNIT_DEFS[movingUnit.tier].range)) {
+      if (movingUnit && !tileCanReachPath(t.tx, t.ty, UNIT_DEFS[movingUnit.tier].range, this.core.mapId)) {
         this.analytics.track('placement_blocked', {
           round: this.core.round,
           tier: movingUnit.tier,
@@ -414,7 +414,7 @@ export class PlayScene extends Phaser.Scene {
     }
     if (this.core.phase === 'prep' && this.core.pendingUnits.length > 0) {
       const pendingTier = this.core.pendingUnits[0];
-      if (!tileCanReachPath(t.tx, t.ty, UNIT_DEFS[pendingTier].range)) {
+      if (!tileCanReachPath(t.tx, t.ty, UNIT_DEFS[pendingTier].range, this.core.mapId)) {
         this.analytics.track('placement_blocked', {
           round: this.core.round,
           tier: pendingTier,

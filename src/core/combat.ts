@@ -2,7 +2,7 @@ import { HandRank } from './cards/types';
 import { ENEMY_KINDS, EnemyKindId } from './enemies';
 import { UNIT_DEFS, UnitDef, damagePerHit } from './units';
 import { ENEMY_BASE_SPEED, enemyHp, killGold, bossGold } from './balance';
-import { TILE, Pt, pointAt, tileCenter } from './map';
+import { MapId, TILE, Pt, pointAt, tileCenter } from './map';
 import { bossModifiers } from './bosses';
 import type { RelicId } from './relics';
 import { HandVariant, suitDamageMultiplier, suitPeriodMultiplier, variantDamageMultiplier, variantPeriodMultiplier } from './cards/handIdentity';
@@ -21,6 +21,7 @@ export interface Enemy {
   round: number;     // 스폰된 라운드 (클리어 보너스 판정용)
   alive: boolean;
   escaped: boolean;  // 생명 모드에서 한 바퀴를 완주해 전장을 이탈했는지
+  mapId: MapId;
 }
 
 export interface Unit {
@@ -62,10 +63,11 @@ export interface Field {
   units: Unit[];
   time: number; // 누적 시뮬레이션 시간(초)
   nextId: number;
+  mapId: MapId;
 }
 
-export function createField(): Field {
-  return { enemies: [], units: [], time: 0, nextId: 1 };
+export function createField(mapId: MapId = 'classic-ring'): Field {
+  return { enemies: [], units: [], time: 0, nextId: 1, mapId };
 }
 
 export interface SpawnOpts {
@@ -90,6 +92,7 @@ export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts:
     round,
     alive: true,
     escaped: false,
+    mapId: field.mapId,
   };
   field.enemies.push(enemy);
   return enemy;
@@ -110,7 +113,7 @@ export function addUnit(
 }
 
 export function enemyPos(e: Enemy): Pt {
-  return pointAt(e.dist);
+  return pointAt(e.dist, e.mapId);
 }
 
 export function unitPos(u: Unit): Pt {

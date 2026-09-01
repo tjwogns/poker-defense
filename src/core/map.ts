@@ -1,6 +1,6 @@
 /**
- * 그리드/경로 정의. 적은 (1,1)→(15,1)→(15,10)→(1,10)→(1,1) 사각 링을
- * 시계방향으로 순환한다. 경로가 아닌 그리드 타일은 유닛 배치 가능.
+ * 그리드/경로 정의.
+ * classic-ring은 기존 사각 순환 맵, cross-road는 LIFE LAB 전용 개방형 맵이다.
  */
 
 export const GRID_W = 17;
@@ -8,70 +8,116 @@ export const GRID_H = 12;
 export const TILE = 42; // px
 
 export interface Pt { x: number; y: number }
+export type MapId = 'classic-ring' | 'cross-road';
 
-/** 경로 코너 (타일 좌표, 시계방향, 시작 = 스폰 지점) */
-export const PATH_CORNERS: Pt[] = [
-  { x: 1, y: 1 },
-  { x: 15, y: 1 },
-  { x: 15, y: 10 },
-  { x: 1, y: 10 },
-];
+interface MapDefinition {
+  corners: readonly Pt[];
+  loop: boolean;
+}
+
+const MAPS: Record<MapId, MapDefinition> = {
+  'classic-ring': {
+    corners: [
+      { x: 1, y: 1 },
+      { x: 15, y: 1 },
+      { x: 15, y: 10 },
+      { x: 1, y: 10 },
+    ],
+    loop: true,
+  },
+  'cross-road': {
+    // 스케치 기반: 아래 중앙 진입 → 중앙 교차로 → 왼쪽 → 위쪽 탈출.
+    corners: [
+      { x: 8, y: 11 },
+      { x: 8, y: 6 },
+      { x: 1, y: 6 },
+      { x: 1, y: 0 },
+    ],
+    loop: false,
+  },
+};
+
+/** 기존 API 호환용 classic 맵 코너. */
+export const PATH_CORNERS: Pt[] = MAPS['classic-ring'].corners.map((point) => ({ ...point }));
 
 export function tileCenter(x: number, y: number): Pt {
   return { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2 };
 }
 
-/** 코너 간 픽셀 구간 길이 (시계방향 순서) */
-const SEGMENTS = PATH_CORNERS.map((c, i) => {
-  const next = PATH_CORNERS[(i + 1) % PATH_CORNERS.length];
-  const a = tileCenter(c.x, c.y);
-  const b = tileCenter(next.x, next.y);
-  return { a, b, len: Math.abs(b.x - a.x) + Math.abs(b.y - a.y) };
-});
-
-export const PATH_LENGTH = SEGMENTS.reduce((s, seg) => s + seg.len, 0);
-
-/** 경로상 거리(px) → 픽셀 좌표. 거리는 순환한다. */
-export function pointAt(dist: number): Pt {
-  let d = dist % PATH_LENGTH;
-  if (d < 0) d += PATH_LENGTH;
-  for (const seg of SEGMENTS) {
-    if (d <= seg.len) {
-      const t = seg.len === 0 ? 0 : d / seg.len;
-      return { x: seg.a.x + (seg.b.x - seg.a.x) * t, y: seg.a.y + (seg.b.y - seg.a.y) * t };
-    }
-    d -= seg.len;
-  }
-  return { ...SEGMENTS[0].a };
+function mapSegments(mapId: MapId): Array<{ a: Pt; b: Pt; len: number }> {
+  const map = MAPS[mapId];
+  const count = map.loop ? map.corners.length : map.corners.length - 1;
+  return Array.from({ length: count }, (_, index) => {
+    const a = tileCenter(map.corners[index].x, map.corners[index].y);
+    const b = tileCenter(map.corners[(index + 1) % map.corners.length].x, map.corners[(index + 1) % map.corners.length].y);
+    return { a, b, len: Math.abs(b.x - a.x) + Math.abs(b.y - a.y) };
+  });
 }
 
-const [TL, TR, BR, BL] = [PATH_CORNERS[0], PATH_CORNERS[1], PATH_CORNERS[2], PATH_CORNERS[3]];
+const MAP_SEGMENTS: Record<MapId, ReturnType<typeof mapSegments>> = {
+  'classic-ring': mapSegments('classic-ring'),
+  'cross-road': mapSegments('cross-road'),
+};
 
-/** 해당 타일이 경로 링 위인지 */
-export function isPathTile(x: number, y: number): boolean {
-  const onH = (y === TL.y || y === BL.y) && x >= TL.x && x <= TR.x;
-  const onV = (x === TL.x || x === TR.x) && y >= TL.y && y <= BR.y;
-  return onH || onV;
+export function pathCorners(mapId: MapId = 'classic-ring'): readonly Pt[] {
+  return MAPS[mapId].corners;
+}
+
+export function pathLength(mapId: MapId = 'classic-ring'): number {
+  return MAP_SEGMENTS[mapId].reduce((sum, segment) => sum + segment.len, 0);
+}
+
+export const PATH_LENGTH = pathLength('classic-ring');
+
+/** 경로상 거리(px) → 픽셀 좌표. classic은 순환하고 cross-road는 끝점에서 멈춘다. */
+export function pointAt(dist: number, mapId: MapId = 'classic-ring'): Pt {
+  const segments = MAP_SEGMENTS[mapId];
+  const total = pathLength(mapId);
+  let d = MAPS[mapId].loop
+    ? ((dist % total) + total) % total
+    : Math.max(0, Math.min(total, dist));
+  for (const segment of segments) {
+    if (d <= segment.len) {
+      const t = segment.len === 0 ? 0 : d / segment.len;
+      return {
+        x: segment.a.x + (segment.b.x - segment.a.x) * t,
+        y: segment.a.y + (segment.b.y - segment.a.y) * t,
+      };
+    }
+    d -= segment.len;
+  }
+  return { ...segments[segments.length - 1].b };
+}
+
+/** 해당 타일이 선택한 맵의 경로 위인지 판정한다. */
+export function isPathTile(x: number, y: number, mapId: MapId = 'classic-ring'): boolean {
+  const point = tileCenter(x, y);
+  return MAP_SEGMENTS[mapId].some((segment) => distanceToSegment(point, segment.a, segment.b) < 0.01);
 }
 
 /** 그리드 안이면서 경로가 아닌 타일 = 배치 가능 */
-export function isPlaceable(x: number, y: number): boolean {
+export function isPlaceable(x: number, y: number, mapId: MapId = 'classic-ring'): boolean {
   if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return false;
-  return !isPathTile(x, y);
+  return !isPathTile(x, y, mapId);
 }
 
-/** 해당 타일의 유닛 사거리가 사각 경로에 한 지점이라도 닿는지 판정한다. */
-export function tileCanReachPath(x: number, y: number, rangeTiles: number): boolean {
-  if (!isPlaceable(x, y) || rangeTiles < 0) return false;
+/** 해당 타일의 유닛 사거리가 선택한 경로에 한 지점이라도 닿는지 판정한다. */
+export function tileCanReachPath(
+  x: number,
+  y: number,
+  rangeTiles: number,
+  mapId: MapId = 'classic-ring',
+): boolean {
+  if (!isPlaceable(x, y, mapId) || rangeTiles < 0) return false;
   const point = tileCenter(x, y);
   const rangePx = rangeTiles * TILE;
-  return SEGMENTS.some((segment) => distanceToSegment(point, segment.a, segment.b) <= rangePx);
+  return MAP_SEGMENTS[mapId].some((segment) => distanceToSegment(point, segment.a, segment.b) <= rangePx);
 }
 
 /** 타일 중심에서 가장 가까운 경로까지의 거리(타일 단위). */
-export function distanceToPathTiles(x: number, y: number): number {
+export function distanceToPathTiles(x: number, y: number, mapId: MapId = 'classic-ring'): number {
   const point = tileCenter(x, y);
-  return Math.min(...SEGMENTS.map((segment) => distanceToSegment(point, segment.a, segment.b))) / TILE;
+  return Math.min(...MAP_SEGMENTS[mapId].map((segment) => distanceToSegment(point, segment.a, segment.b))) / TILE;
 }
 
 /** 현재 사거리에서 경로에 닿는 빈 타일 중 중앙에 가까운 추천 후보를 반환한다. */
@@ -79,6 +125,7 @@ export function recommendedPlacementTiles(
   rangeTiles: number,
   occupied: readonly Pt[],
   limit = 3,
+  mapId: MapId = 'classic-ring',
 ): Pt[] {
   const blocked = new Set(occupied.map((point) => `${point.x},${point.y}`));
   const centerX = (GRID_W - 1) / 2;
@@ -86,11 +133,15 @@ export function recommendedPlacementTiles(
   const candidates: Array<Pt & { pathDistance: number; centerDistance: number }> = [];
   for (let x = 0; x < GRID_W; x++) {
     for (let y = 0; y < GRID_H; y++) {
-      if (!isPlaceable(x, y) || blocked.has(`${x},${y}`) || !tileCanReachPath(x, y, rangeTiles)) continue;
+      if (
+        !isPlaceable(x, y, mapId)
+        || blocked.has(`${x},${y}`)
+        || !tileCanReachPath(x, y, rangeTiles, mapId)
+      ) continue;
       candidates.push({
         x,
         y,
-        pathDistance: distanceToPathTiles(x, y),
+        pathDistance: distanceToPathTiles(x, y, mapId),
         centerDistance: Math.hypot(x - centerX, y - centerY),
       });
     }

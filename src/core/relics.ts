@@ -229,7 +229,7 @@ export function relicUnitDamageResult(
     multiplier *= royalTier ? 1.5 : 0.8;
     if (royalTier) active.push('royal_bloodline');
   }
-  if (owned.includes('rear_position') && distanceToPathTiles(unit.tx, unit.ty) >= 2) {
+  if (owned.includes('rear_position') && distanceToPathTiles(unit.tx, unit.ty, field.mapId) >= 2) {
     multiplier *= 1.25;
     active.push('rear_position');
   }

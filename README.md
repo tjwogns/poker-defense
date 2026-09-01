@@ -10,6 +10,8 @@
 - 라이프 20, 일반 적의 침투 5칸당 −1, 보스 탈출 시 즉시 −3
 - 라운드당 무료 교환 3회, `날렵한 셔플` 등 교환 유물로 상한 증가
 - 이자 5%·기본 상한 25G 실험, 기존 강화·덱 개조·유물 구매 골드 소비처 유지
+- 스케치 기반 교차로 맵: 아래 중앙 진입 → 중앙 좌회전 → 왼쪽 위 탈출
+- 적 이동·배치 금지·사거리·추천 배치·후방 진지 유물이 같은 LAB 경로 정의를 사용
 - LAB는 공개 실험 중이며 밸런스 확정 전, 루트 클래식 모드는 변경하지 않음
 
 ## v2.1.2 Relic Choice
@@ -96,6 +98,7 @@ npm run sim -- 5 clear-delay30   # 비교 실험: R1~30 강화 보류, R31부터
 npm run sim -- 5 clear-high6     # 고점 실험: 풀하우스3·포카드2·스트레이트플러시1 강제
 npm run sim -- 30 hidden-compare  # 기본/복제/히든 추적 전략 비교
 npm run sim -- 30 mastery-compare # 미구매/전부/저족보/고족보 연마 전략 비교
+npm run sim -- 30 life-compare    # 클래식과 LIFE LAB 동일 시드 비교
 npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
 SINGLEFILE=1 npm run build  # 단일 HTML 파일 빌드 (배포/공유용)
 node scripts/smoke.mjs      # E2E 스모크 (Chrome 필요, 프리뷰 서버 선행)
