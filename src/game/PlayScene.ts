@@ -759,8 +759,16 @@ export class PlayScene extends Phaser.Scene {
 
   private syncRelicPicker(): void {
     if (this.core.relicChoices.length === 0 || this.relicOverlay || this.maintenanceOverlay || this.ended) return;
+    const portrait = isPortraitLayout();
     const children: Phaser.GameObjects.GameObject[] = [];
-    const dim = this.add.rectangle(390, 270, 748, 520, 0x06100a, 0.93).setInteractive();
+    const dim = this.add.rectangle(
+      portrait ? 195 : 390,
+      portrait ? 422 : 280,
+      portrait ? 390 : 748,
+      portrait ? 844 : 560,
+      0x06100a,
+      0.93,
+    ).setInteractive();
     children.push(dim);
     const full = this.core.relics.length >= RELIC_SLOT_CAP;
     let selectedNew: RelicId | null = null;
@@ -768,7 +776,7 @@ export class PlayScene extends Phaser.Scene {
       this,
       390,
       102,
-      full ? '보상 유물 선택 · 교체할 유물을 고르세요' : '보스 격파 · 유물을 선택하세요',
+      full ? '보상 유물 선택 · 교체하거나 건너뛰세요' : '보스 격파 · 유물을 선택하세요',
       full ? 23 : 28,
       UI.gold,
       true,
@@ -838,6 +846,24 @@ export class PlayScene extends Phaser.Scene {
         children.push(button.container, createRelicIcon(this, id, 68 + index * 140, 466, 30));
       });
     }
+    const skip = makeButton(
+      this,
+      portrait ? 195 : 390,
+      portrait ? 798 : 528,
+      portrait ? 250 : 190,
+      portrait ? 46 : 36,
+      '이번 유물 보상 건너뛰기',
+      () => {
+        if (!this.core.skipRelicChoice()) return;
+        this.audio.play('click');
+        this.relicOverlay?.destroy(true);
+        this.relicOverlay = null;
+        this.flashCenter('유물 보상을 건너뛰었습니다', UI.goldNum);
+        this.refreshUI();
+      },
+      { fill: UI.panelDeep, textColor: UI.textDim, fontSize: portrait ? 14 : 12, strokeAlpha: 0.2 },
+    );
+    children.push(skip.container);
     this.relicOverlay = this.add.container(0, 0, children).setDepth(18);
   }
 

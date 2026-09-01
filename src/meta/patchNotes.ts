@@ -9,14 +9,31 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.1';
+export const CURRENT_VERSION = 'v2.1.2';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.2',
+    title: 'RELIC CHOICE',
+    date: '2026-09-01',
+    current: true,
+    sections: [
+      {
+        heading: '유물 보상 선택권',
+        items: [
+          '보스 유물 보상창에서 원하지 않는 보상을 건너뛰고 준비 단계를 계속 진행',
+          '유물 5슬롯이 가득 차도 기존 유물을 강제로 교체하지 않고 현재 빌드 유지',
+          '대기 중인 다른 보스 보상이 있으면 건너뛴 뒤 다음 보상을 순서대로 표시',
+          '건너뛰기 완료 메시지로 보상이 정상 처리됐는지 즉시 확인',
+          '보상 포기 후 손패·강화·배치 등 준비 단계 조작을 바로 재개',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.1',
     title: 'WINDOWS RECOVERY',
     date: '2026-09-01',
-    current: true,
     sections: [
       {
         heading: '그래픽 복구',

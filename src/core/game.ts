@@ -549,6 +549,13 @@ export class Game {
     return true;
   }
 
+  skipRelicChoice(): boolean {
+    if (this.phase !== 'prep' || this.relicChoices.length === 0) return false;
+    this.relicChoices = [];
+    this.openNextBossReward();
+    return true;
+  }
+
   buyUpgrade(): boolean {
     if (this.phase !== 'prep' || this.maintenancePending) return false;
     const cost = this.upgradeCostNow;

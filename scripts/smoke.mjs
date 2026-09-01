@@ -125,6 +125,18 @@ await new Promise((r) => setTimeout(r, 250));
 const chosen = await state();
 console.log('유물 선택 후:', JSON.stringify(chosen));
 
+// 유물 슬롯이 가득 찬 상태에서도 보상 선택을 건너뛰고 진행할 수 있어야 한다.
+await page.evaluate(() => {
+  const g = window.__game;
+  g.relics.splice(0, g.relics.length, 'royal_seal', 'war_chest', 'compound_ledger', 'fortified_table', 'swift_shuffle');
+  g.relicChoices = ['ace_up_sleeve', 'greedy_ledger', 'glass_crown'];
+});
+await new Promise((r) => setTimeout(r, 250));
+await page.mouse.click(390, 528);
+await new Promise((r) => setTimeout(r, 250));
+const skipped = await state();
+console.log('가득 찬 유물 보상 건너뛰기:', JSON.stringify(skipped));
+
 // 필드 상한을 넘겨 종료 오버레이와 PNG 결과 카드 버튼 확인
 await page.evaluate(() => {
   const g = window.__game;
@@ -178,6 +190,10 @@ if (!combat || combat.phase !== 'combat' || combat.enemies === 0 || combat.units
 }
 if (!reward || reward.relicChoices !== 3 || !chosen || chosen.relics !== 1 || chosen.relicChoices !== 0) {
   console.log('스모크 실패: 유물 선택 상태 불일치');
+  process.exit(1);
+}
+if (!skipped || skipped.relics !== 5 || skipped.relicChoices !== 0) {
+  console.log('스모크 실패: 유물 보상 건너뛰기 상태 불일치');
   process.exit(1);
 }
 if (!ended || ended.phase !== 'defeat') {

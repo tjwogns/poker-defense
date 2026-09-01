@@ -179,6 +179,27 @@ describe('Game relic flow', () => {
     expect(game.gold).toBe(goldBefore + relicSellPrice(replaced));
   });
 
+  test('유물 슬롯이 가득 차도 보상을 건너뛰고 진행할 수 있다', () => {
+    const game = new Game(893);
+    game.relics.push(...RELIC_IDS.slice(0, RELIC_SLOT_CAP));
+    const before = [...game.relics];
+    game.relicChoices = [RELIC_IDS[RELIC_SLOT_CAP]];
+
+    expect(game.skipRelicChoice()).toBe(true);
+    expect(game.relics).toEqual(before);
+    expect(game.relicChoices).toEqual([]);
+    expect(game.skipRelicChoice()).toBe(false);
+  });
+
+  test('빈 슬롯이 있어도 원하지 않는 보스 보상은 건너뛸 수 있다', () => {
+    const game = new Game(894);
+    game.relicChoices = ['war_chest'];
+
+    expect(game.skipRelicChoice()).toBe(true);
+    expect(game.relics).toEqual([]);
+    expect(game.relicChoices).toEqual([]);
+  });
+
   test('빈 슬롯이 있는데 교체 대상을 넘기면 보스 보상을 거부한다', () => {
     const game = new Game(892);
     game.relics.push('royal_seal');
