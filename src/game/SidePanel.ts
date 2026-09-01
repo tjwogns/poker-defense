@@ -423,7 +423,9 @@ export class SidePanel {
       g.phase !== 'combat' ? ''
         : g.round >= ROUNDS
           ? remaining === null ? `최종 보스 등장 중 · 제한시간 ${FINAL_BOSS_MAX_TIME}초` : `최종 보스 제한시간 ${Math.ceil(remaining)}초`
-          : remaining === null ? `적 등장 중 · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}` : `라운드 종료까지 ${Math.ceil(remaining)}초`,
+          : g.lifeMode && remaining === null
+            ? '전원 처치 또는 탈출까지 진행'
+            : remaining === null ? `적 등장 중 · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}` : `라운드 종료까지 ${Math.ceil(remaining)}초`,
     );
 
     this.refreshInspector(selectedUnit, inPrep);

@@ -296,14 +296,30 @@ export class FieldRenderer {
       }
     } else {
       g.fillStyle(UI.goldNum, 0.34);
+      const segmentKeys = corners.slice(0, -1).map((from, index) => {
+        const to = corners[index + 1];
+        const ends = [`${from.x},${from.y}`, `${to.x},${to.y}`].sort();
+        return `${ends[0]}:${ends[1]}`;
+      });
+      const segmentCounts = new Map<string, number>();
+      const segmentSeen = new Map<string, number>();
+      for (const key of segmentKeys) segmentCounts.set(key, (segmentCounts.get(key) ?? 0) + 1);
       for (let i = 0; i < corners.length - 1; i++) {
         const from = corners[i];
         const to = corners[i + 1];
         const dx = Math.sign(to.x - from.x);
         const dy = Math.sign(to.y - from.y);
+        const key = segmentKeys[i];
+        const occurrence = segmentSeen.get(key) ?? 0;
+        segmentSeen.set(key, occurrence + 1);
+        const repeated = (segmentCounts.get(key) ?? 0) > 1;
+        const laneOffset = repeated ? (occurrence === 0 ? -tile * 0.13 : tile * 0.13) : 0;
+        const [canonicalFrom, canonicalTo] = [from, to].sort((a, b) => a.x - b.x || a.y - b.y);
+        const canonicalDx = Math.sign(canonicalTo.x - canonicalFrom.x);
+        const canonicalDy = Math.sign(canonicalTo.y - canonicalFrom.y);
         for (const progress of [0.35, 0.7]) {
-          const cx = fieldX + (from.x + (to.x - from.x) * progress + 0.5) * tile;
-          const cy = fieldY + (from.y + (to.y - from.y) * progress + 0.5) * tile;
+          const cx = fieldX + (from.x + (to.x - from.x) * progress + 0.5) * tile - canonicalDy * laneOffset;
+          const cy = fieldY + (from.y + (to.y - from.y) * progress + 0.5) * tile + canonicalDx * laneOffset;
           const bx = cx - dx * 5;
           const by = cy - dy * 5;
           const px = -dy * 4;
@@ -336,6 +352,12 @@ export class FieldRenderer {
       g.lineBetween(exitX, exitY + 3, exitX, exitY - spawnRadius - 7);
       g.lineBetween(exitX, exitY - spawnRadius - 7, exitX - 4, exitY - spawnRadius - 2);
       g.lineBetween(exitX, exitY - spawnRadius - 7, exitX + 4, exitY - spawnRadius - 2);
+      this.scene.add.text(exitX + spawnRadius + 5, exitY, 'S/E', {
+        fontFamily: FONT,
+        fontSize: portrait ? '8px' : '10px',
+        fontStyle: 'bold',
+        color: '#9fe8c7',
+      }).setOrigin(0, 0.5).setDepth(1);
     }
     this.scene.add.text(fieldX + (GRID_W * tile) / 2, fieldY + (GRID_H * tile) / 2, 'ROYAL TABLE', {
       fontFamily: FONT_DISPLAY, fontSize: '42px', fontStyle: 'bold', color: UI.gold,

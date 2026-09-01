@@ -560,6 +560,7 @@ export class Game {
   /** 모든 적 스폰이 끝난 뒤부터 흐르는 현재 라운드 제한시간. */
   get combatTimeRemaining(): number | null {
     if (this.phase !== 'combat' || this.spawnQueue.length > 0) return null;
+    if (this.lifeMode && this.round < ROUNDS) return null;
     const limit = this.round >= ROUNDS ? FINAL_BOSS_MAX_TIME : COMBAT_MAX_TIME;
     return Math.max(0, limit - this.combatTimer);
   }
@@ -748,7 +749,7 @@ export class Game {
           this.defeatReason = 'final-boss-timeout';
           this.phase = 'defeat';
         }
-      } else if (alive === 0 || this.combatTimer >= COMBAT_MAX_TIME) {
+      } else if (alive === 0 || (!this.lifeMode && this.combatTimer >= COMBAT_MAX_TIME)) {
         this.endRound();
       }
     }

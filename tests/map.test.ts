@@ -41,25 +41,31 @@ describe('map & path', () => {
 describe('LIFE LAB cross-road map', () => {
   const mapId = 'cross-road' as const;
 
-  test('아래 중앙에서 진입해 중앙에서 좌회전한 뒤 왼쪽 위로 탈출한다', () => {
-    expect(pointAt(0, mapId)).toEqual(tileCenter(8, 11));
-    expect(pointAt(5 * TILE, mapId)).toEqual(tileCenter(8, 6));
-    expect(pointAt(12 * TILE, mapId)).toEqual(tileCenter(1, 6));
-    expect(pointAt(pathLength(mapId), mapId)).toEqual(tileCenter(1, 0));
+  test('외곽과 중앙 십자를 지정된 순서로 왕복해 왼쪽 상단으로 탈출한다', () => {
+    const waypoints: Array<[number, number, number]> = [
+      [0, 1, 1], [7, 8, 1], [16, 8, 10], [23, 1, 10], [27, 1, 6],
+      [41, 15, 6], [45, 15, 10], [52, 8, 10], [61, 8, 1],
+      [68, 15, 1], [73, 15, 6], [87, 1, 6], [92, 1, 1],
+    ];
+    for (const [distance, x, y] of waypoints) {
+      expect(pointAt(distance * TILE, mapId)).toEqual(tileCenter(x, y));
+    }
+    expect(pathLength(mapId)).toBe(92 * TILE);
   });
 
-  test('개방형 경로는 끝에서 시작점으로 순환하지 않는다', () => {
-    expect(pointAt(pathLength(mapId) + TILE, mapId)).toEqual(tileCenter(1, 0));
+  test('시작과 출구가 같은 포털이어도 완주 거리 이후에는 끝점에 고정된다', () => {
+    expect(pointAt(pathLength(mapId) + TILE, mapId)).toEqual(tileCenter(1, 1));
   });
 
-  test('중앙 통로와 좌측 출구는 배치할 수 없고 네 구역은 배치할 수 있다', () => {
+  test('외곽과 중앙 십자는 배치할 수 없고 네 구역 내부는 배치할 수 있다', () => {
     expect(isPathTile(8, 9, mapId)).toBe(true);
     expect(isPathTile(5, 6, mapId)).toBe(true);
     expect(isPathTile(1, 2, mapId)).toBe(true);
+    expect(isPathTile(15, 8, mapId)).toBe(true);
     expect(isPlaceable(5, 3, mapId)).toBe(true);
     expect(isPlaceable(12, 3, mapId)).toBe(true);
-    expect(isPlaceable(5, 9, mapId)).toBe(true);
-    expect(isPlaceable(12, 9, mapId)).toBe(true);
+    expect(isPlaceable(5, 8, mapId)).toBe(true);
+    expect(isPlaceable(12, 8, mapId)).toBe(true);
   });
 });
 

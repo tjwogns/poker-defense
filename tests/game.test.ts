@@ -5,7 +5,7 @@ import { spawnEnemy } from '../src/core/combat';
 import {
   START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES,
 } from '../src/core/balance';
-import { PATH_LENGTH } from '../src/core/map';
+import { PATH_LENGTH, pathLength } from '../src/core/map';
 import { h } from './helpers';
 
 /** 라운드가 끝나 prep으로 돌아오거나 게임이 끝날 때까지 틱 진행 */
@@ -209,7 +209,7 @@ describe('Game state machine', () => {
     const g = new Game(204, 'life-economy');
     g.handConfirmed = true;
     expect(g.startCombat()).toBe(true);
-    spawnEnemy(g.field, 'normal', 1, { dist: PATH_LENGTH - 1 });
+    spawnEnemy(g.field, 'normal', 1, { dist: pathLength(g.mapId) - 1 });
 
     const result = g.tickCombat(1 / 30)!;
 
@@ -227,7 +227,7 @@ describe('Game state machine', () => {
     g.lives = 1;
     g.handConfirmed = true;
     g.startCombat();
-    for (let i = 0; i < 3; i++) spawnEnemy(g.field, 'tank', 12, { dist: PATH_LENGTH - 1 });
+    for (let i = 0; i < 3; i++) spawnEnemy(g.field, 'tank', 12, { dist: pathLength(g.mapId) - 1 });
 
     g.tickCombat(1 / 30);
 
@@ -243,13 +243,24 @@ describe('Game state machine', () => {
     g.round = 10;
     g.handConfirmed = true;
     g.startCombat();
-    spawnEnemy(g.field, 'boss', 10, { dist: PATH_LENGTH - 1 });
+    spawnEnemy(g.field, 'boss', 10, { dist: pathLength(g.mapId) - 1 });
 
     g.tickCombat(1 / 30);
 
     expect(g.lives).toBe(0);
     expect(g.breach).toBe(0);
     expect(g.defeatReason).toBe('life-depleted');
+  });
+
+  test('생명 모드는 일반 제한시간이 지나도 적이 처치되거나 탈출할 때까지 계속된다', () => {
+    const g = new Game(207, 'life-economy');
+    g.handConfirmed = true;
+    expect(g.startCombat()).toBe(true);
+    for (let i = 0; i < 30 * (10 + COMBAT_MAX_TIME); i++) g.tickCombat(1 / 30);
+
+    expect(g.phase).toBe('combat');
+    expect(g.combatTimeRemaining).toBeNull();
+    expect(g.field.enemies.some((enemy) => enemy.alive)).toBe(true);
   });
 
   test('60라운드 최종 보스를 처치하지 못하면 제한시간 후 패배', () => {
