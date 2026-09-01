@@ -58,7 +58,7 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'compound_ledger', name: '복리 장부', description: '이자 +50%, 상한 +20G', glyph: '₩', color: 0x69c98f, rarity: 'rare',
   },
   fortified_table: {
-    id: 'fortified_table', name: '증축 허가증', description: '필드 적 허용치 +10', glyph: '▦', color: 0x6ca4d9, rarity: 'common',
+    id: 'fortified_table', name: '증축 허가증', description: '필드 유닛 12기 이상이면 모든 피해 +18%', glyph: '▦', color: 0x6ca4d9, rarity: 'common',
   },
   swift_shuffle: {
     id: 'swift_shuffle', name: '재빠른 손놀림', description: '매 라운드 교환 2회 무료', glyph: '↻', color: 0xb781dc, rarity: 'common',
@@ -70,10 +70,10 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'greedy_ledger', name: '탐욕의 장부', description: '이자 ×2 · 유료 교환 비용 +50%', glyph: '₲', color: 0xc69a45, rarity: 'rare',
   },
   glass_crown: {
-    id: 'glass_crown', name: '유리 왕관', description: '모든 피해 +35% · 필드 적 허용치 −15', glyph: '♕', color: 0xe57b77, rarity: 'legendary',
+    id: 'glass_crown', name: '유리 왕관', description: '모든 피해 +35% · 처치 골드 −15%', glyph: '♕', color: 0xe57b77, rarity: 'legendary',
   },
   frozen_clover: {
-    id: 'frozen_clover', name: '행운의 클로버', description: '모든 피해 +8% · 필드 적 허용치 +5', glyph: '♣', color: 0x78cde0, rarity: 'rare',
+    id: 'frozen_clover', name: '행운의 클로버', description: '모든 피해 +8% · 무료 교환 +1', glyph: '♣', color: 0x78cde0, rarity: 'rare',
   },
   blood_contract: {
     id: 'blood_contract', name: '피의 계약', description: '모든 피해 +25% · 처치 골드 −25%', glyph: '♥', color: 0xd85c68, rarity: 'rare',
@@ -91,7 +91,7 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'pristine_oath', name: '무교환 서약', description: '교환 없이 만든 유닛 피해 +60%', glyph: '◇', color: 0xe8d7a7, rarity: 'rare',
   },
   pair_broker: {
-    id: 'pair_broker', name: '페어 중개인', description: '원페어 유닛 +1 · 30기면 대신 +15G', glyph: 'Ⅱ', color: 0xe6c84f, rarity: 'legendary',
+    id: 'pair_broker', name: '페어 중개인', description: '원페어 확정 시 같은 유닛 +1', glyph: 'Ⅱ', color: 0xe6c84f, rarity: 'legendary',
   },
   four_suit_crest: {
     id: 'four_suit_crest', name: '4색 문장', description: '확정 패에 무늬 4종이면 +15G', glyph: '✥', color: 0x69c98f, rarity: 'common',
@@ -172,7 +172,6 @@ export interface RelicModifiers {
   bountyMultiplier: number;
   interestMultiplier: number;
   interestCapBonus: number;
-  fieldCapBonus: number;
   freeExchanges: number;
   bossRankBonus: number;
   exchangeCostMultiplier: number;
@@ -187,13 +186,13 @@ export function relicModifiers(owned: readonly RelicId[], deckSize = 52): RelicM
       * (has('glass_crown') ? 1.35 : 1)
       * (has('frozen_clover') ? 1.08 : 1)
       * (has('blood_contract') ? 1.25 : 1),
-    bountyMultiplier: (has('war_chest') ? 1.25 : 1) * (has('blood_contract') ? 0.75 : 1),
+    bountyMultiplier: (has('war_chest') ? 1.25 : 1)
+      * (has('glass_crown') ? 0.85 : 1)
+      * (has('blood_contract') ? 0.75 : 1),
     interestMultiplier: (has('compound_ledger') ? 1.5 : 1) * (has('greedy_ledger') ? 2 : 1),
     interestCapBonus: has('compound_ledger') ? 20 : 0,
-    fieldCapBonus: (has('fortified_table') ? 10 : 0)
-      + (has('frozen_clover') ? 5 : 0)
-      - (has('glass_crown') ? 15 : 0),
     freeExchanges: (has('swift_shuffle') ? 2 : 1)
+      + (has('frozen_clover') ? 1 : 0)
       + (has('compression_enthusiast') && deckSize <= 45 ? 1 : 0),
     bossRankBonus: has('ace_up_sleeve') ? 1 : 0,
     exchangeCostMultiplier: has('greedy_ledger') ? 1.5 : 1,
@@ -220,6 +219,10 @@ export function relicUnitDamageResult(
 ): RelicDamageResult {
   let multiplier = 1;
   const active: RelicId[] = [];
+  if (owned.includes('fortified_table') && field.units.length >= 12) {
+    multiplier *= 1.18;
+    active.push('fortified_table');
+  }
   if (owned.includes('underdog_banner') && unit.tier <= HandRank.Pair) {
     multiplier *= 1.75;
     active.push('underdog_banner');

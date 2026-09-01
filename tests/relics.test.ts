@@ -10,6 +10,7 @@ import {
   relicSellPrice,
   relicShopChoice,
   relicModifiers,
+  relicUnitDamageResult,
   relicUnitDamageMultiplier,
 } from '../src/core/relics';
 import { h } from './helpers';
@@ -67,7 +68,6 @@ describe('relic effects', () => {
     expect(mods.bountyMultiplier).toBe(1.25);
     expect(mods.interestMultiplier).toBe(1.5);
     expect(mods.interestCapBonus).toBe(20);
-    expect(mods.fieldCapBonus).toBe(10);
     expect(mods.freeExchanges).toBe(2);
     expect(mods.bossRankBonus).toBe(1);
     expect(mods.exchangeCostMultiplier).toBe(1);
@@ -231,7 +231,7 @@ describe('Game relic flow', () => {
     expect(game.relics).toEqual(['royal_seal']);
   });
 
-  test('유물 효과가 교환·피해·이자·필드 상한에 반영된다', () => {
+  test('유물 효과가 교환·피해·이자에 반영되고 적 상한은 바꾸지 않는다', () => {
     const game = new Game(90);
     game.relics.push('swift_shuffle', 'royal_seal', 'compound_ledger', 'fortified_table');
     game.gold = 100;
@@ -241,7 +241,7 @@ describe('Game relic flow', () => {
     expect(game.exchangeCostNow).toBe(0);
     expect(game.dmgMult).toBeCloseTo(1.12);
     expect(game.interestNow).toBe(15);
-    expect(game.fieldCap).toBe(90);
+    expect(game.fieldCap).toBe(80);
   });
 
   test('압축 애호가가 추가 무료 교환을 제공한 순간만 발동 기록을 남긴다', () => {
@@ -311,23 +311,25 @@ describe('Game relic flow', () => {
     expect(game.exchangeCostNow).toBe(15);
   });
 
-  test('유리 왕관은 큰 피해 보너스 대신 적 상한을 낮춘다', () => {
+  test('유리 왕관은 큰 피해 보너스 대신 처치 골드를 낮춘다', () => {
     const game = new Game(95);
     game.relics.push('glass_crown');
 
     expect(game.dmgMult).toBeCloseTo(1.35);
-    expect(game.fieldCap).toBe(65);
+    expect(relicModifiers(game.relics).bountyMultiplier).toBeCloseTo(0.85);
+    expect(game.fieldCap).toBe(80);
   });
 
-  test('행운의 클로버는 피해와 필드 적 상한을 높인다', () => {
-    const game = new Game(96);
+  test('행운의 클로버는 피해와 무료 교환을 늘린다', () => {
+    const game = new Game(96, 'life-economy');
     game.relics.push('frozen_clover');
 
     expect(game.dmgMult).toBeCloseTo(1.08);
-    expect(game.fieldCap).toBe(85);
+    expect(game.maxExchangesNow).toBe(4);
+    expect(game.fieldCap).toBe(120);
   });
 
-  test('필드 허용치 유물은 서로 합산되고 실제 패배 임계치에도 적용된다', () => {
+  test('유물 조합과 무관하게 실제 패배 임계치는 고정된다', () => {
     const stacked = new Game(961);
     stacked.relics.push('fortified_table', 'frozen_clover', 'glass_crown');
     expect(stacked.fieldCap).toBe(80);
@@ -335,16 +337,28 @@ describe('Game relic flow', () => {
     const game = new Game(962);
     game.relics.push('glass_crown');
     game.phase = 'combat';
-    for (let i = 0; i < 65; i++) spawnEnemy(game.field, 'normal', 1, { dist: i });
+    for (let i = 0; i < 80; i++) spawnEnemy(game.field, 'normal', 1, { dist: i });
 
     game.tickCombat(1 / 30);
     expect(game.phase).toBe('combat');
-    spawnEnemy(game.field, 'normal', 1, { dist: 65 });
+    spawnEnemy(game.field, 'normal', 1, { dist: 80 });
     game.tickCombat(1 / 30);
 
-    expect(game.fieldCap).toBe(65);
+    expect(game.fieldCap).toBe(80);
     expect(game.phase).toBe('defeat');
     expect(game.defeatReason).toBe('field-cap');
+  });
+
+  test('증축 허가증은 유닛 12기 이상 진형에서 피해를 높인다', () => {
+    const game = new Game(963);
+    game.relics.push('fortified_table');
+    for (let index = 0; index < 12; index++) {
+      addUnit(game.field, HandRank.Pair, 2 + index, 2);
+    }
+    const enemy = spawnEnemy(game.field, 'normal', 1);
+    const result = relicUnitDamageResult(game.relics, game.field.units[0], enemy, game.field);
+    expect(result.multiplier).toBeCloseTo(1.18);
+    expect(result.active).toEqual(['fortified_table']);
   });
 
   test('피의 계약은 피해를 높이는 대신 처치 골드를 낮춘다', () => {

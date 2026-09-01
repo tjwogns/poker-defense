@@ -9,14 +9,38 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.2';
+export const CURRENT_VERSION = 'v2.1.3';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.3',
+    title: 'BUILD CONTROL',
+    date: '2026-09-01',
+    current: true,
+    sections: [
+      {
+        heading: '문양과 합성 제어',
+        items: [
+          '키커를 제외하고 실제 족보를 구성한 카드만 대표 문양 판정에 사용',
+          '합성 기준 유닛과 재료 2기를 직접 선택하고 기준 유닛의 위치·문양을 결과 유닛에 계승',
+          '합성 가능한 같은 등급 전체와 선택한 재료를 서로 다른 색으로 강조',
+          '유닛 30기 숫자 상한을 제거하고 실제 빈 배치 칸만 배치 제한으로 사용',
+        ],
+      },
+      {
+        heading: '유물과 LIFE LAB',
+        items: [
+          '정비소 보유 유물을 먼저 눌러 능력을 확인하고 다시 눌러 판매하는 안전한 흐름 추가',
+          '증축 허가증·행운의 클로버·유리 왕관에서 적 허용치 변경을 제거하고 화력·교환·골드 효과로 재설계',
+          'LIFE LAB 네 배치 구역을 각각 5열 × 3행으로 통일하고 바깥 여백 배치를 차단',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.2',
     title: 'RELIC CHOICE',
     date: '2026-09-01',
-    current: true,
     sections: [
       {
         heading: '유물 보상 선택권',

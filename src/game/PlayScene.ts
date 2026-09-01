@@ -54,6 +54,8 @@ export class PlayScene extends Phaser.Scene {
   private damageLabelShownThisFrame = false;
   private cameraShakenThisFrame = false;
   private selectedUnitId: number | null = null;
+  private fusionAnchorId: number | null = null;
+  private fusionSelectedIds: number[] = [];
   private moving = false;
   private ended = false;
   private paused = false;
@@ -112,6 +114,8 @@ export class PlayScene extends Phaser.Scene {
     this.acc = 0;
     this.fx = [];
     this.selectedUnitId = null;
+    this.fusionAnchorId = null;
+    this.fusionSelectedIds = [];
     this.moving = false;
     this.ended = false;
     this.paused = false;
@@ -150,11 +154,24 @@ export class PlayScene extends Phaser.Scene {
         { rank: 11, suit: 'H' }, { rank: 12, suit: 'H' },
         { rank: 14, suit: 'D' },
       ];
+    } else if (localVisualTest === 'fusion') {
+      this.profile.tutorialDone = true;
+      const anchor = addUnit(this.core.field, HandRank.Pair, 3, 2, false, 'H');
+      const second = addUnit(this.core.field, HandRank.Pair, 4, 2, false, 'S');
+      addUnit(this.core.field, HandRank.Pair, 5, 2, false, 'D');
+      addUnit(this.core.field, HandRank.Pair, 6, 2, false, 'C');
+      addUnit(this.core.field, HandRank.Trips, 3, 3, false, 'S');
+      this.selectedUnitId = anchor.id;
+      this.fusionAnchorId = anchor.id;
+      this.fusionSelectedIds = [anchor.id, second.id];
+      this.core.handConfirmed = true;
+      this.core.lastHandRank = HandRank.Pair;
     } else if (localVisualTest === 'mastery') {
       this.profile.tutorialDone = true;
       this.core.round = 9;
       this.core.gold = 1000;
       this.core.upgradeLevel = 30;
+      this.core.relics.push('fortified_table', 'frozen_clover', 'glass_crown');
       this.core.pendingUnits.push(HandRank.RoyalFlush);
       this.core.placeUnit(8, 5);
       this.core.handConfirmed = true;
@@ -198,6 +215,7 @@ export class PlayScene extends Phaser.Scene {
       onStart: () => {
         const boss = this.core.nextWave().kind === 'boss';
         if (this.core.startCombat()) {
+          this.cancelFusionSelection();
           this.trackCombatStarted();
           this.audio.play(boss ? 'boss' : 'click');
           this.refreshUI();
@@ -229,12 +247,14 @@ export class PlayScene extends Phaser.Scene {
             this.audio.play('click');
             this.selectedUnitId = null;
             this.moving = false;
+            this.cancelFusionSelection();
           }
           this.refreshUI();
         }
       },
       onMove: () => {
         if (this.selectedUnitId !== null && this.core.phase === 'prep') {
+          this.cancelFusionSelection();
           this.moving = true;
           this.refreshUI();
         }
@@ -332,7 +352,15 @@ export class PlayScene extends Phaser.Scene {
     this.damageLabelShownThisFrame = false;
     this.cameraShakenThisFrame = false;
     if (this.core.phase === 'combat' && !this.paused) this.stepCombat(dt);
-    this.fieldView.update(this.core, this.selectedUnitId, this.placementTier(), this.fx, dt);
+    this.fieldView.update(
+      this.core,
+      this.selectedUnitId,
+      this.placementTier(),
+      this.fx,
+      dt,
+      this.fusionTier(),
+      this.fusionSelectedIds,
+    );
     this.bossHud.refresh(this.core);
     this.syncRelicPicker();
     this.syncMaintenance();
@@ -408,6 +436,34 @@ export class PlayScene extends Phaser.Scene {
       }
     }
     const unit = this.core.unitAt(t.tx, t.ty);
+    if (this.fusionAnchorId !== null && this.core.phase === 'prep') {
+      const anchor = this.core.field.units.find((candidate) => candidate.id === this.fusionAnchorId);
+      if (!anchor) {
+        this.cancelFusionSelection();
+      } else if (!unit || unit.tier !== anchor.tier) {
+        this.flashCenter(`같은 ${HAND_NAMES_KO[anchor.tier]} 유닛을 선택하세요`, 0x9f74cf);
+        return;
+      } else if (unit.id === anchor.id) {
+        this.cancelFusionSelection();
+        this.audio.play('click');
+        this.flashCenter('합성 선택을 취소했습니다', 0xf2ede3);
+        this.refreshUI();
+        return;
+      } else {
+        const selectedIndex = this.fusionSelectedIds.indexOf(unit.id);
+        if (selectedIndex >= 0) {
+          this.fusionSelectedIds.splice(selectedIndex, 1);
+        } else if (this.fusionSelectedIds.length < 3) {
+          this.fusionSelectedIds.push(unit.id);
+        } else {
+          this.flashCenter('재료는 2기까지 선택할 수 있습니다', 0x9f74cf);
+          return;
+        }
+        this.audio.play('click');
+        this.refreshUI();
+        return;
+      }
+    }
     if (unit) {
       this.selectUnit(unit.id);
       return;
@@ -433,6 +489,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private selectUnit(id: number | null): void {
+    this.cancelFusionSelection();
     this.selectedUnitId = id;
     this.moving = false;
     this.refreshUI();
@@ -445,9 +502,20 @@ export class PlayScene extends Phaser.Scene {
       this.selectedUnitId === null
         ? null
         : this.core.field.units.find((u) => u.id === this.selectedUnitId) ?? null;
-    if (!selected) this.selectedUnitId = null;
+    if (!selected) {
+      this.selectedUnitId = null;
+      this.cancelFusionSelection();
+    }
     this.handBar.refresh();
-    this.panel.refresh(selected, this.speed, this.paused, this.audio.enabled, this.mode);
+    this.panel.refresh(
+      selected,
+      this.speed,
+      this.paused,
+      this.audio.enabled,
+      this.mode,
+      this.fusionAnchorId !== null,
+      this.fusionSelectedIds.length,
+    );
     this.bossHud.refresh(this.core);
     this.firstRunCoach.refresh(this.core, this.firstRunCoachActive);
     this.syncRelicPicker();
@@ -498,11 +566,33 @@ export class PlayScene extends Phaser.Scene {
     if (this.selectedUnitId === null) return;
     const selected = this.core.field.units.find((unit) => unit.id === this.selectedUnitId);
     if (!selected) return;
-    const others = this.core.fusionCandidates(selected.tier).filter((id) => id !== selected.id);
-    if (this.core.fuseUnits([selected.id, ...others.slice(0, 2)])) {
+    if (this.fusionAnchorId === null) {
+      if (this.core.fusionCandidates(selected.tier).length < 3) return;
+      this.fusionAnchorId = selected.id;
+      this.fusionSelectedIds = [selected.id];
+      this.moving = false;
+      this.audio.play('click');
+      this.flashCenter(
+        `${selected.suit ? SUIT_GLYPHS[selected.suit] : '◇'} 기준 유닛 · 같은 종류 2기 선택 · 기준 재클릭 취소`,
+        selected.suit ? SUIT_COLORS[selected.suit] : 0x9f74cf,
+      );
+      this.refreshUI();
+      return;
+    }
+    if (this.fusionSelectedIds.length !== 3) {
+      this.flashCenter(`합성 재료 선택 ${this.fusionSelectedIds.length}/3`, 0x9f74cf);
+      return;
+    }
+    const materialIds = [...this.fusionSelectedIds];
+    if (this.core.fuseUnits(materialIds)) {
+      const inheritedSuit = selected.suit;
+      this.cancelFusionSelection();
       this.selectedUnitId = null;
       this.audio.play('fuse');
-      this.flashCenter(`${UNIT_DEFS[(selected.tier + 1) as HandRank].name} 합성!`, 0xb781dc);
+      this.flashCenter(
+        `${inheritedSuit ? SUIT_GLYPHS[inheritedSuit] : '◇'} ${UNIT_DEFS[(selected.tier + 1) as HandRank].name} 합성!`,
+        inheritedSuit ? SUIT_COLORS[inheritedSuit] : 0xb781dc,
+      );
       this.analytics.track('unit_fused', {
         round: this.core.round,
         fromTier: selected.tier,
@@ -510,6 +600,16 @@ export class PlayScene extends Phaser.Scene {
       }, this.runId);
       this.refreshUI();
     }
+  }
+
+  private fusionTier(): HandRank | null {
+    if (this.fusionAnchorId === null) return null;
+    return this.core.field.units.find((unit) => unit.id === this.fusionAnchorId)?.tier ?? null;
+  }
+
+  private cancelFusionSelection(): void {
+    this.fusionAnchorId = null;
+    this.fusionSelectedIds = [];
   }
 
   private togglePause(): void {

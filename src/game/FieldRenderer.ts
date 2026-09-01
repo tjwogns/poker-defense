@@ -280,7 +280,8 @@ export class FieldRenderer {
         const sx = fieldX + x * tile;
         const sy = fieldY + y * tile;
         const path = isPathTile(x, y, this.mapId);
-        const color = path ? UI.pathTile : UI.fieldTile;
+        const placeable = isPlaceable(x, y, this.mapId);
+        const color = path ? UI.pathTile : placeable ? UI.fieldTile : UI.bgDeep;
         g.fillStyle(color, 1);
         g.fillRect(sx + 1, sy + 1, tile - (portrait ? 2 : 3), tile - (portrait ? 2 : 3));
       }
@@ -365,8 +366,16 @@ export class FieldRenderer {
   }
 
   /** 매 프레임 호출: core 상태를 화면에 반영 */
-  update(game: Game, selectedUnitId: number | null, placingTier: HandRank | null, fx: Fx[], dt: number): void {
-    this.updateUnits(game, selectedUnitId, fx);
+  update(
+    game: Game,
+    selectedUnitId: number | null,
+    placingTier: HandRank | null,
+    fx: Fx[],
+    dt: number,
+    fusionTier: HandRank | null = null,
+    fusionSelectedIds: readonly number[] = [],
+  ): void {
+    this.updateUnits(game, selectedUnitId, fx, fusionTier, fusionSelectedIds);
     this.updateEnemies(game);
     this.drawBossAbilities(game);
     this.updateHighlight(game, placingTier);
@@ -374,8 +383,15 @@ export class FieldRenderer {
     this.updateFx(fx, dt);
   }
 
-  private updateUnits(game: Game, selectedUnitId: number | null, fx: readonly Fx[]): void {
+  private updateUnits(
+    game: Game,
+    selectedUnitId: number | null,
+    fx: readonly Fx[],
+    fusionTier: HandRank | null,
+    fusionSelectedIds: readonly number[],
+  ): void {
     const liveIds = new Set<number>();
+    const selectedForFusion = new Set(fusionSelectedIds);
     for (const u of game.field.units) {
       liveIds.add(u.id);
       let view = this.unitViews.get(u.id);
@@ -401,6 +417,8 @@ export class FieldRenderer {
       }
       const p = unitPos(u);
       const selected = u.id === selectedUnitId;
+      const fusionCandidate = fusionTier !== null && u.tier === fusionTier;
+      const fusionMaterial = selectedForFusion.has(u.id);
       const attackFx = fx.find((effect) => effect.kind === 'attack' && effect.unitId === u.id);
       const recoil = attackFx ? Math.max(0, attackFx.ttl / attackFx.duration) : 0;
       const attackLength = attackFx ? Math.max(1, Math.hypot(attackFx.x2 - attackFx.x1, attackFx.y2 - attackFx.y1)) : 1;
@@ -416,10 +434,16 @@ export class FieldRenderer {
         this.metrics.x + (p.x + recoilX) * this.metrics.scale,
         this.metrics.y + (p.y + bob + recoilY) * this.metrics.scale,
       );
-      view.root.setScale(this.metrics.scale * (selected ? 1.12 : 1) * (1 + recoil * 0.06) * introScale);
+      view.root.setScale(
+        this.metrics.scale * (selected || fusionMaterial ? 1.12 : fusionCandidate ? 1.06 : 1)
+        * (1 + recoil * 0.06) * introScale,
+      );
       view.root.setAlpha(introDuration === 0 ? 1 : 0.5 + introProgress * 0.5);
       view.halo.setScale(introDuration === 0 ? 1 : 1 + (1 - introProgress) * 0.75);
-      view.selection.setVisible(selected);
+      view.selection
+        .setFillStyle(fusionMaterial ? 0x9f74cf : UI.goldNum, fusionMaterial ? 0.22 : 0.05)
+        .setStrokeStyle(fusionMaterial ? 3 : 2, fusionMaterial ? 0xcda8e6 : UI.goldNum, fusionCandidate ? 0.95 : 0.75)
+        .setVisible(selected || fusionCandidate);
     }
     for (const [id, view] of this.unitViews) {
       if (!liveIds.has(id)) {

@@ -12,7 +12,6 @@ export const SPAWN_INTERVAL = 0.45;   // 초 — 초반 대기감을 줄인 기�
 export const COMBAT_MAX_TIME = 32;    // 스폰 완료 후 최대 전투 시간(초)
 export const FINAL_BOSS_MAX_TIME = 50; // 최종 보스전: 스폰 완료 후 처치 제한 시간(초)
 export const FIELD_CAP = 80;          // 필드 적 누적 상한 (초과 = 패배)
-export const UNIT_CAP = 30;           // 배치 상한
 export const BOSS_EVERY = 10;
 export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;
 

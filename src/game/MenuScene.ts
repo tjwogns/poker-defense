@@ -40,6 +40,13 @@ export class MenuScene extends Phaser.Scene {
     const date = dailyDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
+    const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+      ? new URLSearchParams(window.location.search).get('visualTest')
+      : null;
+    if (localVisualTest) {
+      this.scene.start('play', { seed: 20260901, mode: 'standard' });
+      return;
+    }
     if (isPortraitLayout()) {
       this.createPortraitMenu(profile, challengeDate, hasChallenge, lifeLab);
       return;

@@ -7,7 +7,6 @@ import { DeckSealId, Game, GameRuleset } from '../core/game';
 import { Card, HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
 import { GRID_W, GRID_H, MapId, distanceToPathTiles, isPlaceable, tileCanReachPath } from '../core/map';
-import { UNIT_CAP } from '../core/balance';
 import { RelicId } from '../core/relics';
 import { UNIT_DEFS } from '../core/units';
 
@@ -128,20 +127,23 @@ function playPrep(
   const rank = g.confirmHand();
   if (rank !== null) stats.handCounts[rank]++;
 
-  // 배치 (상한 도달 시 더 낮은 등급 유닛을 팔아 자리 확보)
+  // 배치 (숫자 상한은 없으며 실제 배치 칸이 찼을 때만 약한 유닛을 교체)
   while (g.pendingUnits.length > 0) {
     const tier = g.pendingUnits[0];
-    if (g.field.units.length >= UNIT_CAP) {
+    let spot = PLACEMENTS[g.mapId].find(([x, y]) => (
+      !g.unitAt(x, y) && tileCanReachPath(x, y, UNIT_DEFS[tier].range, g.mapId)
+    ));
+    if (!spot) {
       const weakest = [...g.field.units].sort((a, b) => a.tier - b.tier)[0];
-      if (weakest.tier >= tier) {
+      if (!weakest || weakest.tier >= tier) {
         g.discardPendingUnit(); // 새 유닛이 더 약함 → 버림
         continue;
       }
       g.sellUnit(weakest.id);
+      spot = PLACEMENTS[g.mapId].find(([x, y]) => (
+        !g.unitAt(x, y) && tileCanReachPath(x, y, UNIT_DEFS[tier].range, g.mapId)
+      ));
     }
-    const spot = PLACEMENTS[g.mapId].find(([x, y]) => (
-      !g.unitAt(x, y) && tileCanReachPath(x, y, UNIT_DEFS[tier].range, g.mapId)
-    ));
     if (!spot) break;
     g.placeUnit(spot[0], spot[1]);
   }

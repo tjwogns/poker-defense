@@ -72,7 +72,7 @@ export class GuideOverlay {
       makeText(scene, 120, 622, 'BUILD', 9, UI.accentText, true),
       makeText(scene, 170, 622, '유물 · 족보 연마 · 대표 문양을 조합해 주력 화력을 완성하세요', 9, UI.text, true),
       makeText(scene, 120, 642, 'FUSION', 9, UI.gold, true),
-      makeText(scene, 170, 642, '동일 3기 합성 · 세 유닛의 대표 문양이 같을 때만 문양 특성 계승', 9, UI.text, true),
+      makeText(scene, 170, 642, '동일 3기 선택 합성 · 첫 기준 유닛의 위치와 대표 문양 계승', 9, UI.text, true),
       makeText(scene, 120, 668, 'H로 언제든 도감을 열 수 있습니다 · 히든 족보는 첫 발견 후 조건과 유닛이 공개됩니다.', 9, UI.textDim),
     );
 

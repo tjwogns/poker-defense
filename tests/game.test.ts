@@ -3,7 +3,7 @@ import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
 import {
-  START_GOLD, UNIT_CAP, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES,
+  START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES,
 } from '../src/core/balance';
 import { PATH_LENGTH, pathLength } from '../src/core/map';
 import { h } from './helpers';
@@ -89,18 +89,18 @@ describe('Game state machine', () => {
     expect(g.startCombat()).toBe(true);
   });
 
-  test('배치 상한을 넘길 수 없다', () => {
+  test('30기 숫자 상한 없이 빈 타일 수만큼 배치할 수 있다', () => {
     const g = new Game(4);
-    for (let i = 0; i < UNIT_CAP; i++) g.pendingUnits.push(HandRank.HighCard);
+    const target = 31;
+    for (let i = 0; i < target; i++) g.pendingUnits.push(HandRank.RoyalFlush);
     let placed = 0;
-    for (let y = 0; y < 12 && placed < UNIT_CAP; y++) {
-      for (let x = 0; x < 17 && placed < UNIT_CAP; x++) {
+    for (let y = 0; y < 12 && placed < target; y++) {
+      for (let x = 0; x < 17 && placed < target; x++) {
         if (g.placeUnit(x, y)) placed++;
       }
     }
-    expect(placed).toBe(UNIT_CAP);
-    g.pendingUnits.push(HandRank.HighCard);
-    expect(g.placeUnit(13, 8)).toBe(false); // 상한 도달
+    expect(placed).toBe(target);
+    expect(g.field.units).toHaveLength(target);
   });
 
   test('판매: 골드 환급 + 유닛 제거', () => {

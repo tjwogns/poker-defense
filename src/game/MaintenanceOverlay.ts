@@ -49,6 +49,7 @@ export class MaintenanceOverlay {
   private boughtSeal = false;
   private awaitingReplacement = false;
   private selectedReplacement: RelicId | null = null;
+  private inspectedRelic: RelicId | null = null;
 
   constructor(
     private scene: Phaser.Scene,
@@ -197,6 +198,7 @@ export class MaintenanceOverlay {
     this.onRelicBought(initial.id, initial.cost, replaced, initial.refund);
     this.awaitingReplacement = false;
     this.selectedReplacement = null;
+    this.inspectedRelic = null;
     this.refresh();
   }
 
@@ -208,7 +210,13 @@ export class MaintenanceOverlay {
       this.refresh();
       return;
     }
+    if (id && this.inspectedRelic !== id) {
+      this.inspectedRelic = id;
+      this.refresh();
+      return;
+    }
     if (!id || !this.game.sellRelic(id)) return;
+    this.inspectedRelic = null;
     this.onRelicSold(id, relicSellPrice(id));
     this.refresh();
   }
@@ -263,9 +271,12 @@ export class MaintenanceOverlay {
       this.masteryButton.setLabel(mastery.purchased ? '연마 완료' : `족보 연마  ${mastery.cost}G`);
       this.masteryButton.setEnabled(!mastery.purchased && mastery.affordable);
     }
+    const inspected = this.inspectedRelic ? RELIC_DEFS[this.inspectedRelic] : null;
     this.relicHint.setText(this.awaitingReplacement
       ? '교체할 기존 유물을 선택한 뒤 위 유물 버튼으로 확정하세요.'
-      : `RELIC SLOTS · 최대 ${RELIC_SLOT_CAP}칸 · 보유 유물 클릭 시 등급별 판매`);
+      : inspected
+        ? `${inspected.name} · ${inspected.description} · 같은 버튼을 다시 누르면 판매`
+        : `RELIC SLOTS · 최대 ${RELIC_SLOT_CAP}칸 · 보유 유물을 눌러 효과 확인`);
     for (let index = 0; index < this.relicButtons.length; index++) {
       const id = this.game.relics[index];
       const button = this.relicButtons[index];
@@ -278,7 +289,9 @@ export class MaintenanceOverlay {
       const value = relicSellPrice(id);
       button.setLabel(this.awaitingReplacement
         ? `${this.selectedReplacement === id ? '✓ ' : ''}${def.name}\n교체 환급 ${value}G`
-        : `${def.name}\n판매  ${value}G`);
+        : this.inspectedRelic === id
+          ? `✓ ${def.name}\n다시 눌러 판매 ${value}G`
+          : `${def.name}\n효과 보기`);
       button.setEnabled(true);
       const icon = createRelicIcon(this.scene, id, 288 + index * 155, 577, 30);
       this.relicSlotIcons.push(icon);

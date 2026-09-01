@@ -335,9 +335,17 @@ export class SidePanel {
     });
   }
 
-  refresh(selectedUnit: Unit | null, speed: number, paused: boolean, soundEnabled: boolean, mode: RunMode): void {
+  refresh(
+    selectedUnit: Unit | null,
+    speed: number,
+    paused: boolean,
+    soundEnabled: boolean,
+    mode: RunMode,
+    fusionActive = false,
+    fusionSelectedCount = 0,
+  ): void {
     if (this.portrait) {
-      this.refreshPortrait(selectedUnit, speed, paused, mode);
+      this.refreshPortrait(selectedUnit, speed, paused, mode, fusionActive, fusionSelectedCount);
       return;
     }
     const g = this.game;
@@ -428,10 +436,17 @@ export class SidePanel {
             : remaining === null ? `적 등장 중 · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}` : `라운드 종료까지 ${Math.ceil(remaining)}초`,
     );
 
-    this.refreshInspector(selectedUnit, inPrep);
+    this.refreshInspector(selectedUnit, inPrep, fusionActive, fusionSelectedCount);
   }
 
-  private refreshPortrait(selectedUnit: Unit | null, speed: number, paused: boolean, mode: RunMode): void {
+  private refreshPortrait(
+    selectedUnit: Unit | null,
+    speed: number,
+    paused: boolean,
+    mode: RunMode,
+    fusionActive: boolean,
+    fusionSelectedCount: number,
+  ): void {
     const g = this.game;
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`R${g.round}`);
@@ -480,10 +495,15 @@ export class SidePanel {
     this.speedBtn.setLabel(`×${speed}`);
     this.deckBtn.setEnabled(true);
     this.guideBtn.setEnabled(true);
-    this.refreshInspector(selectedUnit, inPrep);
+    this.refreshInspector(selectedUnit, inPrep, fusionActive, fusionSelectedCount);
   }
 
-  private refreshInspector(selectedUnit: Unit | null, inPrep: boolean): void {
+  private refreshInspector(
+    selectedUnit: Unit | null,
+    inPrep: boolean,
+    fusionActive: boolean,
+    fusionSelectedCount: number,
+  ): void {
     const visible = selectedUnit !== null;
     this.inspectorObjects.forEach((object) => object.setVisible(visible));
     if (!selectedUnit) return;
@@ -504,5 +524,8 @@ export class SidePanel {
       && this.game.fusionCandidates(selectedUnit.tier).length >= 3;
     this.fuseBtn.container.setVisible(canFuse);
     this.fuseBtn.setEnabled(inPrep && canFuse);
+    this.fuseBtn.setLabel(fusionActive
+      ? fusionSelectedCount === 3 ? '선택 3/3 · 합성 확정' : `재료 선택 ${fusionSelectedCount}/3`
+      : '동일 3기 선택 합성');
   }
 }

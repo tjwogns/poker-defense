@@ -43,29 +43,38 @@ describe('LIFE LAB cross-road map', () => {
 
   test('외곽과 중앙 십자를 지정된 순서로 왕복해 왼쪽 상단으로 탈출한다', () => {
     const waypoints: Array<[number, number, number]> = [
-      [0, 1, 1], [7, 8, 1], [16, 8, 10], [23, 1, 10], [27, 1, 6],
-      [41, 15, 6], [45, 15, 10], [52, 8, 10], [61, 8, 1],
-      [68, 15, 1], [73, 15, 6], [87, 1, 6], [92, 1, 1],
+      [0, 2, 1], [6, 8, 1], [14, 8, 9], [20, 2, 9], [24, 2, 5],
+      [36, 14, 5], [40, 14, 9], [46, 8, 9], [54, 8, 1],
+      [60, 14, 1], [64, 14, 5], [76, 2, 5], [80, 2, 1],
     ];
     for (const [distance, x, y] of waypoints) {
       expect(pointAt(distance * TILE, mapId)).toEqual(tileCenter(x, y));
     }
-    expect(pathLength(mapId)).toBe(92 * TILE);
+    expect(pathLength(mapId)).toBe(80 * TILE);
   });
 
   test('시작과 출구가 같은 포털이어도 완주 거리 이후에는 끝점에 고정된다', () => {
-    expect(pointAt(pathLength(mapId) + TILE, mapId)).toEqual(tileCenter(1, 1));
+    expect(pointAt(pathLength(mapId) + TILE, mapId)).toEqual(tileCenter(2, 1));
   });
 
-  test('외곽과 중앙 십자는 배치할 수 없고 네 구역 내부는 배치할 수 있다', () => {
-    expect(isPathTile(8, 9, mapId)).toBe(true);
-    expect(isPathTile(5, 6, mapId)).toBe(true);
-    expect(isPathTile(1, 2, mapId)).toBe(true);
-    expect(isPathTile(15, 8, mapId)).toBe(true);
-    expect(isPlaceable(5, 3, mapId)).toBe(true);
-    expect(isPlaceable(12, 3, mapId)).toBe(true);
-    expect(isPlaceable(5, 8, mapId)).toBe(true);
-    expect(isPlaceable(12, 8, mapId)).toBe(true);
+  test('네 배치 구역은 각각 5열 × 3행이며 바깥 여백은 배치할 수 없다', () => {
+    const placeable = Array.from({ length: GRID_W * GRID_H }, (_, index) => ({
+      x: index % GRID_W,
+      y: Math.floor(index / GRID_W),
+    })).filter(({ x, y }) => isPlaceable(x, y, mapId));
+    expect(placeable).toHaveLength(60);
+    for (const [x1, x2] of [[3, 7], [9, 13]]) {
+      for (const [y1, y2] of [[2, 4], [6, 8]]) {
+        const block = placeable.filter(({ x, y }) => x >= x1 && x <= x2 && y >= y1 && y <= y2);
+        expect(block).toHaveLength(15);
+        expect(new Set(block.map(({ x }) => x))).toHaveLength(5);
+        expect(new Set(block.map(({ y }) => y))).toHaveLength(3);
+      }
+    }
+    expect(isPlaceable(0, 0, mapId)).toBe(false);
+    expect(isPlaceable(16, 11, mapId)).toBe(false);
+    expect(isPlaceable(8, 3, mapId)).toBe(false);
+    expect(isPlaceable(5, 5, mapId)).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  dominantSuitChoices, handVariant, suitDamageMultiplier, suitPeriodMultiplier,
+  cardsUsedForHand, dominantSuitChoices, handVariant, suitDamageMultiplier, suitPeriodMultiplier,
   variantDamageMultiplier, variantPeriodMultiplier,
   variantUnitName,
 } from '../src/core/cards/handIdentity';
@@ -19,9 +19,13 @@ describe('hand identity and suit traits', () => {
     expect(variantUnitName('저격수', 'back-straight')).toBe('선봉 저격수');
   });
 
-  test('가장 많은 문양을 대표 후보로 삼고 2-2-1 동률은 둘 다 반환한다', () => {
-    expect(dominantSuitChoices(h('AS KS QS JH 2D'))).toEqual(['S']);
-    expect(dominantSuitChoices(h('AS KS QH JH 2D'))).toEqual(['S', 'H']);
+  test('족보 구성 카드만 대표 문양 판정에 사용하고 키커 문양은 제외한다', () => {
+    expect(cardsUsedForHand(h('8S 8H AS KS QS'))).toEqual(h('8S 8H'));
+    expect(dominantSuitChoices(h('8S 8H AS KS QS'))).toEqual(['S', 'H']);
+    expect(dominantSuitChoices(h('8H 8D AS KS QS'))).toEqual(['H', 'D']);
+    expect(dominantSuitChoices(h('8S 8H 4S 4C QS'))).toEqual(['S']);
+    expect(dominantSuitChoices(h('8S 8H 8D KS QS'))).toEqual(['S', 'H', 'D']);
+    expect(dominantSuitChoices(h('AS KH QD 8C 2S'))).toEqual(['S']);
   });
 
   test('UI 확정 모드는 동률 문양 선택을 요구하고 선택한 문양과 변형을 유닛에 전달한다', () => {
@@ -72,7 +76,7 @@ describe('hand identity and suit traits', () => {
     expect(result.goldEarned).toBe(killGold(1) * 5 + 3);
   });
 
-  test('동일 문양 3기 합성만 문양을 계승하고 특수 태그는 계승하지 않는다', () => {
+  test('합성은 첫 번째 기준 유닛의 문양을 계승하고 특수 태그는 계승하지 않는다', () => {
     const same = new Game(812);
     const sameIds = [
       addUnit(same.field, HandRank.Pair, 4, 4, false, 'S', 'mountain').id,
@@ -89,6 +93,15 @@ describe('hand identity and suit traits', () => {
       addUnit(mixed.field, HandRank.Pair, 6, 4, false, 'S').id,
     ];
     expect(mixed.fuseUnits(mixedIds)).toBe(true);
-    expect(mixed.field.units[0]).toMatchObject({ tier: HandRank.TwoPair, suit: null, variant: null });
+    expect(mixed.field.units[0]).toMatchObject({ tier: HandRank.TwoPair, suit: 'S', variant: null });
+
+    const heartAnchor = new Game(814);
+    const heartIds = [
+      addUnit(heartAnchor.field, HandRank.Pair, 4, 4, false, 'H').id,
+      addUnit(heartAnchor.field, HandRank.Pair, 5, 4, false, 'S').id,
+      addUnit(heartAnchor.field, HandRank.Pair, 6, 4, false, 'D').id,
+    ];
+    expect(heartAnchor.fuseUnits(heartIds)).toBe(true);
+    expect(heartAnchor.field.units[0]).toMatchObject({ tx: 4, ty: 4, suit: 'H' });
   });
 });

@@ -6,7 +6,7 @@ import { Rng, mulberry32 } from './rng';
 import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
   FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
-  FIELD_CAP, UNIT_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
+  FIELD_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BOSS_ESCAPE_DAMAGE, LIFE_MODE_BREACH_THRESHOLD,
   LIFE_MODE_FIELD_CAP, LIFE_MODE_STARTING_LIVES,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
@@ -403,16 +403,11 @@ export class Game {
     this.pendingUnitVariants.push(variant);
     const mods = relicModifiers(this.relics, this.deckSize);
     if (mods.pairBonusUnit && rank === HandRank.Pair) {
-      if (this.field.units.length + this.pendingUnits.length < UNIT_CAP) {
-        this.pendingUnits.push(rank);
-        this.pendingUnitPristine.push(pristine);
-        this.pendingUnitSuits.push(suit);
-        this.pendingUnitVariants.push(variant);
-        this.lastPairBrokerBonus = true;
-      } else {
-        this.gold += 15;
-        this.lastRelicGoldBonus += 15;
-      }
+      this.pendingUnits.push(rank);
+      this.pendingUnitPristine.push(pristine);
+      this.pendingUnitSuits.push(suit);
+      this.pendingUnitVariants.push(variant);
+      this.lastPairBrokerBonus = true;
       this.lastRelicTriggers.push('pair_broker');
     }
     if (new Set(this.hand.map((card) => card.suit)).size === 4) {
@@ -432,7 +427,6 @@ export class Game {
   placeUnit(tx: number, ty: number): boolean {
     if (this.phase !== 'prep' || this.maintenancePending) return false;
     if (this.pendingUnits.length === 0) return false;
-    if (this.field.units.length >= UNIT_CAP) return false;
     const tier = this.pendingUnits[0];
     if (!isPlaceable(tx, ty, this.mapId) || this.unitAt(tx, ty)) return false;
     if (!tileCanReachPath(tx, ty, UNIT_DEFS[tier].range, this.mapId)) return false;
@@ -490,8 +484,8 @@ export class Game {
     const origin = units[0];
     const consumed = new Set(unitIds);
     this.field.units = this.field.units.filter((unit) => !consumed.has(unit.id));
-    const fusedSuit = units.every((unit) => unit.suit === origin.suit) ? origin.suit : null;
-    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty, false, fusedSuit, null);
+    // 첫 번째로 지정한 기준 유닛의 위치와 문양을 의도적으로 계승한다.
+    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty, false, origin.suit, null);
     return true;
   }
 
@@ -528,8 +522,7 @@ export class Game {
   }
 
   get fieldCap(): number {
-    const base = this.lifeMode ? LIFE_MODE_FIELD_CAP : FIELD_CAP;
-    return Math.max(20, base + relicModifiers(this.relics).fieldCapBonus);
+    return this.lifeMode ? LIFE_MODE_FIELD_CAP : FIELD_CAP;
   }
 
   get lifeMode(): boolean {

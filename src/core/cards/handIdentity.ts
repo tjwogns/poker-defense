@@ -1,4 +1,5 @@
 import { Card, HandRank, Suit, SUIT_GLYPHS } from './types';
+import { evaluateHand } from './evaluator';
 
 export type HandVariant = 'mountain' | 'back-straight';
 
@@ -28,10 +29,25 @@ export const HAND_VARIANT_LABELS: Record<HandVariant, string> = {
   'back-straight': '백스트레이트',
 };
 
-/** 가장 많은 문양이 대표 후보가 된다. 2-2-1이면 두 후보 중 플레이어가 선택한다. */
-export function dominantSuitChoices(cards: readonly Card[]): Suit[] {
+/** 족보를 실제로 구성하는 카드만 반환한다. 키커는 대표 문양 판정에서 제외한다. */
+export function cardsUsedForHand(cards: readonly Card[], rank = evaluateHand([...cards])): Card[] {
+  const counts = new Map<number, number>();
+  for (const card of cards) counts.set(card.rank, (counts.get(card.rank) ?? 0) + 1);
+  if (rank === HandRank.HighCard) {
+    const highest = Math.max(...cards.map((card) => card.rank));
+    return cards.filter((card) => card.rank === highest).slice(0, 1);
+  }
+  if (rank === HandRank.Pair) return cards.filter((card) => counts.get(card.rank) === 2);
+  if (rank === HandRank.TwoPair) return cards.filter((card) => counts.get(card.rank) === 2);
+  if (rank === HandRank.Trips) return cards.filter((card) => counts.get(card.rank) === 3);
+  if (rank === HandRank.FourKind) return cards.filter((card) => (counts.get(card.rank) ?? 0) >= 4);
+  return [...cards];
+}
+
+/** 족보 구성 카드에서 가장 많은 문양이 대표 후보가 된다. 동률이면 플레이어가 선택한다. */
+export function dominantSuitChoices(cards: readonly Card[], rank = evaluateHand([...cards])): Suit[] {
   const counts: Record<Suit, number> = { S: 0, H: 0, D: 0, C: 0 };
-  for (const card of cards) counts[card.suit]++;
+  for (const card of cardsUsedForHand(cards, rank)) counts[card.suit]++;
   const max = Math.max(...Object.values(counts));
   return (Object.keys(counts) as Suit[]).filter((suit) => counts[suit] === max);
 }

@@ -26,21 +26,21 @@ const MAPS: Record<MapId, MapDefinition> = {
     loop: true,
   },
   'cross-road': {
-    // 네 구역의 외곽과 중앙 십자 통로를 순서대로 왕복하는 LIFE LAB 경로.
+    // 5열 × 3행의 네 배치 구역을 감싸며 중앙 십자를 왕복하는 LIFE LAB 경로.
     corners: [
-      { x: 1, y: 1 },  // S: 왼쪽 상단
+      { x: 2, y: 1 },  // S: 왼쪽 상단
       { x: 8, y: 1 },  // 중앙 상단
-      { x: 8, y: 10 }, // 중앙 하단
-      { x: 1, y: 10 }, // 왼쪽 하단
-      { x: 1, y: 6 },  // 왼쪽 중단
-      { x: 15, y: 6 }, // 오른쪽 중단
-      { x: 15, y: 10 }, // 오른쪽 하단
-      { x: 8, y: 10 }, // 중앙 하단 재진입
+      { x: 8, y: 9 },  // 중앙 하단
+      { x: 2, y: 9 },  // 왼쪽 하단
+      { x: 2, y: 5 },  // 왼쪽 중단
+      { x: 14, y: 5 }, // 오른쪽 중단
+      { x: 14, y: 9 }, // 오른쪽 하단
+      { x: 8, y: 9 },  // 중앙 하단 재진입
       { x: 8, y: 1 },  // 중앙 상단 재진입
-      { x: 15, y: 1 }, // 오른쪽 상단
-      { x: 15, y: 6 }, // 오른쪽 중단 재진입
-      { x: 1, y: 6 },  // 왼쪽 중단 재진입
-      { x: 1, y: 1 },  // E: 왼쪽 상단
+      { x: 14, y: 1 }, // 오른쪽 상단
+      { x: 14, y: 5 }, // 오른쪽 중단 재진입
+      { x: 2, y: 5 },  // 왼쪽 중단 재진입
+      { x: 2, y: 1 },  // E: 왼쪽 상단
     ],
     loop: false,
   },
@@ -107,6 +107,13 @@ export function isPathTile(x: number, y: number, mapId: MapId = 'classic-ring'):
 /** 그리드 안이면서 경로가 아닌 타일 = 배치 가능 */
 export function isPlaceable(x: number, y: number, mapId: MapId = 'classic-ring'): boolean {
   if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return false;
+  if (mapId === 'cross-road') {
+    const inLeftBlock = x >= 3 && x <= 7;
+    const inRightBlock = x >= 9 && x <= 13;
+    const inTopBlock = y >= 2 && y <= 4;
+    const inBottomBlock = y >= 6 && y <= 8;
+    return (inLeftBlock || inRightBlock) && (inTopBlock || inBottomBlock);
+  }
   return !isPathTile(x, y, mapId);
 }
 
