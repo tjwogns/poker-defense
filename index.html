@@ -24,6 +24,13 @@
       .boot-tip { margin-top: 15px; color: #718478; font-size: 11px; }
       @keyframes boot-progress { from { transform: translateX(-110%); } to { transform: translateX(340%); } }
       #mobile-gate { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 32px; text-align: center; color: #e6ebe5; background: #07130c; font: 700 18px/1.6 system-ui, sans-serif; box-sizing: border-box; }
+      #renderer-recovery { position: fixed; inset: 0; z-index: 140; display: grid; place-items: center; padding: 28px; color: #f2ede3; background: rgba(7, 8, 12, .96); font-family: Pretendard, system-ui, sans-serif; text-align: center; box-sizing: border-box; }
+      #renderer-recovery[hidden], #renderer-safe-mode[hidden] { display: none; }
+      .renderer-recovery-card { width: min(430px, calc(100vw - 40px)); padding: 30px 24px; border: 1px solid rgba(230, 200, 79, .35); border-radius: 12px; background: #11131a; box-shadow: 0 24px 90px rgba(0, 0, 0, .7); }
+      .renderer-recovery-mark { color: #e6c84f; font: 800 32px/1 Georgia, serif; }
+      #renderer-recovery-message { margin-top: 16px; color: #f2ede3; font-size: 20px; font-weight: 800; }
+      #renderer-recovery-detail { margin: 12px auto 0; color: #aeb9b1; font-size: 14px; line-height: 1.7; font-weight: 500; }
+      #renderer-safe-mode { min-width: 230px; min-height: 50px; margin-top: 22px; padding: 0 18px; border: 1px solid #e6c84f; border-radius: 6px; background: #e6c84f; color: #141006; font: 800 15px system-ui, sans-serif; cursor: pointer; }
       .screen-guide { max-width: 440px; }
       .screen-guide strong { display: block; margin-bottom: 10px; color: #e6c84f; font-size: 22px; }
       .screen-guide span { display: block; color: #94a698; font-size: 15px; font-weight: 500; }
@@ -45,6 +52,14 @@
       </div>
     </div>
     <div id="mobile-gate"><div class="screen-guide"><strong>가로 화면이 너무 작습니다</strong><span>브라우저 메뉴를 접거나 전체 화면으로 전환하면 실행할 수 있습니다.</span><button id="fullscreen" type="button">전체 화면 시도</button></div></div>
+    <div id="renderer-recovery" role="alert" aria-live="assertive" hidden>
+      <div class="renderer-recovery-card">
+        <div class="renderer-recovery-mark" aria-hidden="true">♠</div>
+        <div id="renderer-recovery-message">그래픽 장치를 복구하는 중입니다</div>
+        <p id="renderer-recovery-detail">게임을 잠시 멈췄습니다. 복구되면 자동으로 이어집니다.</p>
+        <button id="renderer-safe-mode" type="button" hidden>안정 모드로 다시 시작</button>
+      </div>
+    </div>
     <script>
       document.getElementById('fullscreen')?.addEventListener('click', () => {
         document.documentElement.requestFullscreen?.().catch(() => undefined);

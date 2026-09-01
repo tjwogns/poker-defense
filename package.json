@@ -1,7 +1,7 @@
 {
   "name": "poker-defense",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "sim": "tsx src/sim/run.ts",
     "smoke:hidden": "node scripts/hidden-smoke.mjs",
     "smoke:focus": "node scripts/focus-smoke.mjs",
+    "smoke:recovery": "node scripts/context-loss-smoke.mjs",
     "smoke:mobile": "node scripts/mobile-smoke.mjs",
     "smoke:bosses": "node scripts/boss-visual-smoke.mjs"
   },

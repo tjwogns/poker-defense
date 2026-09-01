@@ -26,22 +26,50 @@ export class AudioManager {
 
   play(cue: SoundCue): void {
     if (!this.enabled || typeof window === 'undefined') return;
+    const activation = navigator.userActivation;
+    // Chrome은 사용자 입력 없이 만든 AudioContext를 suspended 상태로 두며 경고한다.
+    // 첫 실제 클릭·키 입력이 올 때까지 생성과 resume 자체를 미룬다.
+    if ((!this.context || this.context.state !== 'running') && activation && !activation.isActive) return;
     const AudioContextClass = window.AudioContext
       ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     this.context ??= new AudioContextClass();
-    void this.context.resume();
+    const context = this.context;
+    if (context.state === 'running') {
+      this.schedule(context, cue);
+      return;
+    }
+    if (context.state === 'closed') {
+      this.context = null;
+      return;
+    }
+    void context.resume()
+      .then(() => {
+        if (this.enabled && this.context === context && context.state === 'running') {
+          this.schedule(context, cue);
+        }
+      })
+      .catch(() => undefined);
+  }
+
+  destroy(): void {
+    const context = this.context;
+    this.context = null;
+    if (context && context.state !== 'closed') void context.close().catch(() => undefined);
+  }
+
+  private schedule(context: AudioContext, cue: SoundCue): void {
     const config = CUES[cue];
-    const start = this.context.currentTime;
+    const start = context.currentTime;
     config.notes.forEach((frequency, index) => {
-      const oscillator = this.context!.createOscillator();
-      const gain = this.context!.createGain();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
       const noteStart = start + index * config.duration * 0.55;
       oscillator.type = config.type;
       oscillator.frequency.value = frequency;
       gain.gain.setValueAtTime(config.gain, noteStart);
       gain.gain.exponentialRampToValueAtTime(0.001, noteStart + config.duration);
-      oscillator.connect(gain).connect(this.context!.destination);
+      oscillator.connect(gain).connect(context.destination);
       oscillator.start(noteStart);
       oscillator.stop(noteStart + config.duration);
     });

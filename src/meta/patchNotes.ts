@@ -9,14 +9,36 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1';
+export const CURRENT_VERSION = 'v2.1.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.1',
+    title: 'WINDOWS RECOVERY',
+    date: '2026-09-01',
+    current: true,
+    sections: [
+      {
+        heading: '그래픽 복구',
+        items: [
+          'Windows Chrome에서 알트탭 후 WebGL 장치가 초기화되어도 게임을 멈추고 자동 복구',
+          '복구 중에는 흰 화면 대신 그래픽 장치 복구 안내를 표시하고 완료 후 기존 화면으로 재개',
+          '자동 복구가 지연되면 WebGL을 사용하지 않는 Canvas 안정 모드로 다시 시작 가능',
+        ],
+      },
+      {
+        heading: '오디오 안정성',
+        items: [
+          '사용자 입력 전 AudioContext 자동 시작을 중단해 Chrome 경고와 불필요한 음원 자원 생성 방지',
+          '실제 클릭·키 입력 뒤 오디오 실행 상태를 확인하고 Scene 종료 시 Context 정리',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1',
     title: 'PORTRAIT COMMAND',
     date: '2026-09-01',
-    current: true,
     sections: [
       {
         heading: '세로 모드',

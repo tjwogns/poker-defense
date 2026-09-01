@@ -28,4 +28,11 @@ describe('mobile shell', () => {
     expect(html).toContain('왕국과 카드 군단을 불러오는 중');
     expect(html).toContain('role="status"');
   });
+
+  test('WebGL 손실 시 캔버스 밖에서 복구와 안정 모드 진입을 안내한다', () => {
+    expect(html).toContain('id="renderer-recovery"');
+    expect(html).toContain('그래픽 장치를 복구하는 중입니다');
+    expect(html).toContain('id="renderer-safe-mode"');
+    expect(html).toContain('안정 모드로 다시 시작');
+  });
 });

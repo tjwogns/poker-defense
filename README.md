@@ -3,6 +3,14 @@
 포커 족보로 유닛을 뽑아 순환 경로를 도는 적을 막는 웹 디펜스 게임.
 카드 조합, 군단 성장, 순환형 전장을 결합한 독립 오리지널 프로젝트다.
 
+## v2.1.1 Windows Recovery
+
+- Windows Chrome에서 알트탭 후 WebGL 컨텍스트가 사라질 때 자동 일시정지·복원
+- 복구 중 흰 화면 대신 브라우저 DOM 기반 그래픽 복구 안내 표시
+- 4초 안에 복구되지 않으면 Canvas 안정 모드로 다시 시작
+- 사용자 입력 전 AudioContext 생성을 막고 실제 실행 상태에서만 효과음 재생
+- 강제 WebGL 손실·자동 복구·Canvas 게임 진입 E2E 스모크 추가
+
 ## v2.1 Portrait Command
 
 - 정식 게임 주소: https://tjwogns.github.io/poker-defense/
@@ -77,6 +85,7 @@ SINGLEFILE=1 npm run build  # 단일 HTML 파일 빌드 (배포/공유용)
 node scripts/smoke.mjs      # E2E 스모크 (Chrome 필요, 프리뷰 서버 선행)
 npm run smoke:hidden        # 히든 발견·도감 해금·저장 유지 E2E
 npm run smoke:focus         # Chrome 탭 전환 후 선택 배속 유지 E2E
+npm run smoke:recovery      # WebGL 강제 손실·자동 복구·Canvas 안정 모드 E2E
 npm run smoke:mobile        # 가로·390×844 세로 모바일 실행과 터치 진입 E2E
 npm run smoke:bosses        # 보스 6종 로딩·배치·최종 광폭화 비주얼 E2E
 ```

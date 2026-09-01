@@ -21,7 +21,8 @@ await page.setViewport({ width: 1280, height: 720 });
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 page.on('console', (message) => {
-  if (message.type() === 'error') errors.push(message.text());
+  const text = message.text();
+  if (message.type() === 'error' || text.includes('AudioContext was not allowed to start')) errors.push(text);
 });
 
 await page.goto(BASE_URL, { waitUntil: 'networkidle0' });

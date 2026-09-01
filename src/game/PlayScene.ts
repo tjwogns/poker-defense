@@ -297,6 +297,7 @@ export class PlayScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
       window.removeEventListener('blur', this.windowBlurHandler);
       window.removeEventListener('focus', this.windowFocusHandler);
+      this.audio.destroy();
       this.trackAbandoned('scene_left');
     });
     // E2E/디버그용 훅
