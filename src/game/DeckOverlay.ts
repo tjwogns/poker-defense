@@ -4,6 +4,8 @@ import { DeckEditOddsPair, DeckOdds, deckEditOddsPair, deckOdds } from '../core/
 import { DeckEditStatus, DeckSealId, Game } from '../core/game';
 import { closestHiddenRecipe, hiddenRecipeLabel, hiddenRecipeProgress } from '../core/cards/hiddenRecipes';
 import { Button, UI, makeButton, makeText } from './ui';
+import { isPortraitLayout } from './device';
+import { portraitSceneHeight, portraitY } from './layout';
 
 const SUITS: Suit[] = ['S', 'H', 'D', 'C'];
 const RANKS = Array.from({ length: 13 }, (_, index) => index + 2);
@@ -47,39 +49,44 @@ export class DeckOverlay {
     private onChanged: (id: DeckSealId, card: Card) => void,
   ) {
     this.baseOdds = deckOdds(game.deckSnapshot());
+    const portrait = isPortraitLayout();
+    const height = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(height, value);
+    const cx = portrait ? 195 : 640;
     const children: Phaser.GameObjects.GameObject[] = [];
-    const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.9).setInteractive();
-    const shadow = scene.add.rectangle(640, 363, 1120, 650, 0x000000, 0.48);
-    const panel = scene.add.rectangle(640, 357, 1120, 650, UI.panel, 1)
+    const dim = scene.add.rectangle(cx, portrait ? height / 2 : 360, portrait ? 390 : 1280, portrait ? height : 720, 0x020705, 0.9).setInteractive();
+    const shadow = scene.add.rectangle(cx, portrait ? height / 2 + 3 : 363, portrait ? 370 : 1120, portrait ? height - 24 : 650, 0x000000, 0.48);
+    const panel = scene.add.rectangle(cx, portrait ? height / 2 : 357, portrait ? 370 : 1120, portrait ? height - 24 : 650, UI.panel, 1)
       .setStrokeStyle(2, UI.panelGlow, 0.95);
     children.push(dim, shadow, panel);
 
     children.push(
-      makeText(scene, 110, 52, 'RUN DECK', 11, UI.accentText, true),
-      makeText(scene, 110, 75, '덱 보기 · 카드 개조', 29, UI.text, true),
-      makeText(scene, 110, 114, '카드를 선택하면 보유 수량과 추방·복제 가능 여부를 확인할 수 있습니다.', 13, UI.textDim),
+      makeText(scene, portrait ? 20 : 110, portrait ? py(28) : 52, 'RUN DECK', portrait ? 9 : 11, UI.accentText, true),
+      makeText(scene, portrait ? 20 : 110, portrait ? py(49) : 75, '덱 보기 · 카드 개조', portrait ? 22 : 29, UI.text, true),
+      makeText(scene, portrait ? 20 : 110, portrait ? py(82) : 114, portrait ? '카드를 선택해 추방·복제 결과를 확인하세요.' : '카드를 선택하면 보유 수량과 추방·복제 가능 여부를 확인할 수 있습니다.', portrait ? 10 : 13, UI.textDim),
     );
-    const close = makeButton(scene, 1090, 78, 110, 36, '닫기  ESC', onClose, {
+    const close = makeButton(scene, portrait ? 338 : 1090, portrait ? py(49) : 78, portrait ? 76 : 110, portrait ? 38 : 36, portrait ? '닫기' : '닫기  ESC', onClose, {
       fill: 0x42544a,
       fontSize: 11,
     });
     children.push(close.container);
 
-    this.hiddenRecipes = makeText(scene, 112, 143, '', 11, UI.gold, true);
+    this.hiddenRecipes = makeText(scene, portrait ? 20 : 112, portrait ? py(112) : 143, '', portrait ? 8 : 11, UI.gold, true)
+      .setWordWrapWidth(portrait ? 350 : 1000, true);
     children.push(this.hiddenRecipes);
 
     SUITS.forEach((suit, suitIndex) => {
-      const y = 190 + suitIndex * 78;
-      children.push(makeText(scene, 112, y, SUIT_GLYPHS[suit], 30, suitColor(suit), true).setOrigin(0, 0.5));
+      const y = portrait ? py(175 + suitIndex * 66) : 190 + suitIndex * 78;
+      children.push(makeText(scene, portrait ? 18 : 112, y, SUIT_GLYPHS[suit], portrait ? 18 : 30, suitColor(suit), true).setOrigin(0, 0.5));
       RANKS.forEach((rank, rankIndex) => {
         const card = { suit, rank };
-        const x = 190 + rankIndex * 76;
-        const bg = scene.add.rectangle(x, y, 66, 58, UI.panelRaised, 1)
+        const x = portrait ? 48 + rankIndex * 26 : 190 + rankIndex * 76;
+        const bg = scene.add.rectangle(x, y, portrait ? 23 : 66, portrait ? 42 : 58, UI.panelRaised, 1)
           .setStrokeStyle(1, UI.panelLine, 0.9)
           .setInteractive({ useHandCursor: true });
-        const label = makeText(scene, x, y - 9, `${SUIT_GLYPHS[suit]} ${RANK_LABELS[rank]}`, 14, suitColor(suit), true)
+        const label = makeText(scene, x, y - (portrait ? 7 : 9), portrait ? `${RANK_LABELS[rank]}` : `${SUIT_GLYPHS[suit]} ${RANK_LABELS[rank]}`, portrait ? 9 : 14, suitColor(suit), true)
           .setOrigin(0.5);
-        const count = makeText(scene, x, y + 14, '', 11, UI.textDim, true).setOrigin(0.5);
+        const count = makeText(scene, x, y + (portrait ? 10 : 14), '', portrait ? 8 : 11, UI.textDim, true).setOrigin(0.5);
         bg.on('pointerdown', (_p: unknown, _x: unknown, _y: unknown, event: { stopPropagation(): void }) => {
           event.stopPropagation();
           this.selected = card;
@@ -90,31 +97,31 @@ export class DeckOverlay {
       });
     });
 
-    this.detail = makeText(scene, 112, 486, '', 14, UI.text, true);
-    this.banishPreview = makeText(scene, 112, 528, '', 11, '#df8d86');
-    this.duplicatePreview = makeText(scene, 112, 551, '', 11, '#c4a2df');
-    this.status = makeText(scene, 112, 578, '', 11, UI.textDim);
+    this.detail = makeText(scene, portrait ? 20 : 112, portrait ? py(468) : 486, '', portrait ? 11 : 14, UI.text, true);
+    this.banishPreview = makeText(scene, portrait ? 20 : 112, portrait ? py(512) : 528, '', portrait ? 9 : 11, '#df8d86').setWordWrapWidth(portrait ? 350 : 1000, true);
+    this.duplicatePreview = makeText(scene, portrait ? 20 : 112, portrait ? py(546) : 551, '', portrait ? 9 : 11, '#c4a2df').setWordWrapWidth(portrait ? 350 : 1000, true);
+    this.status = makeText(scene, portrait ? 20 : 112, portrait ? py(580) : 578, '', portrait ? 9 : 11, UI.textDim).setWordWrapWidth(portrait ? 350 : 1000, true);
     children.push(
       this.detail,
-      makeText(scene, 112, 509, '전체 5장 드로우 기준 · 선택 카드 개조 전후 정확 확률', 10, UI.accentText, true),
+      makeText(scene, portrait ? 20 : 112, portrait ? py(493) : 509, '전체 5장 드로우 기준 · 선택 카드 개조 전후 정확 확률', portrait ? 8 : 10, UI.accentText, true),
       this.banishPreview,
       this.duplicatePreview,
       this.status,
     );
 
-    this.banishBtn = makeButton(scene, 810, 610, 174, 42, '', () => this.apply('banish'), {
+    this.banishBtn = makeButton(scene, portrait ? 104 : 810, portrait ? py(650) : 610, portrait ? 158 : 174, portrait ? 48 : 42, '', () => this.apply('banish'), {
       fill: UI.danger,
       fontSize: 12,
     });
-    this.duplicateBtn = makeButton(scene, 1000, 610, 174, 42, '', () => this.apply('duplicate'), {
+    this.duplicateBtn = makeButton(scene, portrait ? 286 : 1000, portrait ? py(650) : 610, portrait ? 158 : 174, portrait ? 48 : 42, '', () => this.apply('duplicate'), {
       fill: 0x9f74cf,
       fontSize: 12,
     });
     children.push(this.banishBtn.container, this.duplicateBtn.container);
 
     children.push(
-      makeText(scene, 112, 604, '덱 제한 40–60장 · 변화량은 퍼센트포인트(%p)', 11, UI.textDim),
-      makeText(scene, 112, 626, '추방·복제 인장은 보스전 직전 정비소에서 구매할 수 있습니다.', 11, UI.gold),
+      makeText(scene, portrait ? 20 : 112, portrait ? py(610) : 604, '덱 제한 40–60장 · 변화량은 퍼센트포인트(%p)', portrait ? 9 : 11, UI.textDim),
+      makeText(scene, portrait ? 20 : 112, portrait ? py(708) : 626, '추방·복제 인장은 보스전 직전 정비소에서 구매', portrait ? 9 : 11, UI.gold),
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(46);

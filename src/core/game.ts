@@ -8,7 +8,8 @@ import {
   FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BOSS_ESCAPE_DAMAGE, LIFE_MODE_BREACH_THRESHOLD,
-  LIFE_MODE_FIELD_CAP, LIFE_MODE_STARTING_LIVES,
+  LIFE_MODE_BOUNTY_MULTIPLIER, LIFE_MODE_CLEAR_BONUS_MULTIPLIER, LIFE_MODE_FIELD_CAP,
+  LIFE_MODE_INTEREST_CAP_MULTIPLIER, LIFE_MODE_INTEREST_RATE_MULTIPLIER, LIFE_MODE_STARTING_LIVES,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
 import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveKind } from './enemies';
@@ -59,6 +60,15 @@ export type DeckEditStatus =
   | 'hand_copy_protected'
   | 'size_limit';
 
+export interface GoldIncomeLedger {
+  bounty: number;
+  diamond: number;
+  clear: number;
+  interest: number;
+  relic: number;
+  sales: number;
+}
+
 /**
  * 게임 상태 머신: prep(카드/배치/경제) ⇄ combat(고정 틱) → victory/defeat.
  * 렌더링 의존성 없음 — 헤드리스 시뮬레이터와 Phaser UI가 공유한다.
@@ -77,6 +87,7 @@ export class Game {
   escapedEnemies = 0;
   lifeDamageTaken = 0;
   lastLifeDamage = 0;
+  readonly goldIncome: GoldIncomeLedger = { bounty: 0, diamond: 0, clear: 0, interest: 0, relic: 0, sales: 0 };
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -240,6 +251,7 @@ export class Game {
     if (!offer.affordable) return false;
     if (replaceId) this.removeRelic(replaceId);
     this.gold += offer.refund - offer.cost;
+    this.goldIncome.sales += offer.refund;
     this.addRelic(offer.id);
     this.purchasedMaintenanceOffers.add(`${this.round}:relic`);
     return true;
@@ -265,7 +277,9 @@ export class Game {
     if (!this.maintenancePending) return false;
     if (!this.relics.includes(id)) return false;
     this.removeRelic(id);
-    this.gold += relicSellPrice(id);
+    const value = relicSellPrice(id);
+    this.gold += value;
+    this.goldIncome.sales += value;
     return true;
   }
 
@@ -412,6 +426,7 @@ export class Game {
     }
     if (new Set(this.hand.map((card) => card.suit)).size === 4) {
       this.gold += mods.fourSuitGoldBonus;
+      this.goldIncome.relic += mods.fourSuitGoldBonus;
       this.lastRelicGoldBonus += mods.fourSuitGoldBonus;
       if (mods.fourSuitGoldBonus > 0) this.lastRelicTriggers.push('four_suit_crest');
     }
@@ -493,7 +508,9 @@ export class Game {
     if (this.phase !== 'prep' || this.maintenancePending) return false;
     const idx = this.field.units.findIndex((u) => u.id === unitId);
     if (idx < 0) return false;
-    this.gold += SELL_REFUND[this.field.units[idx].tier];
+    const value = SELL_REFUND[this.field.units[idx].tier];
+    this.gold += value;
+    this.goldIncome.sales += value;
     this.field.units.splice(idx, 1);
     return true;
   }
@@ -541,8 +558,8 @@ export class Game {
 
   get interestNow(): number {
     const mods = relicModifiers(this.relics);
-    const rulesetRate = this.lifeMode ? INTEREST_RATE * 0.5 : INTEREST_RATE;
-    const rulesetCap = this.lifeMode ? Math.floor(INTEREST_CAP * 0.5) : INTEREST_CAP;
+    const rulesetRate = this.lifeMode ? INTEREST_RATE * LIFE_MODE_INTEREST_RATE_MULTIPLIER : INTEREST_RATE;
+    const rulesetCap = this.lifeMode ? Math.floor(INTEREST_CAP * LIFE_MODE_INTEREST_CAP_MULTIPLIER) : INTEREST_CAP;
     return interest(
       this.gold,
       rulesetRate * mods.interestMultiplier,
@@ -568,7 +585,9 @@ export class Game {
     if (full && (!replaceId || !this.relics.includes(replaceId))) return false;
     if (replaceId) {
       this.removeRelic(replaceId);
-      this.gold += relicSellPrice(replaceId);
+      const value = relicSellPrice(replaceId);
+      this.gold += value;
+      this.goldIncome.sales += value;
     }
     this.addRelic(id);
     this.relicChoices = [];
@@ -675,8 +694,13 @@ export class Game {
       }
     }
     const mods = relicModifiers(this.relics);
-    result.goldEarned = Math.floor(result.goldEarned * mods.bountyMultiplier) + diamondBonusGold;
+    const bountyGold = Math.floor(
+      result.goldEarned * mods.bountyMultiplier * (this.lifeMode ? LIFE_MODE_BOUNTY_MULTIPLIER : 1),
+    );
+    result.goldEarned = bountyGold + diamondBonusGold;
     this.gold += result.goldEarned;
+    this.goldIncome.bounty += bountyGold;
+    this.goldIncome.diamond += diamondBonusGold;
     this.kills += result.deaths.length;
     this.score += result.deaths.reduce(
       (total, enemy) => total + scoreForKills(enemy.round, 1),
@@ -768,7 +792,11 @@ export class Game {
     // 해결됐다면 성장 골드까지 중복으로 박탈하지 않는다.
     const roundCleared = !this.field.enemies.some((enemy) => enemy.round === completedRound && enemy.alive);
     if (roundCleared) {
-      this.gold += clearBonus(completedRound);
+      const bonus = Math.floor(
+        clearBonus(completedRound) * (this.lifeMode ? LIFE_MODE_CLEAR_BONUS_MULTIPLIER : 1),
+      );
+      this.gold += bonus;
+      this.goldIncome.clear += bonus;
       this.score += scoreForRoundClear(completedRound);
     }
 
@@ -786,7 +814,9 @@ export class Game {
 
     this.round++;
     if (this.round % BOSS_EVERY === 0) this.pendingMaintenanceRound = this.round;
-    this.gold += this.interestNow;
+    const interestGold = this.interestNow;
+    this.gold += interestGold;
+    this.goldIncome.interest += interestGold;
     this.field.enemies = this.field.enemies.filter((e) => e.alive); // 시체 정리, 생존자는 이월
     this.hand = this.runDeck.draw(this.rng);
     this.holds = [false, false, false, false, false];

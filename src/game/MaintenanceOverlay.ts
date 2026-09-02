@@ -8,6 +8,8 @@ import {
 import { Button, UI, makeButton, makeText } from './ui';
 import { createRelicIcon } from './relicAssets';
 import { HAND_NAMES_KO, HandRank } from '../core/cards/types';
+import { isPortraitLayout } from './device';
+import { portraitSceneHeight, portraitY } from './layout';
 
 interface OfferView {
   id: DeckSealId;
@@ -60,57 +62,62 @@ export class MaintenanceOverlay {
     private onRelicSold: (id: RelicId, value: number) => void,
     private onFinish: (openDeck: boolean) => void,
   ) {
+    const portrait = isPortraitLayout();
+    const height = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(height, value);
+    const cx = portrait ? 195 : 640;
     const children: Phaser.GameObjects.GameObject[] = [];
-    const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.92).setInteractive();
-    const shadow = scene.add.rectangle(640, 360, 860, 640, 0x000000, 0.5);
-    const panel = scene.add.rectangle(640, 355, 860, 640, UI.panel, 1)
+    const dim = scene.add.rectangle(cx, portrait ? height / 2 : 360, portrait ? 390 : 1280, portrait ? height : 720, 0x020705, 0.92).setInteractive();
+    const shadow = scene.add.rectangle(cx, portrait ? height / 2 + 3 : 360, portrait ? 370 : 860, portrait ? height - 24 : 640, 0x000000, 0.5);
+    const panel = scene.add.rectangle(cx, portrait ? height / 2 : 355, portrait ? 370 : 860, portrait ? height - 24 : 640, UI.panel, 1)
       .setStrokeStyle(2, 0xe6c84f, 0.95);
     children.push(dim, shadow, panel);
 
     children.push(
-      makeText(scene, 270, 82, 'BOSS APPROACHING', 11, UI.dangerText, true),
-      makeText(scene, 270, 106, '왕실 정비소', 31, UI.text, true),
+      makeText(scene, portrait ? 20 : 270, portrait ? py(28) : 82, 'BOSS APPROACHING', portrait ? 9 : 11, UI.dangerText, true),
+      makeText(scene, portrait ? 20 : 270, portrait ? py(49) : 106, '왕실 정비소', portrait ? 22 : 31, UI.text, true),
       makeText(
         scene,
-        270,
-        148,
-        `ROUND ${game.round} 보스전 전 · 이번 방문이 끝나면 다시 열 수 없습니다.`,
-        13,
+        portrait ? 20 : 270,
+        portrait ? py(82) : 148,
+        portrait ? `R${game.round} 보스전 전 · 이번 방문 후 다시 열 수 없음` : `ROUND ${game.round} 보스전 전 · 이번 방문이 끝나면 다시 열 수 없습니다.`,
+        portrait ? 9 : 13,
         UI.textDim,
       ),
     );
-    this.goldText = makeText(scene, 1010, 109, '', 21, UI.gold, true).setOrigin(1, 0);
+    this.goldText = makeText(scene, portrait ? 366 : 1010, portrait ? py(53) : 109, '', portrait ? 16 : 21, UI.gold, true).setOrigin(1, 0);
     children.push(this.goldText);
 
     (['banish', 'duplicate'] as const).forEach((id, index) => {
       const info = OFFER_INFO[id];
-      const x = 360 + index * 280;
-      const card = scene.add.rectangle(x, 335, 240, 280, UI.panelRaised, 1)
+      const x = portrait ? 68 + index * 127 : 360 + index * 280;
+      const card = scene.add.rectangle(x, portrait ? py(300) : 335, portrait ? 116 : 240, portrait ? 250 : 280, UI.panelRaised, 1)
         .setStrokeStyle(2, info.color, 0.8);
       const glyph = makeText(
         scene,
         x,
-        242,
+        portrait ? py(220) : 242,
         info.glyph,
-        48,
+        portrait ? 34 : 48,
         `#${info.color.toString(16).padStart(6, '0')}`,
         true,
       ).setOrigin(0.5);
-      const name = makeText(scene, x, 294, info.name, 22, UI.text, true).setOrigin(0.5);
-      const desc = makeText(scene, x, 342, info.description, 13, UI.textDim)
+      const name = makeText(scene, x, portrait ? py(274) : 294, info.name, portrait ? 14 : 22, UI.text, true).setOrigin(0.5);
+      const desc = makeText(scene, x, portrait ? py(318) : 342, info.description, portrait ? 9 : 13, UI.textDim)
         .setOrigin(0.5)
         .setAlign('center')
         .setLineSpacing(5);
-      const owned = makeText(scene, x, 400, '', 12, UI.accentText, true).setOrigin(0.5);
+      if (portrait) desc.setWordWrapWidth(98, true);
+      const owned = makeText(scene, x, portrait ? py(385) : 400, '', portrait ? 9 : 12, UI.accentText, true).setOrigin(0.5);
       const button = makeButton(
         scene,
         x,
-        447,
-        190,
-        42,
+        portrait ? py(430) : 447,
+        portrait ? 98 : 190,
+        portrait ? 40 : 42,
         '',
         () => this.buy(id),
-        { fill: info.color, fontSize: 13 },
+        { fill: info.color, fontSize: portrait ? 10 : 13 },
       );
       this.offers.push({ id, button, owned });
       children.push(card, glyph, name, desc, owned, button.container);
@@ -119,45 +126,46 @@ export class MaintenanceOverlay {
     const relicOffer = game.maintenanceRelicOffer();
     const relicDef = relicOffer ? RELIC_DEFS[relicOffer.id] : null;
     const relicColor = relicDef ? RELIC_RARITY_COLORS[relicDef.rarity] : UI.panelLine;
-    const relicCard = scene.add.rectangle(920, 335, 240, 280, UI.panelRaised, 1)
+    const relicX = portrait ? 322 : 920;
+    const relicCard = scene.add.rectangle(relicX, portrait ? py(300) : 335, portrait ? 116 : 240, portrait ? 250 : 280, UI.panelRaised, 1)
       .setStrokeStyle(2, relicColor, 0.9);
     const relicIcon = relicDef
-      ? createRelicIcon(scene, relicDef.id, 920, 242, 72)
-      : makeText(scene, 920, 242, '—', 48, UI.textDim, true).setOrigin(0.5);
-    const relicName = makeText(scene, 920, 294, relicDef?.name ?? '유물 없음', 20, UI.text, true).setOrigin(0.5);
-    const relicDesc = makeText(scene, 920, 338, relicDef?.description ?? '진열 가능한 유물이 없습니다.', 12, UI.textDim)
-      .setOrigin(0.5).setAlign('center').setWordWrapWidth(205, true);
-    const shopRelicRarity = makeText(scene, 920, 400, relicDef
-      ? RELIC_RARITY_LABELS[relicDef.rarity] : '', 12,
+      ? createRelicIcon(scene, relicDef.id, relicX, portrait ? py(220) : 242, portrait ? 48 : 72)
+      : makeText(scene, relicX, portrait ? py(220) : 242, '—', portrait ? 34 : 48, UI.textDim, true).setOrigin(0.5);
+    const relicName = makeText(scene, relicX, portrait ? py(274) : 294, relicDef?.name ?? '유물 없음', portrait ? 13 : 20, UI.text, true).setOrigin(0.5);
+    const relicDesc = makeText(scene, relicX, portrait ? py(318) : 338, relicDef?.description ?? '진열 가능한 유물이 없습니다.', portrait ? 9 : 12, UI.textDim)
+      .setOrigin(0.5).setAlign('center').setWordWrapWidth(portrait ? 98 : 205, true);
+    const shopRelicRarity = makeText(scene, relicX, portrait ? py(385) : 400, relicDef
+      ? RELIC_RARITY_LABELS[relicDef.rarity] : '', portrait ? 9 : 12,
       relicDef ? `#${relicColor.toString(16).padStart(6, '0')}` : UI.accentText, true).setOrigin(0.5);
-    this.shopRelicButton = makeButton(scene, 920, 447, 190, 42, '', () => this.buyRelic(), {
-      fill: relicColor, fontSize: 12,
+    this.shopRelicButton = makeButton(scene, relicX, portrait ? py(430) : 447, portrait ? 98 : 190, portrait ? 40 : 42, '', () => this.buyRelic(), {
+      fill: relicColor, fontSize: portrait ? 9 : 12,
     });
     children.push(relicCard, relicIcon, relicName, relicDesc, shopRelicRarity, this.shopRelicButton.container);
 
-    children.push(makeText(scene, 230, 480, '인장은 덱 보기(D)에서 사용 · 유물과 연마는 기존 군단에도 즉시 적용', 11, UI.textDim));
-    this.masteryText = makeText(scene, 230, 503, '', 11, UI.accentText, true);
-    this.masteryButton = makeButton(scene, 920, 510, 190, 38, '', () => this.buyMastery(), {
+    children.push(makeText(scene, portrait ? 20 : 230, portrait ? py(468) : 480, portrait ? '인장은 덱 보기에서 사용 · 유물/연마 즉시 적용' : '인장은 덱 보기(D)에서 사용 · 유물과 연마는 기존 군단에도 즉시 적용', portrait ? 9 : 11, UI.textDim));
+    this.masteryText = makeText(scene, portrait ? 20 : 230, portrait ? py(500) : 503, '', portrait ? 9 : 11, UI.accentText, true).setWordWrapWidth(portrait ? 240 : 680, true);
+    this.masteryButton = makeButton(scene, portrait ? 310 : 920, portrait ? py(510) : 510, portrait ? 112 : 190, 38, '', () => this.buyMastery(), {
       fill: 0x6ca4d9,
       fontSize: 11,
     });
-    this.relicHint = makeText(scene, 230, 536, '', 10, UI.gold, true);
+    this.relicHint = makeText(scene, portrait ? 20 : 230, portrait ? py(552) : 536, '', portrait ? 8 : 10, UI.gold, true).setWordWrapWidth(portrait ? 350 : 760, true);
     children.push(this.masteryText, this.masteryButton.container, this.relicHint);
     for (let index = 0; index < RELIC_SLOT_CAP; index++) {
       const button = makeButton(
         scene,
-        330 + index * 155,
-        577,
-        142,
+        portrait ? 41 + index * 77 : 330 + index * 155,
+        portrait ? py(610) : 577,
+        portrait ? 70 : 142,
         58,
         '',
         () => this.sellRelic(index),
-        { fill: 0x42544a, fontSize: 10 },
+        { fill: 0x42544a, fontSize: portrait ? 8 : 10 },
       );
       this.relicButtons.push(button);
       children.push(button.container);
     }
-    this.finishBtn = makeButton(scene, 850, 640, 250, 44, '', () => this.finish(), {
+    this.finishBtn = makeButton(scene, portrait ? 195 : 850, portrait ? py(700) : 640, portrait ? 330 : 250, portrait ? 50 : 44, '', () => this.finish(), {
       fill: 0x5cb187,
       fontSize: 14,
     });
@@ -293,7 +301,14 @@ export class MaintenanceOverlay {
           ? `✓ ${def.name}\n다시 눌러 판매 ${value}G`
           : `${def.name}\n효과 보기`);
       button.setEnabled(true);
-      const icon = createRelicIcon(this.scene, id, 288 + index * 155, 577, 30);
+      const portrait = isPortraitLayout();
+      const icon = createRelicIcon(
+        this.scene,
+        id,
+        portrait ? 18 + index * 77 : 288 + index * 155,
+        portrait ? portraitY(portraitSceneHeight(this.scene), 610) : 577,
+        portrait ? 20 : 30,
+      );
       this.relicSlotIcons.push(icon);
       this.root.add(icon);
     }

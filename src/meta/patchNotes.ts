@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.5';
+export const CURRENT_VERSION = 'v2.1.6';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.6',
+    title: 'MOBILE COMMAND',
+    date: '2026-09-02',
+    current: true,
+    sections: [
+      {
+        heading: '세로 보조 화면 완성',
+        items: [
+          '도감·덱 개조·전체 확률·정비소·패치 노트·일일 랭킹·나가기 확인창에 휴대폰 전용 배치 추가',
+          '긴 목록은 세로 한 열과 스크롤로, 카드·유물 선택은 터치 가능한 압축 그리드로 재구성',
+          '720~920 논리 높이 전체에서 핵심 정보와 닫기·구매 버튼을 화면 안에 유지',
+        ],
+      },
+      {
+        heading: 'LIFE LAB 경제 조정',
+        items: [
+          '처치·클리어·이자·문양·유물·판매 골드를 분리 집계하는 시뮬레이션 원장 추가',
+          '탈출 허용과 무료 교환을 고려해 LIFE LAB 처치 보상 10%, 클리어 보너스 20% 감소',
+          '동일 50시드에서 평균 R55.4·강화 Lv25.9·잔여 라이프 7.1로 클래식 R54.8과 근접',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.5',
     title: 'ADAPTIVE PORTRAIT',
     date: '2026-09-02',
-    current: true,
     sections: [
       {
         heading: '기종별 세로 화면',

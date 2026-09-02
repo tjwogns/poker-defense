@@ -285,6 +285,12 @@ interface GameStats {
   livesEnd: number;
   escapedEnemies: number;
   lifeDamageTaken: number;
+  incomeBounty: number;
+  incomeDiamond: number;
+  incomeClear: number;
+  incomeInterest: number;
+  incomeRelic: number;
+  incomeSales: number;
 }
 
 function playGame(
@@ -305,6 +311,7 @@ function playGame(
     deckSize: 52, goldEnd: 0,
     finalBossHpPct: 1,
     livesEnd: g.lives, escapedEnemies: 0, lifeDamageTaken: 0,
+    incomeBounty: 0, incomeDiamond: 0, incomeClear: 0, incomeInterest: 0, incomeRelic: 0, incomeSales: 0,
   };
   const dt = 1 / 30;
   let guard = 0;
@@ -325,6 +332,12 @@ function playGame(
   stats.livesEnd = g.lives;
   stats.escapedEnemies = g.escapedEnemies;
   stats.lifeDamageTaken = g.lifeDamageTaken;
+  stats.incomeBounty = g.goldIncome.bounty;
+  stats.incomeDiamond = g.goldIncome.diamond;
+  stats.incomeClear = g.goldIncome.clear;
+  stats.incomeInterest = g.goldIncome.interest;
+  stats.incomeRelic = g.goldIncome.relic;
+  stats.incomeSales = g.goldIncome.sales;
   const finalBoss = g.field.enemies.find((enemy) => enemy.kind === 'boss' && enemy.round === 60);
   stats.finalBossHpPct = finalBoss ? Math.max(0, finalBoss.hp / finalBoss.maxHp) : 0;
   return stats;
@@ -378,9 +391,18 @@ function printLifeComparison(count: number): void {
     console.log(
       `${label.padEnd(12)} 승리 ${String(wins).padStart(3)}/${games.length}`
       + ` · 평균 R${average((game) => game.roundReached).toFixed(1)}`
+      + ` · 강화 Lv${average((game) => game.upgradeLevel).toFixed(1)}`
       + ` · 골드 ${average((game) => game.goldEnd).toFixed(0)}`
       + ` · 라이프 ${average((game) => game.livesEnd).toFixed(1)}`
       + ` · 탈출 ${average((game) => game.escapedEnemies).toFixed(1)}`,
+    );
+    console.log(
+      `${''.padEnd(12)} 수입 처치 ${average((game) => game.incomeBounty).toFixed(0)}`
+      + ` · 클리어 ${average((game) => game.incomeClear).toFixed(0)}`
+      + ` · 이자 ${average((game) => game.incomeInterest).toFixed(0)}`
+      + ` · 문양 ${average((game) => game.incomeDiamond).toFixed(0)}`
+      + ` · 유물 ${average((game) => game.incomeRelic).toFixed(0)}`
+      + ` · 판매 ${average((game) => game.incomeSales).toFixed(0)}`,
     );
   };
   console.log(`\n생명·경제 실험 비교 · 동일 시드 ${count}판`);

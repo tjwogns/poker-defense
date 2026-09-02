@@ -1,27 +1,35 @@
 import Phaser from 'phaser';
 import { PATCH_NOTES } from '../meta/patchNotes';
 import { UI, makeButton, makeText } from './ui';
+import { isPortraitLayout } from './device';
+import { portraitSceneHeight, portraitY } from './layout';
 
 export class PatchNotesOverlay {
-  private root: Phaser.GameObjects.Container;
-  private content: Phaser.GameObjects.Container;
-  private maskShape: Phaser.GameObjects.Graphics;
-  private scrollBar: Phaser.GameObjects.Rectangle;
+  private root!: Phaser.GameObjects.Container;
+  private content!: Phaser.GameObjects.Container;
+  private maskShape!: Phaser.GameObjects.Graphics;
+  private scrollBar!: Phaser.GameObjects.Rectangle;
   private scrollMax = 0;
   private scrollY = 0;
   private dragging = false;
   private dragStartY = 0;
   private dragStartScroll = 0;
-  private wheelHandler: (
+  private scrollTrackTop = 176;
+  private scrollTrackHeight = 432;
+  private wheelHandler!: (
     pointer: Phaser.Input.Pointer,
     over: Phaser.GameObjects.GameObject[],
     dx: number,
     dy: number,
   ) => void;
-  private moveHandler: (pointer: Phaser.Input.Pointer) => void;
-  private upHandler: () => void;
+  private moveHandler!: (pointer: Phaser.Input.Pointer) => void;
+  private upHandler!: () => void;
 
   constructor(scene: Phaser.Scene, onClose: () => void) {
+    if (isPortraitLayout()) {
+      this.createPortrait(scene, onClose);
+      return;
+    }
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.9).setInteractive();
     const shadow = scene.add.rectangle(640, 363, 980, 620, 0x000000, 0.45);
@@ -122,6 +130,81 @@ export class PatchNotesOverlay {
     this.setScroll(0);
   }
 
+  private createPortrait(scene: Phaser.Scene, onClose: () => void): void {
+    const height = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(height, value);
+    const viewTop = py(112);
+    const viewBottom = height - 54;
+    const viewHeight = viewBottom - viewTop;
+    const children: Phaser.GameObjects.GameObject[] = [
+      scene.add.rectangle(195, height / 2, 390, height, 0x020705, 0.92).setInteractive(),
+    ];
+    const panel = scene.add.rectangle(195, height / 2, 370, height - 24, UI.panel, 1)
+      .setStrokeStyle(1, UI.panelGlow, 0.95).setInteractive({ useHandCursor: true });
+    children.push(
+      panel,
+      makeText(scene, 20, py(28), 'ROYAL SIEGE UPDATE LOG', 9, UI.accentText, true),
+      makeText(scene, 20, py(49), '패치 노트', 22, UI.text, true),
+      makeText(scene, 20, py(82), '드래그해 이전 업데이트를 확인하세요.', 9, UI.textDim),
+      makeButton(scene, 338, py(49), 76, 38, '닫기', onClose, { fill: 0x42544a, fontSize: 11 }).container,
+    );
+
+    const contentChildren: Phaser.GameObjects.GameObject[] = [];
+    let y = viewTop + 4;
+    PATCH_NOTES.forEach((note, noteIndex) => {
+      contentChildren.push(
+        makeText(scene, 26, y, `${note.version} · ${note.title}`, noteIndex === 0 ? 15 : 13, UI.gold, true),
+        makeText(scene, 358, y + 2, note.date, 8, UI.textDim).setOrigin(1, 0),
+      );
+      y += noteIndex === 0 ? 27 : 23;
+      for (const section of note.sections) {
+        contentChildren.push(makeText(scene, 26, y, section.heading, 10, UI.accentText, true));
+        y += 19;
+        for (const item of section.items) {
+          const line = makeText(scene, 36, y, `• ${item}`, 9, noteIndex === 0 ? UI.text : UI.textDim)
+            .setWordWrapWidth(318, true).setLineSpacing(2);
+          contentChildren.push(line);
+          y += line.height + 7;
+        }
+      }
+      y += 18;
+    });
+    this.content = scene.add.container(0, 0, contentChildren);
+    this.maskShape = scene.make.graphics({ x: 0, y: 0 });
+    this.maskShape.fillStyle(0xffffff).fillRect(18, viewTop, 346, viewHeight);
+    this.content.setMask(this.maskShape.createGeometryMask());
+    this.scrollMax = Math.max(0, y - viewBottom);
+    children.push(this.content);
+
+    this.scrollTrackTop = viewTop;
+    this.scrollTrackHeight = viewHeight;
+    const barHeight = Math.max(46, viewHeight * (viewHeight / (viewHeight + this.scrollMax)));
+    children.push(scene.add.rectangle(370, viewTop + viewHeight / 2, 3, viewHeight, UI.panelLine, 0.7));
+    this.scrollBar = scene.add.rectangle(370, viewTop, 5, barHeight, UI.accent, 0.9).setOrigin(0.5, 0);
+    children.push(this.scrollBar, makeText(scene, 195, height - 29, '드래그 또는 휠로 스크롤', 8, UI.textDim).setOrigin(0.5));
+    this.root = scene.add.container(0, 0, children).setDepth(40);
+
+    panel.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.y < viewTop || pointer.y > viewBottom) return;
+      this.dragging = true;
+      this.dragStartY = pointer.y;
+      this.dragStartScroll = this.scrollY;
+    });
+    this.wheelHandler = (pointer, _over, _dx, dy) => {
+      if (pointer.x < 18 || pointer.x > 372 || pointer.y < viewTop || pointer.y > viewBottom) return;
+      this.setScroll(this.scrollY + dy * 0.7);
+    };
+    this.moveHandler = (pointer) => {
+      if (!this.dragging) return;
+      this.setScroll(this.dragStartScroll + this.dragStartY - pointer.y);
+    };
+    this.upHandler = () => { this.dragging = false; };
+    scene.input.on('wheel', this.wheelHandler);
+    scene.input.on('pointermove', this.moveHandler);
+    scene.input.on('pointerup', this.upHandler);
+    this.setScroll(0);
+  }
+
   destroy(): void {
     const scene = this.root.scene;
     scene.input.off('wheel', this.wheelHandler);
@@ -135,7 +218,7 @@ export class PatchNotesOverlay {
   private setScroll(next: number): void {
     this.scrollY = Phaser.Math.Clamp(next, 0, this.scrollMax);
     this.content.y = -this.scrollY;
-    const travel = 432 - this.scrollBar.height;
-    this.scrollBar.y = 176 + (this.scrollMax === 0 ? 0 : travel * (this.scrollY / this.scrollMax));
+    const travel = this.scrollTrackHeight - this.scrollBar.height;
+    this.scrollBar.y = this.scrollTrackTop + (this.scrollMax === 0 ? 0 : travel * (this.scrollY / this.scrollMax));
   }
 }

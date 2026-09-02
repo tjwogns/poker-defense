@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   enemyHp, exchangeCost, interest, upgradeCost, upgradeMultiplier,
-  killGold, clearBonus, SELL_REFUND,
+  killGold, clearBonus, SELL_REFUND, LIFE_MODE_BOUNTY_MULTIPLIER,
+  LIFE_MODE_CLEAR_BONUS_MULTIPLIER,
 } from '../src/core/balance';
 import { UNIT_DEFS, damagePerHit } from '../src/core/units';
 import { ENEMY_KINDS, waveKind } from '../src/core/enemies';
@@ -44,6 +45,11 @@ describe('balance formulas', () => {
     expect(killGold(1)).toBe(2);
     expect(killGold(10)).toBe(4);
     expect(clearBonus(10)).toBe(40);
+  });
+
+  test('LIFE LAB은 탈출 허용 대가로 처치·클리어 수급을 제한한다', () => {
+    expect(LIFE_MODE_BOUNTY_MULTIPLIER).toBe(0.9);
+    expect(LIFE_MODE_CLEAR_BONUS_MULTIPLIER).toBe(0.8);
   });
 
   test('판매 환급은 10개 등급 전부 정의', () => {

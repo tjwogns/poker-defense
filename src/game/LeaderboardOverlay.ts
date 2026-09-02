@@ -1,13 +1,15 @@
 import Phaser from 'phaser';
 import { fetchDailyLeaderboard, leaderboardConfigured, LeaderboardEntry } from '../meta/leaderboard';
 import { UI, makeButton, makeText } from './ui';
+import { isPortraitLayout } from './device';
+import { portraitSceneHeight, portraitY } from './layout';
 
 /** 오늘의 도전 TOP 10을 표시하는 온라인 랭킹 모달. */
 export class LeaderboardOverlay {
-  private root: Phaser.GameObjects.Container;
+  private root!: Phaser.GameObjects.Container;
   private rowTexts: Phaser.GameObjects.Text[] = [];
-  private statusText: Phaser.GameObjects.Text;
-  private refreshButton: ReturnType<typeof makeButton>;
+  private statusText!: Phaser.GameObjects.Text;
+  private refreshButton!: ReturnType<typeof makeButton>;
   private loading = false;
 
   constructor(
@@ -17,6 +19,11 @@ export class LeaderboardOverlay {
     playerName: string,
     onClose: () => void,
   ) {
+    if (isPortraitLayout()) {
+      this.createPortrait(scene, playerName, onClose);
+      void this.load();
+      return;
+    }
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.86).setInteractive();
     const shadow = scene.add.rectangle(640, 363, 760, 610, 0x000000, 0.45);
@@ -74,6 +81,40 @@ export class LeaderboardOverlay {
     this.root = scene.add.container(0, 0, children).setDepth(50);
 
     void this.load();
+  }
+
+  private createPortrait(scene: Phaser.Scene, playerName: string, onClose: () => void): void {
+    const height = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(height, value);
+    const children: Phaser.GameObjects.GameObject[] = [
+      scene.add.rectangle(195, height / 2, 390, height, 0x020705, 0.9).setInteractive(),
+      scene.add.rectangle(195, height / 2, 370, height - 24, UI.panel, 1).setStrokeStyle(1, UI.panelGlow, 0.95),
+      makeText(scene, 20, py(28), 'DAILY RANKING', 9, UI.accentText, true),
+      makeText(scene, 20, py(49), '오늘의 도전 TOP 10', 21, UI.text, true),
+      makeText(scene, 20, py(82), `${this.date} · ${playerName}`, 10, UI.textDim),
+      makeText(scene, 28, py(116), '순위', 9, UI.gold, true),
+      makeText(scene, 78, py(116), '지휘관', 9, UI.gold, true),
+      makeText(scene, 274, py(116), 'R', 9, UI.gold, true),
+      makeText(scene, 358, py(116), '점수', 9, UI.gold, true).setOrigin(1, 0),
+    ];
+    children.push(makeButton(scene, 338, py(49), 76, 38, '닫기', onClose, { fill: 0x42544a, fontSize: 11 }).container);
+    const top = py(145);
+    const bottom = height - 128;
+    const gap = (bottom - top) / 10;
+    for (let index = 0; index < 10; index++) {
+      const y = top + gap * index + gap / 2;
+      if (index % 2 === 0) children.push(scene.add.rectangle(195, y, 350, gap - 3, UI.panelRaised, 0.7));
+      const rank = makeText(scene, 28, y, '-', 11, UI.textDim, true).setOrigin(0, 0.5);
+      const name = makeText(scene, 78, y, '-', 11, UI.textDim).setOrigin(0, 0.5).setFixedSize(170, 18);
+      const round = makeText(scene, 282, y, '-', 10, UI.textDim).setOrigin(0.5);
+      const score = makeText(scene, 358, y, '-', 11, UI.textDim, true).setOrigin(1, 0.5);
+      this.rowTexts.push(rank, name, round, score);
+      children.push(rank, name, round, score);
+    }
+    this.statusText = makeText(scene, 195, height - 100, '랭킹을 불러오는 중…', 10, UI.textDim).setOrigin(0.5);
+    this.refreshButton = makeButton(scene, 195, height - 66, 150, 38, '새로고침', () => void this.load(), { fill: 0x42544a, fontSize: 11 });
+    children.push(this.statusText, this.refreshButton.container, makeText(scene, 195, height - 30, '시크릿 창을 닫아도 이미 등록한 온라인 점수는 유지됩니다.', 8, UI.textDim).setOrigin(0.5));
+    this.root = scene.add.container(0, 0, children).setDepth(50);
   }
 
   private async load(): Promise<void> {

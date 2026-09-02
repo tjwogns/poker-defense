@@ -2,11 +2,17 @@ import Phaser from 'phaser';
 import { HAND_NAMES_KO, HandRank } from '../core/cards/types';
 import { RerollOdds } from '../core/cards/odds';
 import { UI, makeButton, makeText } from './ui';
+import { isPortraitLayout } from './device';
+import { portraitSceneHeight, portraitY } from './layout';
 
 export class OddsOverlay {
   private root: Phaser.GameObjects.Container;
 
   constructor(scene: Phaser.Scene, odds: RerollOdds, onClose: () => void) {
+    if (isPortraitLayout()) {
+      this.root = this.createPortrait(scene, odds, onClose);
+      return;
+    }
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.88).setInteractive();
     const shadow = scene.add.rectangle(640, 363, 760, 620, 0x000000, 0.45);
@@ -54,6 +60,40 @@ export class OddsOverlay {
       makeText(scene, 300, 614, '확률은 판단 정보이며 필요한 유닛·교환 비용·현재 빌드에 따라 최선의 선택은 달라집니다.', 11, UI.textDim),
     );
     this.root = scene.add.container(0, 0, children).setDepth(45);
+  }
+
+  private createPortrait(scene: Phaser.Scene, odds: RerollOdds, onClose: () => void): Phaser.GameObjects.Container {
+    const height = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(height, value);
+    const children: Phaser.GameObjects.GameObject[] = [
+      scene.add.rectangle(195, height / 2, 390, height, 0x020705, 0.9).setInteractive(),
+      scene.add.rectangle(195, height / 2, 370, height - 24, UI.panel, 1).setStrokeStyle(1, UI.panelGlow, 0.95),
+      makeText(scene, 20, py(28), 'REROLL ODDS', 9, UI.accentText, true),
+      makeText(scene, 20, py(49), '전체 족보 확률', 22, UI.text, true),
+      makeText(scene, 20, py(82), `${odds.drawCount}장 교체 · 상승 ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()}개`, 10, UI.textDim),
+    ];
+    children.push(makeButton(scene, 338, py(49), 76, 38, '닫기', onClose, { fill: 0x42544a, fontSize: 11 }).container);
+    const maxProbability = Math.max(...odds.probabilities);
+    const top = py(122);
+    const bottom = height - 68;
+    const gap = (bottom - top) / (HandRank.FlushFive + 1);
+    for (let rank = HandRank.HighCard; rank <= HandRank.FlushFive; rank++) {
+      const probability = odds.probabilities[rank];
+      const y = top + rank * gap;
+      const improved = rank > odds.currentRank;
+      const current = rank === odds.currentRank;
+      const color = improved ? UI.gold : current ? UI.text : UI.textDim;
+      if (rank % 2 === 0) children.push(scene.add.rectangle(195, y + gap / 2, 350, gap - 2, UI.panelRaised, 0.65));
+      const barWidth = probability > 0 ? Math.max(2, 120 * probability / maxProbability) : 0;
+      children.push(
+        makeText(scene, 28, y + gap / 2, HAND_NAMES_KO[rank as HandRank], 10, color, improved || current).setOrigin(0, 0.5),
+        scene.add.rectangle(158, y + gap / 2, 120, 7, UI.panelDeep, 1).setOrigin(0, 0.5),
+        scene.add.rectangle(158, y + gap / 2, barWidth, 7, improved ? 0xe6c84f : current ? UI.accent : 0x60746a, 0.9).setOrigin(0, 0.5),
+        makeText(scene, 358, y + gap / 2, formatOddsPercent(probability), 10, color, improved).setOrigin(1, 0.5),
+      );
+    }
+    children.push(makeText(scene, 195, height - 34, '금색은 현재 족보보다 높은 결과입니다.', 9, UI.textDim).setOrigin(0.5));
+    return scene.add.container(0, 0, children).setDepth(45);
   }
 
   destroy(): void {

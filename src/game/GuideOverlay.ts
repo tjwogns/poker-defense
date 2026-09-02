@@ -3,12 +3,18 @@ import { UNIT_DEFS } from '../core/units';
 import { UI, makeButton, makeText } from './ui';
 import { HANDBOOK_ROWS } from './guideData';
 import { HandRank, isHiddenHand } from '../core/cards/types';
+import { isPortraitLayout } from './device';
+import { portraitSceneHeight, portraitY } from './layout';
 
 /** 족보 성립 조건과 획득 유닛을 게임 중 확인하는 모달 도감. */
 export class GuideOverlay {
   private root: Phaser.GameObjects.Container;
 
   constructor(scene: Phaser.Scene, discoveredHands: readonly HandRank[], onClose: () => void) {
+    if (isPortraitLayout()) {
+      this.root = this.createPortrait(scene, discoveredHands, onClose);
+      return;
+    }
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = scene.add.rectangle(640, 360, 1280, 720, 0x020705, 0.86).setInteractive();
     const shadow = scene.add.rectangle(640, 363, 1100, 660, 0x000000, 0.45);
@@ -77,6 +83,38 @@ export class GuideOverlay {
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(40);
+  }
+
+  private createPortrait(scene: Phaser.Scene, discoveredHands: readonly HandRank[], onClose: () => void): Phaser.GameObjects.Container {
+    const height = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(height, value);
+    const children: Phaser.GameObjects.GameObject[] = [];
+    children.push(
+      scene.add.rectangle(195, height / 2, 390, height, 0x020705, 0.9).setInteractive(),
+      scene.add.rectangle(195, height / 2, 370, height - 24, UI.panel, 1).setStrokeStyle(1, UI.panelGlow, 0.95),
+      makeText(scene, 20, py(28), 'POKER DEFENSE ARCHIVE', 9, UI.accentText, true),
+      makeText(scene, 20, py(48), '족보 · 유닛 도감', 22, UI.text, true),
+    );
+    children.push(makeButton(scene, 338, py(48), 76, 38, '닫기', onClose, { fill: 0x42544a, fontSize: 11 }).container);
+    const top = py(100);
+    const bottom = height - 46;
+    const gap = (bottom - top) / HANDBOOK_ROWS.length;
+    HANDBOOK_ROWS.forEach((row, index) => {
+      const y = top + gap * index;
+      const def = UNIT_DEFS[row.rank];
+      const hidden = isHiddenHand(row.rank);
+      const discovered = !hidden || discoveredHands.includes(row.rank);
+      if (index % 2 === 0) children.push(scene.add.rectangle(195, y + gap / 2, 350, gap - 2, UI.panelRaised, 0.7));
+      children.push(
+        scene.add.rectangle(24, y + 5, 4, Math.max(18, gap - 8), discovered ? def.color : 0x59645e, 1).setOrigin(0, 0),
+        makeText(scene, 36, y + 3, discovered ? row.hand : '???', 11, discovered ? UI.text : UI.gold, true),
+        makeText(scene, 150, y + 3, discovered ? `${def.glyph} ${row.unit}` : '잠김', 10, discovered ? `#${def.color.toString(16).padStart(6, '0')}` : UI.textDim, true),
+        makeText(scene, 36, y + 19, discovered ? `${row.rule} · ${row.trait}` : '덱을 개조해 비밀 족보를 발견하세요', 8, UI.textDim)
+          .setWordWrapWidth(325, true),
+      );
+    });
+    children.push(makeText(scene, 195, height - 27, '히든 족보는 첫 발견 후 조건과 유닛이 공개됩니다.', 9, UI.textDim).setOrigin(0.5));
+    return scene.add.container(0, 0, children).setDepth(40);
   }
 
   destroy(): void {

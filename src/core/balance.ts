@@ -21,6 +21,10 @@ export const LIFE_MODE_FIELD_CAP = 120; // 렌더링·성능 보호용 비상 �
 export const LIFE_MODE_BASE_EXCHANGES = 3;
 export const LIFE_MODE_BREACH_THRESHOLD = 5;
 export const LIFE_MODE_BOSS_ESCAPE_DAMAGE = 3;
+export const LIFE_MODE_BOUNTY_MULTIPLIER = 0.9;
+export const LIFE_MODE_CLEAR_BONUS_MULTIPLIER = 0.8;
+export const LIFE_MODE_INTEREST_RATE_MULTIPLIER = 0.5;
+export const LIFE_MODE_INTEREST_CAP_MULTIPLIER = 0.5;
 
 // ── 적 ────────────────────────────────────────────────
 export const ENEMY_BASE_HP = 18;

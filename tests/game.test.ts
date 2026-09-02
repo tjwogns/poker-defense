@@ -111,6 +111,7 @@ describe('Game state machine', () => {
     const before = g.gold;
     expect(g.sellUnit(unit.id)).toBe(true);
     expect(g.gold).toBe(before + SELL_REFUND[HandRank.Trips]);
+    expect(g.goldIncome.sales).toBe(SELL_REFUND[HandRank.Trips]);
     expect(g.field.units.length).toBe(0);
   });
 
@@ -193,6 +194,9 @@ describe('Game state machine', () => {
     expect(g.handConfirmed).toBe(false);
     // 이자: 최소 10% (킬 골드로 정확값은 변동) — 골드가 늘었는지만 확인
     expect(g.gold).toBeGreaterThan(200);
+    expect(g.goldIncome.bounty).toBeGreaterThan(0);
+    expect(g.goldIncome.clear).toBeGreaterThan(0);
+    expect(g.goldIncome.interest).toBeGreaterThan(0);
   });
 
   test('필드 적 80마리 초과 시 패배', () => {
