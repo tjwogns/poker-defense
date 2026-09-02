@@ -37,7 +37,7 @@ export class MenuScene extends Phaser.Scene {
     let profile = ensureLeaderboardIdentity(loadProfile(localStorage));
     saveProfile(localStorage, profile);
     const lifeLab = isLifeLabLocation();
-    const analytics = getAnalytics(lifeLab);
+    const analytics = getAnalytics();
     const date = dailyDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
@@ -206,7 +206,7 @@ export class MenuScene extends Phaser.Scene {
       11, UI.textFaint,
     );
     analytics.track('menu_view', { challenge: hasChallenge });
-    if (!lifeLab && analytics.consent === 'unknown') {
+    if (analytics.consent === 'unknown') {
       openData();
     }
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
@@ -214,7 +214,7 @@ export class MenuScene extends Phaser.Scene {
 
   private createPortraitMenu(initialProfile: Profile, challengeDate: string, hasChallenge: boolean, lifeLab: boolean): void {
     let profile = initialProfile;
-    const analytics = getAnalytics(lifeLab);
+    const analytics = getAnalytics();
     const portraitHeight = portraitSceneHeight(this);
     const py = (value: number) => portraitY(portraitHeight, value);
     const density = Math.min(1, portraitScale(portraitHeight));
@@ -297,7 +297,7 @@ export class MenuScene extends Phaser.Scene {
     makeText(this, 358, py(790), '패치 NEW', 11, UI.gold, true).setOrigin(1, 0);
 
     analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait' });
-    if (!lifeLab && analytics.consent === 'unknown') {
+    if (analytics.consent === 'unknown') {
       new AnalyticsConsentOverlay(this, (allowed) => {
         analytics.setConsent(allowed ? 'granted' : 'denied');
         if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge, layout: 'portrait' });

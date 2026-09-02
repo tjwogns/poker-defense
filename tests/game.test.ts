@@ -252,6 +252,7 @@ describe('Game state machine', () => {
   test('침투 5 이상이 쌓이면 라이프를 깎고 0이면 패배한다', () => {
     const g = new Game(205, 'life-economy');
     g.lives = 1;
+    g.round = 12;
     g.handConfirmed = true;
     g.startCombat();
     for (let i = 0; i < 3; i++) spawnEnemy(g.field, 'tank', 12, { dist: pathLength(g.mapId) - 1 });
@@ -262,6 +263,13 @@ describe('Game state machine', () => {
     expect(g.breach).toBe(1);
     expect(g.phase).toBe('defeat');
     expect(g.defeatReason).toBe('life-depleted');
+    expect(g.lifeRoundHistory).toHaveLength(1);
+    expect(g.lifeRoundHistory[0]).toMatchObject({
+      round: 12,
+      escaped: 3,
+      lifeDamage: 1,
+      escapedByKind: { tank: 3 },
+    });
   });
 
   test('보스 탈출은 침투 게이지와 별개로 라이프 3을 즉시 깎는다', () => {
@@ -277,6 +285,7 @@ describe('Game state machine', () => {
     expect(g.lives).toBe(0);
     expect(g.breach).toBe(0);
     expect(g.defeatReason).toBe('life-depleted');
+    expect(g.lifeRoundHistory[0].escapedBossHpPercent).toBe(100);
   });
 
   test('생명 모드는 일반 제한시간이 지나도 적이 처치되거나 탈출할 때까지 계속된다', () => {

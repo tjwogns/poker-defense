@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.7';
+export const CURRENT_VERSION = 'v2.1.8';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.8',
+    title: 'RUN DEBRIEF',
+    date: '2026-09-02',
+    current: true,
+    sections: [
+      {
+        heading: '종료 피드백',
+        items: [
+          '게임 종료 화면에서 체감 난이도와 재도전 의향을 한 번씩 빠르게 선택하는 설문 추가',
+          'DATA ON에 동의한 경우에만 모드·규칙·결과와 함께 익명 집계하며 DATA OFF에서는 전송하지 않음',
+          '정식 모드와 LIFE LAB 결과를 분리해 실제 플레이 기준 난이도 조정 근거 확보',
+        ],
+      },
+      {
+        heading: 'LIFE LAB 패배 분석',
+        items: [
+          '가장 많이 탈출한 적 종류와 라이프 피해가 가장 컸던 라운드 표시',
+          '탈출한 보스의 남은 체력과 최근 5개 피해 라운드를 결과 화면에 요약',
+          '원인별 다음 판 대응 조언과 모바일 결과 화면 배치를 함께 개선',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.7',
     title: 'ROUND INTEL',
     date: '2026-09-02',
-    current: true,
     sections: [
       {
         heading: '라운드 결산',

@@ -88,12 +88,24 @@ export interface RoundSettlement {
   nextUpgradeCost: number;
 }
 
+export interface LifeRoundRecord {
+  round: number;
+  escaped: number;
+  lifeDamage: number;
+  escapedByKind: Record<EnemyKindId, number>;
+  escapedBossHpPercent: number | null;
+}
+
 function emptyIncomeLedger(): GoldIncomeLedger {
   return { bounty: 0, diamond: 0, clear: 0, interest: 0, relic: 0, sales: 0 };
 }
 
 function emptySpendLedger(): GoldSpendLedger {
   return { exchange: 0, upgrade: 0, maintenance: 0, bossTax: 0 };
+}
+
+function emptyEscapeCounts(): Record<EnemyKindId, number> {
+  return { normal: 0, fast: 0, tank: 0, regen: 0, splitter: 0, boss: 0 };
 }
 
 /**
@@ -117,6 +129,7 @@ export class Game {
   readonly goldIncome: GoldIncomeLedger = emptyIncomeLedger();
   readonly goldSpend: GoldSpendLedger = emptySpendLedger();
   lastRoundSettlement: RoundSettlement | null = null;
+  readonly lifeRoundHistory: LifeRoundRecord[] = [];
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -765,6 +778,26 @@ export class Game {
       const breachDamage = Math.floor(accumulatedBreach / LIFE_MODE_BREACH_THRESHOLD);
       this.breach = accumulatedBreach % LIFE_MODE_BREACH_THRESHOLD;
       const damage = bossDamage + breachDamage;
+      let lifeRecord = this.lifeRoundHistory.find((record) => record.round === this.round);
+      if (!lifeRecord) {
+        lifeRecord = {
+          round: this.round,
+          escaped: 0,
+          lifeDamage: 0,
+          escapedByKind: emptyEscapeCounts(),
+          escapedBossHpPercent: null,
+        };
+        this.lifeRoundHistory.push(lifeRecord);
+      }
+      lifeRecord.escaped += result.escaped.length;
+      lifeRecord.lifeDamage += damage;
+      for (const enemy of result.escaped) {
+        lifeRecord.escapedByKind[enemy.kind]++;
+        if (enemy.kind === 'boss') {
+          const hpPercent = Math.max(0, Math.min(100, Math.ceil((enemy.hp / enemy.maxHp) * 100)));
+          lifeRecord.escapedBossHpPercent = Math.max(lifeRecord.escapedBossHpPercent ?? 0, hpPercent);
+        }
+      }
       this.lastLifeDamage = damage;
       this.escapedEnemies += result.escaped.length;
       this.lifeDamageTaken += damage;

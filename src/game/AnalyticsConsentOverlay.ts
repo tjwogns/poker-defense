@@ -21,7 +21,7 @@ export class AnalyticsConsentOverlay {
       scene,
       cx,
       portrait ? py(340) : 326,
-      '게임 개선을 위해 라운드 도달, 선택, 결과만 기록합니다.\n이름·이메일·카드 내용은 수집하지 않으며 언제든 DATA 버튼에서 끌 수 있습니다.',
+      '게임 개선을 위해 모드, 라운드 도달, 선택, 결과와 종료 설문만 기록합니다.\n이름·이메일·카드 내용은 수집하지 않으며 언제든 DATA 버튼에서 끌 수 있습니다.',
       portrait ? 14 : 15,
       UI.textDim,
     ).setOrigin(0.5, 0).setAlign('center').setLineSpacing(8);

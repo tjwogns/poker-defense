@@ -15,6 +15,22 @@ describe('anonymous play analytics', () => {
     expect(analytics.exportEvents()).toEqual([]);
   });
 
+  test('종료 설문은 동의 상태에서만 익명 런 이벤트로 기록한다', () => {
+    const analytics = new Analytics(new MemoryStorage(), { idFactory: () => 'feedback-id' });
+    expect(analytics.track('run_feedback', { question: 'difficulty', answer: 'hard' }, 'run-feedback')).toBeNull();
+
+    analytics.setConsent('granted');
+    const feedback = analytics.track('run_feedback', {
+      question: 'difficulty', answer: 'hard', ruleset: 'life-economy', round: 31,
+    }, 'run-feedback');
+
+    expect(feedback).toMatchObject({
+      name: 'run_feedback',
+      runId: 'run-feedback',
+      properties: { question: 'difficulty', answer: 'hard', ruleset: 'life-economy', round: 31 },
+    });
+  });
+
   test('허용하면 민감 정보 없이 런 이벤트를 저장한다', () => {
     const storage = new MemoryStorage();
     let id = 0;

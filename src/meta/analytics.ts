@@ -21,6 +21,7 @@ export type AnalyticsEventName =
   | 'relic_selected'
   | 'relic_sold'
   | 'run_finished'
+  | 'run_feedback'
   | 'run_abandoned'
   | 'retry_clicked'
   | 'result_shared'

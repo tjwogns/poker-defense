@@ -36,6 +36,13 @@ describe('analytics ingestion validation', () => {
     deckEvent.event.name = 'maintenance_mastery_purchase';
     deckEvent.event.properties = { round: 10, handRank: 1, level: 1, cost: 30, goldAfter: 70 };
     expect(validateAnalyticsSubmission(deckEvent)).toBe('');
+
+    deckEvent.event.name = 'run_feedback';
+    deckEvent.event.properties = {
+      question: 'difficulty', answer: 'balanced', mode: 'standard', ruleset: 'life-economy',
+      result: 'defeat', round: 31,
+    };
+    expect(validateAnalyticsSubmission(deckEvent)).toBe('');
   });
 
   test('허용된 웹 주소의 preflight에 자격 증명 CORS 헤더를 반환한다', async () => {

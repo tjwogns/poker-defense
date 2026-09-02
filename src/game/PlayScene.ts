@@ -102,8 +102,13 @@ export class PlayScene extends Phaser.Scene {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
     this.runDate = data.date ?? dailyDate();
-    this.analytics = getAnalytics(isLifeLabLocation());
-    this.runId = this.analytics.beginRun({ mode: this.mode, retry: data.retry ?? false });
+    const lifeLab = isLifeLabLocation();
+    this.analytics = getAnalytics();
+    this.runId = this.analytics.beginRun({
+      mode: this.mode,
+      retry: data.retry ?? false,
+      ruleset: lifeLab ? 'life-economy' : 'classic',
+    });
     this.runStartedAt = performance.now();
   }
 
@@ -201,6 +206,35 @@ export class PlayScene extends Phaser.Scene {
         this.core.defeatReason = 'field-cap';
         this.core.phase = 'defeat';
       }
+    } else if (localVisualTest === 'life-result') {
+      this.profile.tutorialDone = true;
+      this.core.round = 31;
+      this.core.score = 86400;
+      this.core.kills = 438;
+      this.core.lives = 0;
+      this.core.escapedEnemies = 17;
+      this.core.lifeDamageTaken = 20;
+      this.core.lifeRoundHistory.push(
+        {
+          round: 26, escaped: 3, lifeDamage: 1,
+          escapedByKind: { normal: 0, fast: 3, tank: 0, regen: 0, splitter: 0, boss: 0 },
+          escapedBossHpPercent: null,
+        },
+        {
+          round: 30, escaped: 1, lifeDamage: 3,
+          escapedByKind: { normal: 0, fast: 0, tank: 0, regen: 0, splitter: 0, boss: 1 },
+          escapedBossHpPercent: 22,
+        },
+        {
+          round: 31, escaped: 5, lifeDamage: 2,
+          escapedByKind: { normal: 0, fast: 4, tank: 1, regen: 0, splitter: 0, boss: 0 },
+          escapedBossHpPercent: null,
+        },
+      );
+      addUnit(this.core.field, HandRank.Pair, 3, 2);
+      addUnit(this.core.field, HandRank.Straight, 5, 2);
+      this.core.defeatReason = 'life-depleted';
+      this.core.phase = 'defeat';
     }
     saveProfile(localStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
@@ -338,7 +372,7 @@ export class PlayScene extends Phaser.Scene {
       paused: () => this.paused,
       backgroundPaused: () => this.backgroundPaused,
     };
-    if (localVisualTest === 'mastery-result' || localVisualTest === 'mastery-victory') {
+    if (localVisualTest === 'mastery-result' || localVisualTest === 'mastery-victory' || localVisualTest === 'life-result') {
       this.time.delayedCall(0, () => this.showEnd());
     }
   }
@@ -1231,6 +1265,7 @@ export class PlayScene extends Phaser.Scene {
       relicCount: this.core.relics.length,
       handMastery: this.core.handMastery,
       handDamage: this.core.handDamage,
+      lifeRoundHistory: this.core.lifeRoundHistory,
     });
     const portrait = isPortraitLayout();
     const portraitHeight = portraitSceneHeight(this);
@@ -1238,7 +1273,7 @@ export class PlayScene extends Phaser.Scene {
     const centerX = portrait ? 195 : 640;
     this.add.rectangle(centerX, portrait ? portraitHeight / 2 : 360, portrait ? 390 : 1280, portrait ? portraitHeight : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
     if (portrait) {
-      this.add.text(30, py(78), won ? '60 ROUNDS CLEARED · STANDARD' : `RUN ENDED · ${this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
+      this.add.text(30, py(38), won ? `60 ROUNDS CLEARED · ${this.core.lifeMode ? 'LIFE LAB' : 'STANDARD'}` : `RUN ENDED · ${this.core.lifeMode ? 'LIFE LAB' : this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
         letterSpacing: 2.2,
       }).setDepth(21);
@@ -1251,8 +1286,9 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(centerX, portrait ? py(174) : won ? 350 : 154, portrait && !won ? `필드가 뚫렸습니다 · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다` : endMessage, {
-        fontFamily: FONT, fontSize: portrait ? '14px' : '20px', color: portrait ? '#a8a5b2' : UI.text,
+      .text(centerX, portrait ? py(174) : won ? 350 : 154, portrait && !won ? `${endMessage} · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다` : endMessage, {
+        fontFamily: FONT, fontSize: portrait ? '12px' : '20px', color: portrait ? '#a8a5b2' : UI.text,
+        align: 'center', wordWrap: portrait ? { width: 350, useAdvancedWrap: true } : undefined,
       })
       .setOrigin(0.5)
       .setDepth(21);
@@ -1279,6 +1315,7 @@ export class PlayScene extends Phaser.Scene {
       .filter((entry) => entry.level > 0);
     this.analytics.track('run_finished', {
       mode: this.mode,
+      ruleset: this.core.ruleset,
       result: summary.result,
       round: summary.round,
       score: summary.score,
@@ -1291,12 +1328,19 @@ export class PlayScene extends Phaser.Scene {
       masteryLevels: masteryRanks.map((entry) => entry.level),
       damageRanks: damageLeaders.map((entry) => entry.rank),
       damageValues: damageLeaders.map((entry) => entry.damage),
-      ...(analysis ? {
-        defeatCause: this.core.defeatReason ?? 'unknown',
+      ...(analysis ? { defeatCause: this.core.defeatReason ?? 'unknown' } : {}),
+      ...(analysis && this.core.lifeMode ? {
+        escapedEnemies: this.core.escapedEnemies,
+        lifeDamage: this.core.lifeDamageTaken,
+        topEscapedKind: analysis.topEscapedKind,
+        worstLifeRound: analysis.worstLifeRound,
+        worstLifeDamage: analysis.worstLifeDamage,
+      } : analysis ? {
         aliveEnemies: analysis.aliveEnemies,
         bossHpPercent: analysis.bossHpPercent,
       } : {}),
     }, this.runId);
+    this.renderEndFeedback(centerX, portrait, py, won ? 'victory' : 'defeat', summary.round);
     const date = this.runDate;
     const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? '같은 조건으로 다시 도전' : '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
@@ -1379,6 +1423,12 @@ export class PlayScene extends Phaser.Scene {
       this.add.text(46, py(404), `${analysis.boss} · ${analysis.build}`, {
         fontFamily: FONT, fontSize: '12px', color: UI.textDim, wordWrap: { width: 292 },
       }).setDepth(22);
+      if (analysis.lifeDetails.length > 0) {
+        this.add.text(46, py(432), analysis.lifeDetails.join(' · '), {
+          fontFamily: FONT, fontSize: '10px', color: '#ffaaa3', lineSpacing: 1,
+          wordWrap: { width: 292, useAdvancedWrap: true },
+        }).setDepth(22);
+      }
       this.add.rectangle(195, py(536), 330, 142, UI.panel, 0.98)
         .setStrokeStyle(1, UI.goldNum, 0.22).setDepth(21);
       this.add.text(46, py(476), 'NEXT RUN', {
@@ -1402,8 +1452,10 @@ export class PlayScene extends Phaser.Scene {
     this.add.text(226, 298, `${analysis.boss}   ·   ${analysis.build}`, {
       fontFamily: FONT, fontSize: '14px', color: UI.textDim,
     }).setDepth(22);
-    this.add.text(226, 328, `연마 효율  ${analysis.mastery}`, {
-      fontFamily: FONT, fontSize: '13px', color: '#f0c879',
+    this.add.text(226, 328, analysis.lifeDetails.length > 0
+      ? analysis.lifeDetails.join('   ·   ')
+      : `연마 효율  ${analysis.mastery}`, {
+      fontFamily: FONT, fontSize: '13px', color: analysis.lifeDetails.length > 0 ? '#ffaaa3' : '#f0c879',
     }).setDepth(22);
     this.add.text(226, 356, '다음 시도', {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
@@ -1412,6 +1464,83 @@ export class PlayScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '14px', color: UI.text, lineSpacing: 8,
       wordWrap: { width: 820 },
     }).setDepth(22);
+  }
+
+  private renderEndFeedback(
+    centerX: number,
+    portrait: boolean,
+    py: (value: number) => number,
+    result: 'victory' | 'defeat',
+    round: number,
+  ): void {
+    const x = portrait ? centerX : 1082;
+    const promptY = portrait ? py(620) : 92;
+    const buttonY = portrait ? py(650) : 142;
+    if (!portrait) {
+      this.add.rectangle(x, 140, 316, 146, UI.panelDeep, 0.96)
+        .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(21);
+    }
+    const prompt = this.add.text(x, promptY, '이번 판 난이도는 어땠나요?', {
+      fontFamily: FONT, fontSize: portrait ? '12px' : '14px', fontStyle: 'bold', color: UI.text,
+    }).setOrigin(0.5).setDepth(23);
+    const note = this.add.text(x, portrait ? py(670) : 194, this.analytics.remoteEnabled ? '익명으로 기록됩니다' : 'DATA ON에서만 익명 전송됩니다', {
+      fontFamily: FONT, fontSize: portrait ? '9px' : '10px', color: UI.textDim,
+    }).setOrigin(0.5).setDepth(23).setVisible(!portrait);
+    const track = (question: 'difficulty' | 'replay_intent', answer: string): void => {
+      this.analytics.track('run_feedback', {
+        question,
+        answer,
+        mode: this.mode,
+        ruleset: this.core.ruleset,
+        result,
+        round,
+      }, this.runId);
+    };
+    const difficultyButtons = [
+      { label: '쉬움', value: 'easy' },
+      { label: '적당함', value: 'balanced' },
+      { label: '어려움', value: 'hard' },
+    ].map((option, index) => {
+      const button = makeButton(
+        this,
+        x + (index - 1) * (portrait ? 104 : 92),
+        buttonY,
+        portrait ? 96 : 84,
+        portrait ? 34 : 36,
+        option.label,
+        () => {
+          track('difficulty', option.value);
+          difficultyButtons.forEach((item) => item.container.setVisible(false));
+          prompt.setText('다시 플레이하고 싶나요?');
+          replayButtons.forEach((item) => item.container.setVisible(true));
+        },
+        { fill: UI.panelRaised, textColor: UI.text, fontSize: portrait ? 11 : 12, strokeAlpha: 0.2 },
+      );
+      button.container.setDepth(23);
+      return button;
+    });
+    const replayButtons = [
+      { label: '다시 할래요', value: 'yes' },
+      { label: '지금은 아니요', value: 'no' },
+    ].map((option, index) => {
+      const button = makeButton(
+        this,
+        x + (index === 0 ? -1 : 1) * (portrait ? 79 : 74),
+        buttonY,
+        portrait ? 146 : 136,
+        portrait ? 34 : 36,
+        option.label,
+        () => {
+          track('replay_intent', option.value);
+          replayButtons.forEach((item) => item.container.setVisible(false));
+          prompt.setText('피드백 고마워요!');
+          note.setText(this.analytics.remoteEnabled ? '다음 밸런스 조정에 반영할게요' : 'DATA ON 시 다음부터 익명 기록됩니다');
+        },
+        { fill: option.value === 'yes' ? UI.goldNum : UI.panelRaised, textColor: option.value === 'yes' ? UI.goldInk : UI.textDim, fontSize: portrait ? 11 : 12 },
+      );
+      button.container.setDepth(23).setVisible(false);
+      return button;
+    });
   }
 
   private masteryOutcomeLabel(): string {

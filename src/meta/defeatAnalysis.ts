@@ -1,6 +1,8 @@
 import { FINAL_BOSS_MAX_TIME } from '../core/balance';
 import { HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { HandMasteryLevels, MASTERABLE_HANDS } from '../core/mastery';
+import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
+import type { LifeRoundRecord } from '../core/game';
 
 export interface DefeatAnalysisInput {
   reason: 'field-cap' | 'life-depleted' | 'final-boss-timeout' | null;
@@ -20,6 +22,7 @@ export interface DefeatAnalysisInput {
   relicCount: number;
   handMastery: HandMasteryLevels;
   handDamage: Readonly<Record<HandRank, number>>;
+  lifeRoundHistory?: readonly LifeRoundRecord[];
 }
 
 export interface DefeatAnalysis {
@@ -32,6 +35,10 @@ export interface DefeatAnalysis {
   bossHpPercent: number | null;
   mainDamageRank: HandRank | null;
   mainDamagePercent: number;
+  lifeDetails: readonly string[];
+  topEscapedKind: EnemyKindId | null;
+  worstLifeRound: number | null;
+  worstLifeDamage: number;
 }
 
 export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
@@ -63,6 +70,22 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
       ? `연마 ${trained.map((rank) => `${HAND_NAMES_KO[rank]} Lv${input.handMastery[rank]}`).join(' · ')} · 피해 기록 없음`
       : '연마 없음 · 피해 기록 없음'
     : `주력 ${HAND_NAMES_KO[mainDamageRank]} ${mainDamagePercent}% · Lv${input.handMastery[mainDamageRank] ?? 0}`;
+  const lifeHistory = input.lifeRoundHistory ?? [];
+  const totalEscapedByKind = lifeHistory.reduce((totals, record) => {
+    for (const kind of Object.keys(totals) as EnemyKindId[]) totals[kind] += record.escapedByKind[kind];
+    return totals;
+  }, { normal: 0, fast: 0, tank: 0, regen: 0, splitter: 0, boss: 0 } satisfies Record<EnemyKindId, number>);
+  const topEscaped = (Object.entries(totalEscapedByKind) as Array<[EnemyKindId, number]>)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])[0];
+  const worstLifeRound = [...lifeHistory].sort((a, b) => b.lifeDamage - a.lifeDamage || b.escaped - a.escaped)[0];
+  const escapedBoss = [...lifeHistory].reverse().find((record) => record.escapedBossHpPercent !== null);
+  const recentLife = lifeHistory.slice(-5).map((record) => `R${record.round} −${record.lifeDamage}`).join(' · ');
+  const lifeDetails: string[] = [];
+  if (topEscaped) lifeDetails.push(`최다 탈출 ${ENEMY_KINDS[topEscaped[0]].name} ${topEscaped[1]}기`);
+  if (worstLifeRound) lifeDetails.push(`최대 피해 R${worstLifeRound.round} · ${worstLifeRound.escaped}기 / ♥−${worstLifeRound.lifeDamage}`);
+  if (escapedBoss) lifeDetails.push(`탈출 보스 HP ${escapedBoss.escapedBossHpPercent}%`);
+  if (recentLife) lifeDetails.push(`최근 피해 ${recentLife}`);
 
   if (mainDamageRank !== null && (input.handMastery[mainDamageRank] ?? 0) === 0) {
     addTip(`피해 1위 ${HAND_NAMES_KO[mainDamageRank]}를 연마하면 현재 주력 화력이 바로 상승합니다.`);
@@ -74,7 +97,13 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
     addTip('최종 보스에는 스페이드 대표 문양과 고등급 단일 화력 유닛을 집중해보세요.');
   }
   if (input.reason === 'life-depleted') {
-    addTip('입구와 마지막 코너에 화력을 나눠 배치해 빠른 적의 탈출을 먼저 막아보세요.');
+    if (topEscaped?.[0] === 'fast') {
+      addTip('고속형 탈출이 가장 많습니다. 출구 직전과 첫 교차 지점에 즉시 대응 화력을 보강하세요.');
+    } else if (topEscaped?.[0] === 'tank' || topEscaped?.[0] === 'regen') {
+      addTip('튼튼한 적의 탈출이 많습니다. 단일 화력·방어 무시 유닛을 교차로에 집중하세요.');
+    } else {
+      addTip('입구와 마지막 코너에 화력을 나눠 배치해 빠른 적의 탈출을 먼저 막아보세요.');
+    }
   }
   if (aliveBoss && input.reason === 'field-cap') {
     addTip(`R${aliveBoss.round} 보스가 이월 중입니다. 보스 집중 화력과 주력 족보 강화를 준비해보세요.`);
@@ -107,5 +136,9 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
     bossHpPercent,
     mainDamageRank,
     mainDamagePercent,
+    lifeDetails,
+    topEscapedKind: topEscaped?.[0] ?? null,
+    worstLifeRound: worstLifeRound?.round ?? null,
+    worstLifeDamage: worstLifeRound?.lifeDamage ?? 0,
   };
 }

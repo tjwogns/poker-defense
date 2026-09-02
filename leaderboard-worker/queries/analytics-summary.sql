@@ -15,6 +15,17 @@ GROUP BY name
 ORDER BY events DESC, name ASC;
 
 SELECT
+  json_extract(properties_json, '$.question') AS question,
+  json_extract(properties_json, '$.answer') AS answer,
+  COALESCE(json_extract(properties_json, '$.ruleset'), 'classic') AS ruleset,
+  COUNT(*) AS responses
+FROM analytics_events
+WHERE name = 'run_feedback'
+  AND received_at >= datetime('now', '-7 days')
+GROUP BY question, answer, ruleset
+ORDER BY question, ruleset, responses DESC;
+
+SELECT
   CAST(json_extract(properties_json, '$.round') AS INTEGER) AS round,
   COUNT(*) AS reached
 FROM analytics_events
