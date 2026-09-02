@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.6';
+export const CURRENT_VERSION = 'v2.1.7';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.7',
+    title: 'ROUND INTEL',
+    date: '2026-09-02',
+    current: true,
+    sections: [
+      {
+        heading: '라운드 결산',
+        items: [
+          '준비 단계에 직전 라운드의 처치·클리어·이자·유물/판매 수입과 총지출 표시',
+          '교환·전역 강화·정비소 구매·보스 세금을 실제 골드 원장에 기록해 결산 수치 정합성 확보',
+          '잔액·다음 강화 비용과 LIFE LAB 탈출 수·라이프 피해를 함께 표시해 다음 소비 판단 지원',
+        ],
+      },
+      {
+        heading: '교차로 탈출 경고',
+        items: [
+          '겹친 시작점과 종착점을 S 입구·E 출구로 분리 표기',
+          'LIFE LAB 경로 88%를 지난 적에 붉은 점멸 테두리와 출구 탈출 임박 인원 경고 추가',
+          '데스크톱 명령 패널에도 탈출 임박 시 출구 화력 집중 안내 표시',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.6',
     title: 'MOBILE COMMAND',
     date: '2026-09-02',
-    current: true,
     sections: [
       {
         heading: '세로 보조 화면 완성',

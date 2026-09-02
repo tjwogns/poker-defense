@@ -197,6 +197,27 @@ describe('Game state machine', () => {
     expect(g.goldIncome.bounty).toBeGreaterThan(0);
     expect(g.goldIncome.clear).toBeGreaterThan(0);
     expect(g.goldIncome.interest).toBeGreaterThan(0);
+    expect(g.lastRoundSettlement).toMatchObject({ round: 1, escaped: 0, lifeDamage: 0 });
+    expect(g.lastRoundSettlement!.incomeTotal).toBeGreaterThan(0);
+    expect(g.lastRoundSettlement!.goldEnd).toBe(g.gold);
+  });
+
+  test('라운드 결산은 교환·강화 지출과 다음 강화 비용을 기록한다', () => {
+    const g = new Game(77);
+    g.gold = 500;
+    g.doExchange();
+    g.doExchange();
+    g.buyUpgrade();
+    g.confirmHand();
+    g.pendingUnits[0] = HandRank.FourKind;
+    g.placeUnit(8, 5);
+    g.startCombat();
+    runCombat(g);
+
+    expect(g.lastRoundSettlement!.spend.exchange).toBe(10);
+    expect(g.lastRoundSettlement!.spend.upgrade).toBe(upgradeCost(0));
+    expect(g.lastRoundSettlement!.spendTotal).toBe(10 + upgradeCost(0));
+    expect(g.lastRoundSettlement!.nextUpgradeCost).toBe(upgradeCost(1));
   });
 
   test('필드 적 80마리 초과 시 패배', () => {
@@ -214,6 +235,8 @@ describe('Game state machine', () => {
     g.handConfirmed = true;
     expect(g.startCombat()).toBe(true);
     spawnEnemy(g.field, 'normal', 1, { dist: pathLength(g.mapId) - 1 });
+
+    expect(g.escapeWarningCount).toBe(1);
 
     const result = g.tickCombat(1 / 30)!;
 

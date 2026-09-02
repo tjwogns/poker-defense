@@ -89,6 +89,7 @@ export class SidePanel {
   private waveName!: Phaser.GameObjects.Text;
   private waveCount!: Phaser.GameObjects.Text;
   private waveHint!: Phaser.GameObjects.Text;
+  private settlementText!: Phaser.GameObjects.Text;
   private bossCountdown!: Phaser.GameObjects.Text;
   private directiveTitle!: Phaser.GameObjects.Text;
   private directiveBody!: Phaser.GameObjects.Text;
@@ -171,6 +172,7 @@ export class SidePanel {
       fontFamily: FONT_MONO, fontSize: '19px', fontStyle: 'bold', color: UI.gold,
     });
     this.waveHint = makeText(scene, 816, 144, '', 12, UI.textDim).setWordWrapWidth(410, true);
+    this.settlementText = makeText(scene, 816, 162, '', 10, UI.gold, true).setWordWrapWidth(420, true);
 
     scene.add.circle(832, 228, 18, UI.goldNum, 0.15).setStrokeStyle(1, UI.goldNum, 0.35);
     makeText(scene, 832, 228, '◆', 12, UI.gold, true).setOrigin(0.5);
@@ -269,6 +271,7 @@ export class SidePanel {
       fontFamily: FONT_MONO, fontSize: '16px', fontStyle: 'bold', color: UI.gold,
     });
     this.waveHint = makeText(scene, 368, py(414), '', 12, UI.textDim).setOrigin(1, 0);
+    this.settlementText = makeText(scene, 368, py(391), '', 10, UI.gold, true).setOrigin(1, 0);
     this.bossCountdown = makeText(scene, 368, py(392), '', 12, UI.dangerText, true).setOrigin(1, 0);
 
     this.placementBg = scene.add.rectangle(195, py(702), 374, 56, UI.panelDeep, 0.98)
@@ -382,7 +385,18 @@ export class SidePanel {
     const wave = g.nextWave();
     this.waveName.setText(wave.name);
     this.waveCount.setText(`×${wave.count}`);
-    this.waveHint.setText(WAVE_HINTS[wave.kind]);
+    const settlement = g.lastRoundSettlement;
+    const otherIncome = settlement
+      ? settlement.income.diamond + settlement.income.relic + settlement.income.sales
+      : 0;
+    this.waveHint.setText(inPrep && settlement
+      ? `처치 +${settlement.income.bounty} · 클리어 +${settlement.income.clear} · 이자 +${settlement.income.interest}`
+        + `${otherIncome > 0 ? ` · 기타 +${otherIncome}` : ''}`
+        + `${settlement.escaped > 0 ? ` · 탈출 ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`
+      : WAVE_HINTS[wave.kind]);
+    this.settlementText.setText(inPrep && settlement
+      ? `R${settlement.round} 결산  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · 잔액 ${settlement.goldEnd}G · 다음 강화 ${settlement.nextUpgradeCost}G`
+      : '');
     const nextBoss = Math.ceil(g.round / 10) * 10;
     const bossDistance = nextBoss - g.round;
     this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : `R${nextBoss} 보스까지 ${bossDistance}`);
@@ -431,6 +445,7 @@ export class SidePanel {
     const remaining = g.combatTimeRemaining;
     this.combatText.setText(
       g.phase !== 'combat' ? ''
+        : g.escapeWarningCount > 0 ? `⚠ 탈출 임박 ${g.escapeWarningCount}기 · 출구 화력 집중`
         : g.round >= ROUNDS
           ? remaining === null ? `최종 보스 등장 중 · 제한시간 ${FINAL_BOSS_MAX_TIME}초` : `최종 보스 제한시간 ${Math.ceil(remaining)}초`
           : g.lifeMode && remaining === null
@@ -476,6 +491,11 @@ export class SidePanel {
     const nextBoss = Math.ceil(g.round / 10) * 10;
     this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : `R${nextBoss} 보스까지 ${nextBoss - g.round}`);
     this.waveHint.setText(wave.kind === 'tank' || wave.kind === 'splitter' ? '광역이 유리' : WAVE_HINTS[wave.kind].split(' · ')[1] ?? '화력 집중');
+    const settlement = g.lastRoundSettlement;
+    this.settlementText.setText(inPrep && settlement
+      ? `R${settlement.round} +${settlement.incomeTotal} / −${settlement.spendTotal}G`
+      : '');
+    this.bossCountdown.setVisible(!(inPrep && settlement));
 
     const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
     const placing = inPrep && g.handConfirmed && g.pendingUnits.length > 0;

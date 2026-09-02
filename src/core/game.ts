@@ -69,6 +69,33 @@ export interface GoldIncomeLedger {
   sales: number;
 }
 
+export interface GoldSpendLedger {
+  exchange: number;
+  upgrade: number;
+  maintenance: number;
+  bossTax: number;
+}
+
+export interface RoundSettlement {
+  round: number;
+  income: GoldIncomeLedger;
+  spend: GoldSpendLedger;
+  incomeTotal: number;
+  spendTotal: number;
+  escaped: number;
+  lifeDamage: number;
+  goldEnd: number;
+  nextUpgradeCost: number;
+}
+
+function emptyIncomeLedger(): GoldIncomeLedger {
+  return { bounty: 0, diamond: 0, clear: 0, interest: 0, relic: 0, sales: 0 };
+}
+
+function emptySpendLedger(): GoldSpendLedger {
+  return { exchange: 0, upgrade: 0, maintenance: 0, bossTax: 0 };
+}
+
 /**
  * 게임 상태 머신: prep(카드/배치/경제) ⇄ combat(고정 틱) → victory/defeat.
  * 렌더링 의존성 없음 — 헤드리스 시뮬레이터와 Phaser UI가 공유한다.
@@ -87,7 +114,9 @@ export class Game {
   escapedEnemies = 0;
   lifeDamageTaken = 0;
   lastLifeDamage = 0;
-  readonly goldIncome: GoldIncomeLedger = { bounty: 0, diamond: 0, clear: 0, interest: 0, relic: 0, sales: 0 };
+  readonly goldIncome: GoldIncomeLedger = emptyIncomeLedger();
+  readonly goldSpend: GoldSpendLedger = emptySpendLedger();
+  lastRoundSettlement: RoundSettlement | null = null;
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -134,6 +163,10 @@ export class Game {
   private maintenanceRelics = new Map<number, RelicId | null>();
   private maintenanceMasteries = new Map<number, MasterableHandRank | null>();
   private pendingMaintenanceRound: number | null = null;
+  private roundIncomeStart: GoldIncomeLedger = emptyIncomeLedger();
+  private roundSpendStart: GoldSpendLedger = emptySpendLedger();
+  private roundEscapedStart = 0;
+  private roundLifeDamageStart = 0;
 
   constructor(seed: number, ruleset: GameRuleset = 'classic') {
     this.seed = seed;
@@ -238,6 +271,7 @@ export class Game {
     const cost = DECK_SEAL_COSTS[id];
     if (this.purchasedMaintenanceOffers.has(key) || this.gold < cost) return false;
     this.gold -= cost;
+    this.goldSpend.maintenance += cost;
     this.grantDeckSeal(id);
     this.purchasedMaintenanceOffers.add(key);
     return true;
@@ -251,6 +285,7 @@ export class Game {
     if (!offer.affordable) return false;
     if (replaceId) this.removeRelic(replaceId);
     this.gold += offer.refund - offer.cost;
+    this.goldSpend.maintenance += offer.cost;
     this.goldIncome.sales += offer.refund;
     this.addRelic(offer.id);
     this.purchasedMaintenanceOffers.add(`${this.round}:relic`);
@@ -261,6 +296,7 @@ export class Game {
     const offer = this.maintenanceMasteryOffer();
     if (!offer || offer.purchased || !offer.affordable) return false;
     this.gold -= offer.cost;
+    this.goldSpend.maintenance += offer.cost;
     this.handMastery[offer.rank]++;
     this.purchasedMaintenanceOffers.add(`${this.round}:mastery`);
     return true;
@@ -378,6 +414,7 @@ export class Game {
       && cost === 0;
     this.lastRelicTriggers = compressionTriggered ? ['compression_enthusiast'] : [];
     this.gold -= cost;
+    this.goldSpend.exchange += cost;
     this.hand = this.runDeck.exchange(this.hand, this.holds, this.rng);
     this.exchangesUsed++;
     this.selectedDominantSuit = null;
@@ -575,6 +612,13 @@ export class Game {
     return Math.max(0, limit - this.combatTimer);
   }
 
+  /** LIFE LAB에서 출구까지 경로가 12% 이하 남은 적의 수. */
+  get escapeWarningCount(): number {
+    if (!this.lifeMode) return 0;
+    const warningDistance = pathLength(this.mapId) * 0.88;
+    return this.field.enemies.filter((enemy) => enemy.alive && enemy.dist >= warningDistance).length;
+  }
+
   chooseRelic(id: RelicId, replaceId?: RelicId): boolean {
     if (
       this.phase !== 'prep'
@@ -607,6 +651,7 @@ export class Game {
     const cost = this.upgradeCostNow;
     if (this.gold < cost) return false;
     this.gold -= cost;
+    this.goldSpend.upgrade += cost;
     this.upgradeLevel++;
     return true;
   }
@@ -733,7 +778,9 @@ export class Game {
 
     const taxBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 40);
     while (taxBoss && this.field.time >= this.nextBossTaxAt) {
-      this.gold = Math.max(0, this.gold - 5);
+      const paid = Math.min(5, this.gold);
+      this.gold -= paid;
+      this.goldSpend.bossTax += paid;
       result.bossEvents.push({ type: 'tax', bossRound: 40, amount: 5 });
       this.nextBossTaxAt += 5;
     }
@@ -807,6 +854,7 @@ export class Game {
         this.phase = 'defeat';
         return;
       }
+      this.captureRoundSettlement(completedRound);
       this.score += VICTORY_SCORE;
       this.phase = 'victory';
       return;
@@ -817,6 +865,7 @@ export class Game {
     const interestGold = this.interestNow;
     this.gold += interestGold;
     this.goldIncome.interest += interestGold;
+    this.captureRoundSettlement(completedRound);
     this.field.enemies = this.field.enemies.filter((e) => e.alive); // 시체 정리, 생존자는 이월
     this.hand = this.runDeck.draw(this.rng);
     this.holds = [false, false, false, false, false];
@@ -829,6 +878,32 @@ export class Game {
     this.handConfirmed = false;
     this.phase = 'prep';
     this.openNextBossReward();
+  }
+
+  private captureRoundSettlement(completedRound: number): void {
+    const income = Object.fromEntries(
+      (Object.keys(this.goldIncome) as Array<keyof GoldIncomeLedger>)
+        .map((key) => [key, this.goldIncome[key] - this.roundIncomeStart[key]]),
+    ) as unknown as GoldIncomeLedger;
+    const spend = Object.fromEntries(
+      (Object.keys(this.goldSpend) as Array<keyof GoldSpendLedger>)
+        .map((key) => [key, this.goldSpend[key] - this.roundSpendStart[key]]),
+    ) as unknown as GoldSpendLedger;
+    this.lastRoundSettlement = {
+      round: completedRound,
+      income,
+      spend,
+      incomeTotal: Object.values(income).reduce((sum, value) => sum + value, 0),
+      spendTotal: Object.values(spend).reduce((sum, value) => sum + value, 0),
+      escaped: this.escapedEnemies - this.roundEscapedStart,
+      lifeDamage: this.lifeDamageTaken - this.roundLifeDamageStart,
+      goldEnd: this.gold,
+      nextUpgradeCost: this.upgradeCostNow,
+    };
+    this.roundIncomeStart = { ...this.goldIncome };
+    this.roundSpendStart = { ...this.goldSpend };
+    this.roundEscapedStart = this.escapedEnemies;
+    this.roundLifeDamageStart = this.lifeDamageTaken;
   }
 
   private queueDefeatedBossRewards(): void {

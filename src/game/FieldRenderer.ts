@@ -5,7 +5,7 @@ import { enemyPos, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
 import {
-  GRID_W, GRID_H, MapId, TILE, isPathTile, isPlaceable, pathCorners, pointAt,
+  GRID_W, GRID_H, MapId, TILE, isPathTile, isPlaceable, pathCorners, pathLength, pointAt,
   recommendedPlacementTiles, tileCanReachPath, tileCenter,
 } from '../core/map';
 import { UI, FONT, FONT_DISPLAY } from './ui';
@@ -82,6 +82,7 @@ interface EnemyView {
   barWidth: number;
   introStartedAt: number;
   introRing: Phaser.GameObjects.Arc | null;
+  escapeRing: Phaser.GameObjects.Arc;
 }
 
 interface UnitView {
@@ -252,6 +253,7 @@ export class FieldRenderer {
   private unitViews = new Map<number, UnitView>();
   private metrics: FieldMetrics;
   private mapId: MapId;
+  private escapeWarningText?: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, mapId: MapId = 'classic-ring') {
     this.scene = scene;
@@ -270,6 +272,12 @@ export class FieldRenderer {
       backgroundColor: '#0d0d13e8',
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setDepth(6).setVisible(false);
+    if (this.mapId === 'cross-road') {
+      this.escapeWarningText = scene.add.text(0, 0, '', {
+        fontFamily: FONT, fontSize: this.metrics.portrait ? '9px' : '12px', fontStyle: 'bold',
+        color: '#ff9b96', backgroundColor: '#351316dd', padding: { x: 7, y: 4 },
+      }).setOrigin(0.5, 1).setDepth(7).setVisible(false);
+    }
   }
 
   private drawStatic(): void {
@@ -357,11 +365,17 @@ export class FieldRenderer {
       g.lineBetween(exitX, exitY + 3, exitX, exitY - spawnRadius - 7);
       g.lineBetween(exitX, exitY - spawnRadius - 7, exitX - 4, exitY - spawnRadius - 2);
       g.lineBetween(exitX, exitY - spawnRadius - 7, exitX + 4, exitY - spawnRadius - 2);
-      this.scene.add.text(exitX + spawnRadius + 5, exitY, 'S/E', {
+      this.scene.add.text(exitX + spawnRadius + 5, exitY - (portrait ? 7 : 9), 'S  입구', {
         fontFamily: FONT,
         fontSize: portrait ? '8px' : '10px',
         fontStyle: 'bold',
         color: '#9fe8c7',
+      }).setOrigin(0, 0.5).setDepth(1);
+      this.scene.add.text(exitX + spawnRadius + 5, exitY + (portrait ? 7 : 9), 'E  출구', {
+        fontFamily: FONT,
+        fontSize: portrait ? '8px' : '10px',
+        fontStyle: 'bold',
+        color: '#ff9b96',
       }).setOrigin(0, 0.5).setDepth(1);
     }
     this.scene.add.text(fieldX + (GRID_W * tile) / 2, fieldY + (GRID_H * tile) / 2, 'ROYAL TABLE', {
@@ -381,6 +395,7 @@ export class FieldRenderer {
   ): void {
     this.updateUnits(game, selectedUnitId, fx, fusionTier, fusionSelectedIds);
     this.updateEnemies(game);
+    this.updateEscapeWarning(game);
     this.drawBossAbilities(game);
     this.updateHighlight(game, placingTier);
     this.updateRange(game, selectedUnitId, placingTier);
@@ -473,8 +488,11 @@ export class FieldRenderer {
         const introRing = e.kind === 'boss'
           ? this.scene.add.circle(0, 0, r + 10, def.color, 0.05).setStrokeStyle(3, 0xe6c84f, 0.9)
           : null;
+        const escapeRing = this.scene.add.circle(0, 0, r + 6, UI.danger, 0.04)
+          .setStrokeStyle(2, UI.danger, 0.9).setVisible(false);
+        root.addAt(escapeRing, 1);
         if (introRing) root.addAt(introRing, 1);
-        view = { root, hpBg, hpFg, barWidth, introStartedAt: this.scene.time.now, introRing };
+        view = { root, hpBg, hpFg, barWidth, introStartedAt: this.scene.time.now, introRing, escapeRing };
         this.enemyViews.set(e.id, view);
       }
       const p = enemyPos(e);
@@ -500,6 +518,12 @@ export class FieldRenderer {
         view.root.setScale(this.metrics.scale);
       }
       view.root.setAlpha(game.field.time < e.stunUntil ? 0.62 : 1);
+      const escapeImminent = game.lifeMode && e.dist >= pathLength(game.mapId) * 0.88;
+      view.escapeRing.setVisible(escapeImminent);
+      if (escapeImminent) {
+        view.escapeRing.setScale(1 + Math.sin(game.field.time * 8 + e.id) * 0.15);
+        view.escapeRing.setAlpha(0.65 + Math.sin(game.field.time * 8 + e.id) * 0.25);
+      }
       const barY = sy - (e.kind === 'boss' ? bossSpriteExtent(e.round) / 2 + 6 : r + 6) * this.metrics.scale;
       view.hpBg.setPosition(sx, barY);
       view.hpFg.setPosition(sx - view.barWidth / 2 + (view.barWidth * ratio) / 2, barY);
@@ -517,6 +541,26 @@ export class FieldRenderer {
         this.enemyViews.delete(id);
       }
     }
+  }
+
+  private updateEscapeWarning(game: Game): void {
+    if (!this.escapeWarningText) return;
+    const count = game.escapeWarningCount;
+    if (count === 0 || game.phase !== 'combat') {
+      this.escapeWarningText.setVisible(false);
+      return;
+    }
+    const corners = pathCorners(this.mapId);
+    const end = corners[corners.length - 1];
+    const pulse = 1 + Math.sin(game.field.time * 7) * 0.04;
+    this.escapeWarningText
+      .setPosition(
+        this.metrics.x + (end.x + 0.5) * this.metrics.tile,
+        this.metrics.y + (end.y + 0.25) * this.metrics.tile,
+      )
+      .setText(`⚠ 탈출 임박 ${count}`)
+      .setScale(pulse)
+      .setVisible(true);
   }
 
   private drawBossAbilities(game: Game): void {
