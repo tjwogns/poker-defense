@@ -36,6 +36,7 @@ import { attackFxBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
 import { isLifeLabLocation } from './experiment';
+import { portraitSceneHeight, portraitY } from './layout';
 
 const DT = 1 / TICK_RATE;
 
@@ -862,12 +863,14 @@ export class PlayScene extends Phaser.Scene {
   private syncRelicPicker(): void {
     if (this.core.relicChoices.length === 0 || this.relicOverlay || this.maintenanceOverlay || this.ended) return;
     const portrait = isPortraitLayout();
+    const portraitHeight = portraitSceneHeight(this);
+    const py = (value: number) => portraitY(portraitHeight, value);
     const children: Phaser.GameObjects.GameObject[] = [];
     const dim = this.add.rectangle(
       portrait ? 195 : 390,
-      portrait ? 422 : 280,
+      portrait ? portraitHeight / 2 : 280,
       portrait ? 390 : 748,
-      portrait ? 844 : 560,
+      portrait ? portraitHeight : 560,
       0x06100a,
       0.93,
     ).setInteractive();
@@ -876,10 +879,10 @@ export class PlayScene extends Phaser.Scene {
     let selectedNew: RelicId | null = null;
     const title = makeText(
       this,
-      390,
-      102,
+      portrait ? 195 : 390,
+      portrait ? py(102) : 102,
       full ? '보상 유물 선택 · 교체하거나 건너뛰세요' : '보스 격파 · 유물을 선택하세요',
-      full ? 23 : 28,
+      portrait ? 18 : full ? 23 : 28,
       UI.gold,
       true,
     ).setOrigin(0.5);
@@ -904,16 +907,16 @@ export class PlayScene extends Phaser.Scene {
     this.core.relicChoices.forEach((id, index) => {
       const def = RELIC_DEFS[id];
       const rarityColor = RELIC_RARITY_COLORS[def.rarity];
-      const x = 176 + index * 214;
-      const card = this.add.rectangle(x, 278, 188, 240, UI.panel, 1)
+      const x = portrait ? 68 + index * 127 : 176 + index * 214;
+      const card = this.add.rectangle(x, portrait ? py(278) : 278, portrait ? 116 : 188, portrait ? 220 : 240, UI.panel, 1)
         .setStrokeStyle(def.rarity === 'legendary' ? 3 : 2, rarityColor, 0.95)
         .setInteractive({ useHandCursor: true });
-      const icon = createRelicIcon(this, id, x, 210, 68);
-      const name = makeText(this, x, 278, def.name, 17, UI.text, true).setOrigin(0.5);
-      const desc = makeText(this, x, 318, def.description, 13, UI.textDim).setOrigin(0.5).setAlign('center');
-      desc.setWordWrapWidth(154, true);
+      const icon = createRelicIcon(this, id, x, portrait ? py(210) : 210, portrait ? 50 : 68);
+      const name = makeText(this, x, portrait ? py(278) : 278, def.name, portrait ? 13 : 17, UI.text, true).setOrigin(0.5);
+      const desc = makeText(this, x, portrait ? py(314) : 318, def.description, portrait ? 10 : 13, UI.textDim).setOrigin(0.5).setAlign('center');
+      desc.setWordWrapWidth(portrait ? 100 : 154, true);
       const rarity = makeText(
-        this, x, 367, RELIC_RARITY_LABELS[def.rarity], 11,
+        this, x, portrait ? py(367) : 367, RELIC_RARITY_LABELS[def.rarity], portrait ? 9 : 11,
         `#${rarityColor.toString(16).padStart(6, '0')}`, true,
       ).setOrigin(0.5);
       card.on('pointerdown', () => {
@@ -933,25 +936,25 @@ export class PlayScene extends Phaser.Scene {
         const value = relicSellPrice(id);
         const button = makeButton(
           this,
-          110 + index * 140,
-          466,
-          126,
+          portrait ? 41 + index * 77 : 110 + index * 140,
+          portrait ? py(466) : 466,
+          portrait ? 70 : 126,
           54,
           `${def.name}\n교체 +${value}G`,
           () => {
             if (selectedNew) finishSelection(selectedNew, id);
           },
-          { fill: 0x42544a, fontSize: 10 },
+          { fill: 0x42544a, fontSize: portrait ? 8 : 10 },
         );
         button.setEnabled(false);
         replacementButtons.push(button);
-        children.push(button.container, createRelicIcon(this, id, 68 + index * 140, 466, 30));
+        children.push(button.container, createRelicIcon(this, id, portrait ? 18 + index * 77 : 68 + index * 140, portrait ? py(466) : 466, portrait ? 20 : 30));
       });
     }
     const skip = makeButton(
       this,
       portrait ? 195 : 390,
-      portrait ? 798 : 528,
+      portrait ? py(798) : 528,
       portrait ? 250 : 190,
       portrait ? 46 : 36,
       '이번 유물 보상 건너뛰기',
@@ -971,24 +974,26 @@ export class PlayScene extends Phaser.Scene {
 
   private flashCenter(labelText: string, color: number, depth = 16): void {
     const portrait = isPortraitLayout();
+    const portraitHeight = portraitSceneHeight(this);
     const label = makeText(
-      this, portrait ? 195 : 390, portrait ? 330 : 270, labelText, portrait ? 20 : 30,
+      this, portrait ? 195 : 390, portrait ? portraitY(portraitHeight, 330) : 270, labelText, portrait ? 20 : 30,
       `#${color.toString(16).padStart(6, '0')}`, true,
     )
       .setOrigin(0.5).setDepth(depth).setShadow(0, 3, '#000000', 8);
     this.tweens.add({
-      targets: label, y: portrait ? 300 : 230, alpha: 0, duration: 1200, ease: 'Cubic.Out',
+      targets: label, y: portrait ? portraitY(portraitHeight, 300) : 230, alpha: 0, duration: 1200, ease: 'Cubic.Out',
       onComplete: () => label.destroy(),
     });
   }
 
   private celebrate(rank: HandRank, newlyDiscovered = false): void {
     const portrait = isPortraitLayout();
+    const portraitHeight = portraitSceneHeight(this);
     const text = newlyDiscovered
       ? `${HAND_NAMES_KO[rank]}!\nHIDDEN DISCOVERED`
       : `${HAND_NAMES_KO[rank]}!`;
     const label = makeText(
-      this, portrait ? 195 : 390, portrait ? 318 : 280, text,
+      this, portrait ? 195 : 390, portrait ? portraitY(portraitHeight, 318) : 280, text,
       portrait ? newlyDiscovered ? 22 : 28 : newlyDiscovered ? 34 : 44,
       newlyDiscovered ? '#ffe27a' : UI.gold, true,
     )
@@ -1006,7 +1011,7 @@ export class PlayScene extends Phaser.Scene {
         this.tweens.add({
           targets: label,
           alpha: 0,
-          y: portrait ? 286 : 240,
+          y: portrait ? portraitY(portraitHeight, 286) : 240,
           delay: 900,
           duration: 500,
           onComplete: () => label.destroy(),
@@ -1228,35 +1233,37 @@ export class PlayScene extends Phaser.Scene {
       handDamage: this.core.handDamage,
     });
     const portrait = isPortraitLayout();
+    const portraitHeight = portraitSceneHeight(this);
+    const py = (value: number) => portraitY(portraitHeight, value);
     const centerX = portrait ? 195 : 640;
-    this.add.rectangle(centerX, portrait ? 422 : 360, portrait ? 390 : 1280, portrait ? 844 : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
+    this.add.rectangle(centerX, portrait ? portraitHeight / 2 : 360, portrait ? 390 : 1280, portrait ? portraitHeight : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
     if (portrait) {
-      this.add.text(30, 78, won ? '60 ROUNDS CLEARED · STANDARD' : `RUN ENDED · ${this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
+      this.add.text(30, py(78), won ? '60 ROUNDS CLEARED · STANDARD' : `RUN ENDED · ${this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
         letterSpacing: 2.2,
       }).setDepth(21);
     }
     this.add
-      .text(centerX, portrait ? 102 : won ? 280 : 96, portrait ? won ? 'VICTORY' : `ROUND ${this.core.round}` : won ? '승리!' : '패배 분석', {
+      .text(centerX, portrait ? py(102) : won ? 280 : 96, portrait ? won ? 'VICTORY' : `ROUND ${this.core.round}` : won ? '승리!' : '패배 분석', {
         fontFamily: portrait ? FONT_DISPLAY : FONT, fontSize: portrait ? won ? '62px' : '54px' : won ? '56px' : '42px', fontStyle: 'bold',
         color: won ? UI.gold : UI.dangerText,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(centerX, portrait ? 174 : won ? 350 : 154, portrait && !won ? `필드가 뚫렸습니다 · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다` : endMessage, {
+      .text(centerX, portrait ? py(174) : won ? 350 : 154, portrait && !won ? `필드가 뚫렸습니다 · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다` : endMessage, {
         fontFamily: FONT, fontSize: portrait ? '14px' : '20px', color: portrait ? '#a8a5b2' : UI.text,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(centerX, portrait ? 226 : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
+      .text(centerX, portrait ? py(226) : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
         fontFamily: portrait ? FONT_MONO : FONT, fontSize: portrait ? '16px' : '18px', color: UI.gold,
       })
       .setOrigin(0.5)
       .setDepth(21);
     if (won) {
-      this.add.text(centerX, portrait ? 278 : 424, `연마 효율  ${this.masteryOutcomeLabel()}`, {
+      this.add.text(centerX, portrait ? py(278) : 424, `연마 효율  ${this.masteryOutcomeLabel()}`, {
         fontFamily: FONT, fontSize: '14px', color: '#f0c879',
       }).setOrigin(0.5).setDepth(21);
     }
@@ -1291,7 +1298,7 @@ export class PlayScene extends Phaser.Scene {
       } : {}),
     }, this.runId);
     const date = this.runDate;
-    const btn = makeButton(this, centerX, portrait ? 700 : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? '같은 조건으로 다시 도전' : '다시 시작', () => {
+    const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? '같은 조건으로 다시 도전' : '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
@@ -1303,9 +1310,9 @@ export class PlayScene extends Phaser.Scene {
       strokeAlpha: 0.5,
     });
     btn.container.setDepth(22);
-    const actionY = portrait ? 770 : won ? 536 : 568;
+    const actionY = portrait ? py(770) : won ? 536 : 568;
     if (this.mode === 'daily') {
-      const ranking = makeButton(this, portrait ? centerX : 384, portrait ? 632 : actionY, portrait ? 330 : 220, portrait ? 44 : 42, '일일 랭킹 등록', async () => {
+      const ranking = makeButton(this, portrait ? centerX : 384, portrait ? py(632) : actionY, portrait ? 330 : 220, portrait ? 44 : 42, '일일 랭킹 등록', async () => {
         ranking.setEnabled(false);
         ranking.setLabel('등록 중…');
         try {
@@ -1357,25 +1364,27 @@ export class PlayScene extends Phaser.Scene {
 
   private renderDefeatAnalysis(analysis: DefeatAnalysis): void {
     if (isPortraitLayout()) {
-      this.add.rectangle(195, 384, 330, 174, UI.panelDeep, 0.98)
+      const portraitHeight = portraitSceneHeight(this);
+      const py = (value: number) => portraitY(portraitHeight, value);
+      this.add.rectangle(195, py(384), 330, 174, UI.panelDeep, 0.98)
         .setStrokeStyle(1, UI.panelLine, 1).setDepth(21);
-      this.add.rectangle(31, 316, 2, 136, UI.danger, 1).setOrigin(0, 0).setDepth(22);
-      this.add.text(46, 330, '사망 원인', {
+      this.add.rectangle(31, py(316), 2, 136, UI.danger, 1).setOrigin(0, 0).setDepth(22);
+      this.add.text(46, py(330), '사망 원인', {
         fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: UI.dangerText,
       }).setDepth(22);
-      this.add.text(46, 355, analysis.cause, {
+      this.add.text(46, py(355), analysis.cause, {
         fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: UI.text,
         wordWrap: { width: 292 },
       }).setDepth(22);
-      this.add.text(46, 404, `${analysis.boss} · ${analysis.build}`, {
+      this.add.text(46, py(404), `${analysis.boss} · ${analysis.build}`, {
         fontFamily: FONT, fontSize: '12px', color: UI.textDim, wordWrap: { width: 292 },
       }).setDepth(22);
-      this.add.rectangle(195, 536, 330, 142, UI.panel, 0.98)
+      this.add.rectangle(195, py(536), 330, 142, UI.panel, 0.98)
         .setStrokeStyle(1, UI.goldNum, 0.22).setDepth(21);
-      this.add.text(46, 476, 'NEXT RUN', {
+      this.add.text(46, py(476), 'NEXT RUN', {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold, letterSpacing: 2,
       }).setDepth(22);
-      this.add.text(46, 500, analysis.tips.slice(0, 3).map((tip, index) => `0${index + 1}  ${tip}`).join('\n'), {
+      this.add.text(46, py(500), analysis.tips.slice(0, 3).map((tip, index) => `0${index + 1}  ${tip}`).join('\n'), {
         fontFamily: FONT, fontSize: '12px', color: UI.text, lineSpacing: 12,
         wordWrap: { width: 292 },
       }).setDepth(22);

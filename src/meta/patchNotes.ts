@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.4';
+export const CURRENT_VERSION = 'v2.1.5';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.5',
+    title: 'ADAPTIVE PORTRAIT',
+    date: '2026-09-02',
+    current: true,
+    sections: [
+      {
+        heading: '기종별 세로 화면',
+        items: [
+          '고정 390×844 대신 실제 휴대폰 비율에 맞춰 390×720~920 논리 화면을 자동 선택',
+          '짧은 화면은 전장·카드를 함께 축소하고 긴 화면은 하단 조작부까지 자연스럽게 확장',
+          '메뉴·웨이브·손패·유물 선택·결과 화면·첫 실행 안내를 같은 비율로 재배치',
+        ],
+      },
+      {
+        heading: '모바일 브라우저 대응',
+        items: [
+          '노치·펀치홀·하단 홈바 안전영역을 반영하고 주소창 변화에 맞춰 표시 영역 갱신',
+          '주소창 크기가 바뀌어도 전장 렌더링과 터치 판정이 같은 고정 논리 좌표를 사용',
+          '375×667부터 430×932까지 대표 화면과 최소·최대 높이 겹침 회귀 테스트 추가',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.4',
     title: 'ECONOMY CURVE',
     date: '2026-09-02',
-    current: true,
     sections: [
       {
         heading: '강화 비용 완화',

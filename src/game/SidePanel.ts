@@ -10,7 +10,7 @@ import {
 import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, FONT, FONT_DISPLAY, FONT_MONO, UI, makeButton, makeText } from './ui';
-import { PANEL_SECTIONS, UiRect } from './layout';
+import { PANEL_SECTIONS, UiRect, portraitSceneHeight, portraitY } from './layout';
 import { threatBand, threatLabel, threatTitle } from './threat';
 import { createRelicIcon } from './relicAssets';
 import { MASTERABLE_HANDS } from '../core/mastery';
@@ -237,6 +237,8 @@ export class SidePanel {
   }
 
   private createPortrait(scene: Phaser.Scene, cb: PanelCallbacks): void {
+    const portraitHeight = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(portraitHeight, value);
     const top = scene.add.graphics();
     top.fillStyle(UI.panelDeep, 1).fillRect(0, 0, 390, 96);
     top.lineStyle(1, UI.goldNum, 0.16).lineBetween(0, 95, 390, 95);
@@ -260,20 +262,20 @@ export class SidePanel {
       fontFamily: FONT_MONO, fontSize: '19px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(1, 0);
 
-    railCard(scene, { x: 8, y: 382, width: 374, height: 58 });
-    makeText(scene, 22, 391, '다음 웨이브', 12, UI.textDim);
-    this.waveName = makeText(scene, 22, 410, '', 18, UI.text, true);
-    this.waveCount = scene.add.text(130, 412, '', {
+    railCard(scene, { x: 8, y: py(382), width: 374, height: 58 });
+    makeText(scene, 22, py(391), '다음 웨이브', 12, UI.textDim);
+    this.waveName = makeText(scene, 22, py(410), '', 18, UI.text, true);
+    this.waveCount = scene.add.text(130, py(412), '', {
       fontFamily: FONT_MONO, fontSize: '16px', fontStyle: 'bold', color: UI.gold,
     });
-    this.waveHint = makeText(scene, 368, 414, '', 12, UI.textDim).setOrigin(1, 0);
-    this.bossCountdown = makeText(scene, 368, 392, '', 12, UI.dangerText, true).setOrigin(1, 0);
+    this.waveHint = makeText(scene, 368, py(414), '', 12, UI.textDim).setOrigin(1, 0);
+    this.bossCountdown = makeText(scene, 368, py(392), '', 12, UI.dangerText, true).setOrigin(1, 0);
 
-    this.placementBg = scene.add.rectangle(195, 702, 374, 56, UI.panelDeep, 0.98)
+    this.placementBg = scene.add.rectangle(195, py(702), 374, 56, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.goldNum, 0.45).setDepth(4).setVisible(false);
-    this.directiveTitle = makeText(scene, 195, 684, '', 15, UI.text, true).setOrigin(0.5, 0).setDepth(5);
-    this.directiveBody = makeText(scene, 195, 709, '', 12, UI.textDim).setOrigin(0.5, 0).setDepth(5);
-    this.startBtn = makeButton(scene, 195, 702, 374, 56, '', () => {
+    this.directiveTitle = makeText(scene, 195, py(684), '', 15, UI.text, true).setOrigin(0.5, 0).setDepth(5);
+    this.directiveBody = makeText(scene, 195, py(709), '', 12, UI.textDim).setOrigin(0.5, 0).setDepth(5);
+    this.startBtn = makeButton(scene, 195, py(702), 374, 56, '', () => {
       if (this.game.phase === 'combat') cb.onPause();
       else cb.onStart();
     }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 17, radius: 8, stroke: UI.goldNum, strokeAlpha: 0.5 });
@@ -283,37 +285,37 @@ export class SidePanel {
     this.buildCount = scene.add.text(0, 0, '').setVisible(false);
     this.buildText = scene.add.text(0, 0, '').setVisible(false);
     this.combatText = scene.add.text(0, 0, '').setVisible(false);
-    this.relicTriggerText = makeText(scene, 195, 372, '', 12, UI.gold, true).setOrigin(0.5).setAlpha(0).setDepth(7);
+    this.relicTriggerText = makeText(scene, 195, py(372), '', 12, UI.gold, true).setOrigin(0.5).setAlpha(0).setDepth(7);
 
-    this.deckBtn = makeButton(scene, 53, 769, 82, 50, '덱', cb.onDeck, {
+    this.deckBtn = makeButton(scene, 53, py(769), 82, 50, '덱', cb.onDeck, {
       fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14,
     });
-    this.guideBtn = makeButton(scene, 143, 769, 82, 50, '도감', cb.onGuide, {
+    this.guideBtn = makeButton(scene, 143, py(769), 82, 50, '도감', cb.onGuide, {
       fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14,
     });
-    this.upgradeBtn = makeButton(scene, 248, 769, 112, 50, '강화', cb.onUpgrade, {
+    this.upgradeBtn = makeButton(scene, 248, py(769), 112, 50, '강화', cb.onUpgrade, {
       fill: UI.panelDeep, textColor: UI.gold, fontSize: 13, radius: 4, stroke: UI.goldNum, strokeAlpha: 0.4,
     });
-    this.speedBtn = makeButton(scene, 345, 769, 74, 50, '×1', () => {
+    this.speedBtn = makeButton(scene, 345, py(769), 74, 50, '×1', () => {
       const current = SPEEDS.indexOf((this.speedBtn.container.getData('speed') ?? 1) as 1 | 2 | 4);
       cb.onSpeed(SPEEDS[(current + 1) % SPEEDS.length]);
     }, { fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14 });
 
-    const sheetBg = scene.add.rectangle(195, 744, 390, 200, UI.panelDeep, 0.99)
+    const sheetBg = scene.add.rectangle(195, py(744), 390, 200, UI.panelDeep, 0.99)
       .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(12);
-    const handle = scene.add.rectangle(195, 652, 36, 4, 0xf2ede3, 0.2).setDepth(13);
-    this.inspectorName = makeText(scene, 24, 672, '', 18, UI.text, true).setDepth(13);
-    this.inspectorMeta = makeText(scene, 24, 700, '', 12, UI.textDim).setDepth(13);
-    this.inspectorStats = scene.add.text(24, 726, '', {
+    const handle = scene.add.rectangle(195, py(652), 36, 4, 0xf2ede3, 0.2).setDepth(13);
+    this.inspectorName = makeText(scene, 24, py(672), '', 18, UI.text, true).setDepth(13);
+    this.inspectorMeta = makeText(scene, 24, py(700), '', 12, UI.textDim).setDepth(13);
+    this.inspectorStats = scene.add.text(24, py(726), '', {
       fontFamily: FONT_MONO, fontSize: '12px', fontStyle: 'bold', color: UI.text, lineSpacing: 4,
     }).setDepth(13);
-    this.moveBtn = makeButton(scene, 75, 797, 102, 50, '재배치', cb.onMove, {
+    this.moveBtn = makeButton(scene, 75, py(797), 102, 50, '재배치', cb.onMove, {
       fill: UI.panelDeep, textColor: UI.text, fontSize: 12, radius: 4, strokeAlpha: 0.18,
     });
-    this.sellBtn = makeButton(scene, 195, 797, 122, 50, '판매', cb.onSell, {
+    this.sellBtn = makeButton(scene, 195, py(797), 122, 50, '판매', cb.onSell, {
       fill: UI.panelDeep, textColor: UI.dangerText, fontSize: 12, radius: 4, stroke: UI.danger, strokeAlpha: 0.5,
     });
-    this.fuseBtn = makeButton(scene, 325, 797, 118, 50, '동일 3기 합성', cb.onFuse, {
+    this.fuseBtn = makeButton(scene, 325, py(797), 118, 50, '동일 3기 합성', cb.onFuse, {
       fill: UI.panelRaised, textColor: '#cda8e6', fontSize: 11, radius: 4, stroke: 0x9f74cf, strokeAlpha: 0.42,
     });
     [this.moveBtn, this.sellBtn, this.fuseBtn].forEach((button) => button.container.setDepth(13));

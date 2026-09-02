@@ -14,6 +14,7 @@ import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 import { bossSpriteKey } from './bossAssets';
 import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
 import { isPortraitLayout } from './device';
+import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
 
 export const FIELD_X = 24;
 export const FIELD_Y = 68;
@@ -28,8 +29,11 @@ export interface FieldMetrics {
 
 export function currentFieldMetrics(): FieldMetrics {
   const portrait = isPortraitLayout();
-  const tile = portrait ? 22 : TILE;
-  return { x: portrait ? 8 : FIELD_X, y: portrait ? 106 : FIELD_Y, tile, scale: tile / TILE, portrait };
+  if (!portrait) return { x: FIELD_X, y: FIELD_Y, tile: TILE, scale: 1, portrait };
+  const height = getActivePortraitHeight();
+  const tile = 22 * Math.min(1, portraitScale(height));
+  const x = (PORTRAIT_BASE_WIDTH - GRID_W * tile) / 2;
+  return { x, y: portraitY(height, 106), tile, scale: tile / TILE, portrait };
 }
 
 export function fieldScreenPoint(x: number, y: number): { x: number; y: number } {

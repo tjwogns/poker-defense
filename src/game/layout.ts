@@ -37,6 +37,43 @@ export const PORTRAIT_LAYOUT = {
   tile: 22,
 } as const;
 
+export const PORTRAIT_BASE_WIDTH = 390;
+export const PORTRAIT_BASE_HEIGHT = 844;
+export const PORTRAIT_MIN_HEIGHT = 720;
+export const PORTRAIT_MAX_HEIGHT = 920;
+
+let activePortraitHeight = PORTRAIT_BASE_HEIGHT;
+
+/** 실제 CSS 뷰포트 비율을 보존하되 지나치게 짧거나 긴 캔버스는 안전 범위로 제한한다. */
+export function portraitLogicalHeight(viewportWidth: number, viewportHeight: number): number {
+  if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight) || viewportWidth <= 0 || viewportHeight <= 0) {
+    return PORTRAIT_BASE_HEIGHT;
+  }
+  const fitted = Math.round(PORTRAIT_BASE_WIDTH * viewportHeight / viewportWidth);
+  return Math.max(PORTRAIT_MIN_HEIGHT, Math.min(PORTRAIT_MAX_HEIGHT, fitted));
+}
+
+export function setActivePortraitHeight(height: number): void {
+  activePortraitHeight = Math.max(PORTRAIT_MIN_HEIGHT, Math.min(PORTRAIT_MAX_HEIGHT, Math.round(height)));
+}
+
+export function getActivePortraitHeight(): number {
+  return activePortraitHeight;
+}
+
+export function portraitScale(height: number): number {
+  return height / PORTRAIT_BASE_HEIGHT;
+}
+
+/** 390×844 기준 세로 좌표를 현재 논리 캔버스 높이에 맞춘다. */
+export function portraitY(height: number, referenceY: number): number {
+  return Math.round(referenceY * portraitScale(height));
+}
+
+export function portraitSceneHeight(scene: { scale: { height: number } }): number {
+  return scene.scale.height || PORTRAIT_BASE_HEIGHT;
+}
+
 export function rectsOverlap(a: UiRect, b: UiRect): boolean {
   return a.x < b.x + b.width
     && a.x + a.width > b.x

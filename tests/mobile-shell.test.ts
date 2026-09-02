@@ -20,6 +20,9 @@ describe('mobile shell', () => {
   test('모바일 주소창 변화와 터치 스크롤을 제어한다', () => {
     expect(html).toContain('viewport-fit=cover');
     expect(html).toContain('height: 100dvh');
+    expect(html).toContain('--game-viewport-height');
+    expect(html).toContain('env(safe-area-inset-top)');
+    expect(html).toContain('env(safe-area-inset-bottom)');
     expect(html).toContain('touch-action: none');
   });
 

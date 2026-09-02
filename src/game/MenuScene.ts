@@ -16,6 +16,7 @@ import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
 import { preloadRelicSprites } from './relicAssets';
 import { isLifeLabLocation } from './experiment';
+import { portraitScale, portraitSceneHeight, portraitY } from './layout';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -214,28 +215,31 @@ export class MenuScene extends Phaser.Scene {
   private createPortraitMenu(initialProfile: Profile, challengeDate: string, hasChallenge: boolean, lifeLab: boolean): void {
     let profile = initialProfile;
     const analytics = getAnalytics(lifeLab);
+    const portraitHeight = portraitSceneHeight(this);
+    const py = (value: number) => portraitY(portraitHeight, value);
+    const density = Math.min(1, portraitScale(portraitHeight));
     const graphics = this.add.graphics();
     graphics.fillGradientStyle(0x1a1424, 0x17121f, 0x08080c, 0x0d0c14, 1);
-    graphics.fillRect(0, 0, 390, 844);
-    graphics.lineStyle(1, UI.goldNum, 0.15).strokeRect(18, 18, 354, 808);
+    graphics.fillRect(0, 0, 390, portraitHeight);
+    graphics.lineStyle(1, UI.goldNum, 0.15).strokeRect(18, 18, 354, portraitHeight - 36);
 
-    this.add.text(195, 290, '♠', {
-      fontFamily: FONT_DISPLAY, fontSize: '460px', color: UI.gold, fontStyle: 'bold',
+    this.add.text(195, py(290), '♠', {
+      fontFamily: FONT_DISPLAY, fontSize: `${Math.round(460 * density)}px`, color: UI.gold, fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.03);
-    const dragon = this.add.image(195, 306, UNIT_SPRITE_KEYS[HandRank.RoyalFlush]!)
-      .setDisplaySize(264, 264).setAlpha(0.14).setTint(0xc9bda4);
-    this.tweens.add({ targets: dragon, y: 300, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    const dragon = this.add.image(195, py(306), UNIT_SPRITE_KEYS[HandRank.RoyalFlush]!)
+      .setDisplaySize(264 * density, 264 * density).setAlpha(0.14).setTint(0xc9bda4);
+    this.tweens.add({ targets: dragon, y: py(300), duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
 
-    graphics.lineStyle(1, UI.goldNum, 0.9).lineBetween(32, 102, 52, 102);
-    this.add.text(62, 95, 'POKER DEFENSE', {
+    graphics.lineStyle(1, UI.goldNum, 0.9).lineBetween(32, py(102), 52, py(102));
+    this.add.text(62, py(95), 'POKER DEFENSE', {
       fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold, letterSpacing: 3.3,
     });
-    if (lifeLab) makeText(this, 358, 95, 'LIFE LAB', 10, '#7fd9a4', true).setOrigin(1, 0);
-    this.add.text(32, 118, 'ROYAL\nSIEGE', {
-      fontFamily: FONT_DISPLAY, fontSize: '82px', fontStyle: 'bold', color: UI.text, lineSpacing: -21,
+    if (lifeLab) makeText(this, 358, py(95), 'LIFE LAB', 10, '#7fd9a4', true).setOrigin(1, 0);
+    this.add.text(32, py(118), 'ROYAL\nSIEGE', {
+      fontFamily: FONT_DISPLAY, fontSize: `${Math.round(82 * density)}px`, fontStyle: 'bold', color: UI.text, lineSpacing: Math.round(-21 * density),
     });
     makeText(
-      this, 32, 292,
+      this, 32, py(292),
       lifeLab
         ? '라이프 20과 침투 게이지로\n새로운 방어 규칙을 시험합니다.'
         : '다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.',
@@ -244,53 +248,53 @@ export class MenuScene extends Phaser.Scene {
 
     const left = 32;
     const right = 358;
-    this.add.text(left, 432, 'COMMANDER RECORD', {
+    this.add.text(left, py(432), 'COMMANDER RECORD', {
       fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#74727e', letterSpacing: 2.6,
     });
     const line = (y: number, gold = false) => graphics.lineStyle(
       1, gold ? UI.goldNum : 0xf2ede3, gold ? 0.2 : 0.09,
     ).lineBetween(left, y, right, y);
-    line(456, true);
-    makeText(this, left, 481, '최고 점수', 12, UI.textDim).setOrigin(0, 0.5);
-    this.add.text(right, 465, profile.bestScore.toLocaleString(), {
+    line(py(456), true);
+    makeText(this, left, py(481), '최고 점수', 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, py(465), profile.bestScore.toLocaleString(), {
       fontFamily: FONT_DISPLAY, fontSize: '34px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(1, 0);
-    line(516);
-    makeText(this, left, 538, '최고 라운드', 12, UI.textDim).setOrigin(0, 0.5);
-    this.add.text(right, 526, `${profile.bestRound} / 60`, {
+    line(py(516));
+    makeText(this, left, py(538), '최고 라운드', 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, py(526), `${profile.bestRound} / 60`, {
       fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
-    line(560);
-    makeText(this, left, 582, '승리 · 출전', 12, UI.textDim).setOrigin(0, 0.5);
-    this.add.text(right, 570, `${profile.wins} · ${profile.totalRuns}`, {
+    line(py(560));
+    makeText(this, left, py(582), '승리 · 출전', 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, py(570), `${profile.wins} · ${profile.totalRuns}`, {
       fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
-    line(604, true);
-    this.add.text(left, 615, 'DAILY TOP 10', {
+    line(py(604), true);
+    this.add.text(left, py(615), 'DAILY TOP 10', {
       fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold, letterSpacing: 1.8,
     });
-    makeText(this, right, 614, leaderboardConfigured() ? '내 순위 보기 →' : '랭킹 연결 대기', 12, UI.textDim)
+    makeText(this, right, py(614), leaderboardConfigured() ? '내 순위 보기 →' : '랭킹 연결 대기', 12, UI.textDim)
       .setOrigin(1, 0);
 
-    makeButton(this, 195, 667, 326, 62, lifeLab ? 'LIFE LAB 시작' : '새 원정 시작', () => {
+    makeButton(this, 195, py(667), 326, 62, lifeLab ? 'LIFE LAB 시작' : '새 원정 시작', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 19, radius: 31, stroke: UI.goldNum, strokeAlpha: 0.5 });
-    makeButton(this, 195, 735, 326, 54, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
+    makeButton(this, 195, py(735), 326, 54, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
       this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
     }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 15, radius: 27, stroke: 0xf2ede3, strokeAlpha: 0.22 });
 
-    const sound = makeButton(this, 54, 796, 36, 36, profile.soundEnabled ? '♪' : '×', () => {
+    const sound = makeButton(this, 54, py(796), 36, 36, profile.soundEnabled ? '♪' : '×', () => {
       profile = { ...profile, soundEnabled: !profile.soundEnabled };
       saveProfile(localStorage, profile);
       sound.setLabel(profile.soundEnabled ? '♪' : '×');
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 14, radius: 18, strokeAlpha: 0.16 });
-    makeButton(this, 98, 796, 36, 36, 'i', () => {
+    makeButton(this, 98, py(796), 36, 36, 'i', () => {
       new AnalyticsConsentOverlay(this, (allowed) => analytics.setConsent(allowed ? 'granted' : 'denied'));
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 18, strokeAlpha: 0.16 });
-    this.add.text(286, 791, CURRENT_VERSION, {
+    this.add.text(286, py(791), CURRENT_VERSION, {
       fontFamily: FONT_MONO, fontSize: '11px', color: UI.textFaint,
     }).setOrigin(1, 0);
-    makeText(this, 358, 790, '패치 NEW', 11, UI.gold, true).setOrigin(1, 0);
+    makeText(this, 358, py(790), '패치 NEW', 11, UI.gold, true).setOrigin(1, 0);
 
     analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait' });
     if (!lifeLab && analytics.consent === 'unknown') {

@@ -7,12 +7,52 @@ import {
   HAND_PREVIEW_BOUNDS,
   PANEL_BOUNDS,
   PANEL_SECTIONS,
+  getActivePortraitHeight,
+  portraitLogicalHeight,
+  portraitY,
   rectsOverlap,
+  setActivePortraitHeight,
 } from '../src/game/layout';
 import { HANDBOOK_ROWS } from '../src/game/guideData';
 import { HandRank } from '../src/core/cards/types';
 
 describe('play UI layout', () => {
+  test('기종별 세로 비율을 논리 캔버스 높이에 반영한다', () => {
+    expect(portraitLogicalHeight(375, 667)).toBe(720);
+    expect(portraitLogicalHeight(360, 740)).toBe(802);
+    expect(portraitLogicalHeight(390, 844)).toBe(844);
+    expect(portraitLogicalHeight(412, 915)).toBe(866);
+    expect(portraitLogicalHeight(430, 932)).toBe(845);
+    expect(portraitLogicalHeight(360, 1000)).toBe(920);
+  });
+
+  test('기준 세로 좌표가 짧고 긴 화면에 비례해 이동한다', () => {
+    expect(portraitY(844, 702)).toBe(702);
+    expect(portraitY(720, 702)).toBe(599);
+    expect(portraitY(920, 702)).toBe(765);
+  });
+
+  test('실행 중 주소창 크기가 바뀌어도 게임 좌표계 높이는 고정한다', () => {
+    setActivePortraitHeight(802);
+    expect(getActivePortraitHeight()).toBe(802);
+    setActivePortraitHeight(1000);
+    expect(getActivePortraitHeight()).toBe(920);
+    setActivePortraitHeight(844);
+  });
+
+  test.each([720, 802, 844, 866, 920])('높이 %i에서 전장·손패·행동 버튼이 겹치지 않는다', (height) => {
+    const density = Math.min(1, height / 844);
+    const fieldBottom = portraitY(height, 106) + 22 * density * 12;
+    const waveTop = portraitY(height, 382);
+    const waveBottom = waveTop + 58;
+    const cardTop = portraitY(height, 524) - (92 * density) / 2;
+    const actionBottom = portraitY(height, 702) + 28;
+    const utilityTop = portraitY(height, 769) - 25;
+    expect(fieldBottom).toBeLessThanOrEqual(waveTop);
+    expect(waveBottom).toBeLessThanOrEqual(cardTop);
+    expect(actionBottom).toBeLessThanOrEqual(utilityTop);
+  });
+
   test('우측 패널의 모든 섹션은 패널 안에 머문다', () => {
     for (const section of Object.values(PANEL_SECTIONS)) {
       expect(section.x).toBeGreaterThanOrEqual(PANEL_BOUNDS.x);

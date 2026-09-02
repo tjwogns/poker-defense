@@ -14,6 +14,7 @@ import { rerollOdds, RerollOdds } from '../core/cards/odds';
 import { formatOddsPercent } from './OddsOverlay';
 import { rerollGuidance } from './rerollGuidance';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
+import { PORTRAIT_BASE_WIDTH, portraitScale, portraitSceneHeight, portraitY } from './layout';
 
 const CARD_W = 76;
 const CARD_H = 102;
@@ -56,22 +57,25 @@ export class HandBar {
     this.game = game;
     const compactTouch = isCompactTouchDevice();
     this.portrait = isPortraitLayout();
-    const cardW = this.portrait ? 66 : CARD_W;
-    const cardH = this.portrait ? 92 : CARD_H;
-    const cardGap = this.portrait ? 74 : CARD_GAP;
-    const baseX = this.portrait ? 41 : BASE_X;
-    this.baseY = this.portrait ? 524 : BASE_Y;
+    const portraitHeight = portraitSceneHeight(scene);
+    const py = (value: number) => portraitY(portraitHeight, value);
+    const portraitDensity = Math.min(1, portraitScale(portraitHeight));
+    const cardW = this.portrait ? Math.round(66 * portraitDensity) : CARD_W;
+    const cardH = this.portrait ? Math.round(92 * portraitDensity) : CARD_H;
+    const cardGap = this.portrait ? Math.round(74 * portraitDensity) : CARD_GAP;
+    const baseX = this.portrait ? (PORTRAIT_BASE_WIDTH - cardGap * 4) / 2 : BASE_X;
+    this.baseY = this.portrait ? py(524) : BASE_Y;
 
     if (this.portrait) {
       const divider = scene.add.graphics();
       divider.lineStyle(1, 0xf2ede3, 0.09);
-      divider.lineBetween(8, 459, 132, 459);
-      divider.lineBetween(258, 459, 382, 459);
-      const dividerTitle = scene.add.text(195, 452, 'YOUR HAND', {
+      divider.lineBetween(8, py(459), 132, py(459));
+      divider.lineBetween(258, py(459), 382, py(459));
+      const dividerTitle = scene.add.text(195, py(452), 'YOUR HAND', {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#74727e', letterSpacing: 2,
       }).setOrigin(0.5, 0);
       this.portraitDecor.push(divider, dividerTitle);
-      this.combatLabel = scene.add.text(195, 560, '전투 진행 중…', {
+      this.combatLabel = scene.add.text(195, py(560), '전투 진행 중…', {
         fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: UI.textDim,
       }).setOrigin(0.5).setVisible(false);
     } else {
@@ -112,7 +116,7 @@ export class HandBar {
     this.preview = makeText(
       scene,
       this.portrait ? 195 : HAND_PREVIEW_BOUNDS.x,
-      this.portrait ? 588 : HAND_PREVIEW_BOUNDS.y,
+      this.portrait ? py(588) : HAND_PREVIEW_BOUNDS.y,
       '',
       this.portrait ? 13 : 14,
       UI.text,
@@ -122,7 +126,7 @@ export class HandBar {
       .setLineSpacing(0)
       .setDepth(2);
     if (this.portrait) this.preview.setOrigin(0.5, 0);
-    this.oddsText = scene.add.text(this.portrait ? 8 : HAND_ODDS_SUMMARY_BOUNDS.x, this.portrait ? 622 : HAND_ODDS_SUMMARY_BOUNDS.y, '', {
+    this.oddsText = scene.add.text(this.portrait ? 8 : HAND_ODDS_SUMMARY_BOUNDS.x, this.portrait ? py(622) : HAND_ODDS_SUMMARY_BOUNDS.y, '', {
       fontFamily: this.portrait ? FONT : FONT_MONO, fontSize: this.portrait ? '12px' : '10px', fontStyle: 'bold', color: '#cfe6ec',
       backgroundColor: '#172126', padding: { x: 8, y: 5 },
     })
@@ -133,7 +137,7 @@ export class HandBar {
     this.oddsBtn = makeButton(
       scene,
       this.portrait ? 340 : HAND_ODDS_BUTTON_BOUNDS.x + HAND_ODDS_BUTTON_BOUNDS.width / 2,
-      this.portrait ? 640 : HAND_ODDS_BUTTON_BOUNDS.y + HAND_ODDS_BUTTON_BOUNDS.height / 2,
+      this.portrait ? py(640) : HAND_ODDS_BUTTON_BOUNDS.y + HAND_ODDS_BUTTON_BOUNDS.height / 2,
       this.portrait ? 76 : HAND_ODDS_BUTTON_BOUNDS.width,
       this.portrait ? 36 : HAND_ODDS_BUTTON_BOUNDS.height,
       this.portrait ? '확률 보기' : '전체 확률',
@@ -145,7 +149,7 @@ export class HandBar {
     this.oddsBtn.container.setDepth(3);
 
     this.suitBtns = Object.fromEntries((['S', 'H', 'D', 'C'] as Suit[]).map((suit, index) => {
-      const button = makeButton(scene, (this.portrait ? 94 : 488) + index * (this.portrait ? 68 : 58), this.portrait ? 626 : 638, this.portrait ? 60 : 52, this.portrait ? 36 : compactTouch ? 34 : 30, `${SUIT_GLYPHS[suit]}`, () => {
+      const button = makeButton(scene, (this.portrait ? 94 : 488) + index * (this.portrait ? 68 : 58), this.portrait ? py(626) : 638, this.portrait ? 60 : 52, this.portrait ? 36 : compactTouch ? 34 : 30, `${SUIT_GLYPHS[suit]}`, () => {
         if (this.game.selectDominantSuit(suit)) onAction('hold');
       }, {
         fill: suit === 'S' ? 0x55708f : suit === 'H' ? 0xa84e62 : suit === 'D' ? 0x9b7a32 : 0x477757,
@@ -155,11 +159,11 @@ export class HandBar {
       return [suit, button];
     })) as Record<Suit, Button>;
 
-    this.exchangeBtn = makeButton(scene, this.portrait ? 64 : 520, this.portrait ? 702 : 682, this.portrait ? 112 : 96, this.portrait ? 56 : compactTouch ? 52 : 48, '교환', () => {
+    this.exchangeBtn = makeButton(scene, this.portrait ? 64 : 520, this.portrait ? py(702) : 682, this.portrait ? 112 : 96, this.portrait ? 56 : compactTouch ? 52 : 48, '교환', () => {
       this.game.doExchange();
       onAction('exchange');
     }, { fill: UI.panelRaised, textColor: UI.text, strokeAlpha: 0.22, radius: 8, fontSize: 14 });
-    this.confirmBtn = makeButton(scene, this.portrait ? 257 : 646, this.portrait ? 702 : 682, this.portrait ? 254 : 146, this.portrait ? 56 : compactTouch ? 52 : 48, '이 패로 확정', () => {
+    this.confirmBtn = makeButton(scene, this.portrait ? 257 : 646, this.portrait ? py(702) : 682, this.portrait ? 254 : 146, this.portrait ? 56 : compactTouch ? 52 : 48, '이 패로 확정', () => {
       if (this.game.confirmHand(true) !== null) onAction('confirm');
       else this.refresh();
     }, { fill: UI.goldNum, textColor: UI.goldInk, stroke: UI.goldNum, strokeAlpha: 0.5, radius: 8, fontSize: 15 });

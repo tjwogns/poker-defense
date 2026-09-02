@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { bossDef, featuredBoss } from '../core/bosses';
 import { Game } from '../core/game';
 import { UI, makeText } from './ui';
-import { BOSS_HUD_BOUNDS } from './layout';
+import { BOSS_HUD_BOUNDS, portraitSceneHeight, portraitY } from './layout';
 import { bossMechanicStatus } from './bossFeedback';
 import { isPortraitLayout } from './device';
 
@@ -15,8 +15,9 @@ export class BossHud {
 
   constructor(scene: Phaser.Scene) {
     const portrait = isPortraitLayout();
+    const portraitHeight = portraitSceneHeight(scene);
     const { x, y, width, height } = portrait
-      ? { x: 8, y: 382, width: 374, height: 58 }
+      ? { x: 8, y: portraitY(portraitHeight, 382), width: 374, height: 58 }
       : BOSS_HUD_BOUNDS;
     const bg = scene.add.rectangle(x + width / 2, y + height / 2, width, height, UI.panelDeep, 0.98)
       .setStrokeStyle(1, 0xe24b77, 0.72);
