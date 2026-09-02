@@ -4,7 +4,7 @@ import { Enemy, TickResult, addUnit, enemyPos, spawnEnemy, unitPos } from '../co
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
-import { LIFE_MODE_BREACH_THRESHOLD, TICK_RATE } from '../core/balance';
+import { CrownLevel, LIFE_MODE_BREACH_THRESHOLD, TICK_RATE } from '../core/balance';
 import { FieldRenderer, Fx, fieldScreenPoint, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
@@ -61,6 +61,7 @@ export class PlayScene extends Phaser.Scene {
   private ended = false;
   private paused = false;
   private mode: RunMode = 'standard';
+  private crownLevel: CrownLevel = 0;
   private runDate = '';
   private profile!: Profile;
   private audio!: AudioManager;
@@ -98,9 +99,10 @@ export class PlayScene extends Phaser.Scene {
     super('play');
   }
 
-  init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean }): void {
+  init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean; crownLevel?: CrownLevel }): void {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
+    this.crownLevel = data.mode === 'daily' || isLifeLabLocation() ? 0 : data.crownLevel ?? 0;
     this.runDate = data.date ?? dailyDate();
     const lifeLab = isLifeLabLocation();
     this.analytics = getAnalytics();
@@ -108,6 +110,7 @@ export class PlayScene extends Phaser.Scene {
       mode: this.mode,
       retry: data.retry ?? false,
       ruleset: lifeLab ? 'life-economy' : 'classic',
+      crownLevel: this.crownLevel,
     });
     this.runStartedAt = performance.now();
   }
@@ -115,7 +118,7 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     if (isPortraitLayout()) this.cameras.main.setBackgroundColor('#0a0a0f');
     const localLifeExperiment = isLifeLabLocation();
-    this.core = new Game(this.seedValue, localLifeExperiment ? 'life-economy' : 'classic');
+    this.core = new Game(this.seedValue, localLifeExperiment ? 'life-economy' : 'classic', this.crownLevel);
     this.speed = 1;
     this.acc = 0;
     this.fx = [];
@@ -1244,7 +1247,9 @@ export class PlayScene extends Phaser.Scene {
     this.abandonedTracked = true;
     const won = this.core.phase === 'victory';
     const endMessage = won
-      ? '최종 보스를 격파하고 왕좌를 지켰습니다'
+      ? this.core.crownLevel > 0
+        ? '왕관 I의 최종 보스를 격파하고 더 높은 왕좌를 지켰습니다'
+        : '최종 보스를 격파하고 왕좌를 지켰습니다'
       : this.core.defeatReason === 'final-boss-timeout'
         ? '제한시간 안에 최종 보스를 격파하지 못했습니다'
         : this.core.defeatReason === 'life-depleted'
@@ -1273,7 +1278,7 @@ export class PlayScene extends Phaser.Scene {
     const centerX = portrait ? 195 : 640;
     this.add.rectangle(centerX, portrait ? portraitHeight / 2 : 360, portrait ? 390 : 1280, portrait ? portraitHeight : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
     if (portrait) {
-      this.add.text(30, py(38), won ? `60 ROUNDS CLEARED · ${this.core.lifeMode ? 'LIFE LAB' : 'STANDARD'}` : `RUN ENDED · ${this.core.lifeMode ? 'LIFE LAB' : this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
+      this.add.text(30, py(38), won ? `60 ROUNDS CLEARED · ${this.core.lifeMode ? 'LIFE LAB' : this.core.crownLevel > 0 ? 'CROWN I' : 'STANDARD'}` : `RUN ENDED · ${this.core.lifeMode ? 'LIFE LAB' : this.core.crownLevel > 0 ? 'CROWN I' : this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
         letterSpacing: 2.2,
       }).setDepth(21);
@@ -1316,6 +1321,7 @@ export class PlayScene extends Phaser.Scene {
     this.analytics.track('run_finished', {
       mode: this.mode,
       ruleset: this.core.ruleset,
+      crownLevel: this.core.crownLevel,
       result: summary.result,
       round: summary.round,
       score: summary.score,
@@ -1327,7 +1333,7 @@ export class PlayScene extends Phaser.Scene {
       masteryRanks: masteryRanks.map((entry) => entry.rank),
       masteryLevels: masteryRanks.map((entry) => entry.level),
       damageRanks: damageLeaders.map((entry) => entry.rank),
-      damageValues: damageLeaders.map((entry) => entry.damage),
+      ...(!this.core.lifeMode ? { damageValues: damageLeaders.map((entry) => entry.damage) } : {}),
       ...(analysis ? { defeatCause: this.core.defeatReason ?? 'unknown' } : {}),
       ...(analysis && this.core.lifeMode ? {
         escapedEnemies: this.core.escapedEnemies,
@@ -1345,7 +1351,7 @@ export class PlayScene extends Phaser.Scene {
     const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? '같은 조건으로 다시 도전' : '다시 시작', () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
-      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true });
+      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true, crownLevel: this.core.crownLevel });
     }, {
       fill: portrait ? UI.goldNum : UI.accent,
       textColor: portrait ? UI.goldInk : UI.goldInk,
@@ -1492,6 +1498,7 @@ export class PlayScene extends Phaser.Scene {
         answer,
         mode: this.mode,
         ruleset: this.core.ruleset,
+        crownLevel: this.core.crownLevel,
         result,
         round,
       }, this.runId);

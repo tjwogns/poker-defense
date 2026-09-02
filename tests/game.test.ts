@@ -4,6 +4,7 @@ import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
 import {
   START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
+  CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, BOSS_HP_MULT, enemyHp,
 } from '../src/core/balance';
 import { PATH_LENGTH, pathLength } from '../src/core/map';
 import { h } from './helpers';
@@ -22,6 +23,28 @@ describe('Game state machine', () => {
     expect(g.round).toBe(1);
     expect(g.gold).toBe(START_GOLD);
     expect(g.hand.length).toBe(5);
+  });
+
+  test('왕관 I은 일반 적·보스 체력과 이동 속도만 공개 배율로 강화한다', () => {
+    const regular = new Game(210, 'classic', 1);
+    regular.confirmHand();
+    expect(regular.placeUnit(5, 2)).toBe(true);
+    expect(regular.startCombat()).toBe(true);
+    regular.tickCombat(1 / 30);
+    expect(regular.field.enemies[0].maxHp).toBeCloseTo(enemyHp(1) * CROWN_I_ENEMY_HP_MULTIPLIER);
+    expect(regular.field.enemies[0].speedMultiplier).toBe(CROWN_I_SPEED_MULTIPLIER);
+
+    const boss = new Game(211, 'classic', 1);
+    boss.round = 10;
+    boss.confirmHand();
+    expect(boss.placeUnit(5, 2)).toBe(true);
+    expect(boss.startCombat()).toBe(true);
+    boss.tickCombat(1 / 30);
+    expect(boss.field.enemies[0].maxHp).toBeCloseTo(enemyHp(10) * BOSS_HP_MULT * CROWN_I_BOSS_HP_MULTIPLIER);
+  });
+
+  test('LIFE LAB과 일일 규칙 코어에는 왕관 배율을 섞지 않는다', () => {
+    expect(new Game(212, 'life-economy', 1).crownLevel).toBe(0);
   });
 
   test('확정하면 족보 등급의 배치 대기 유닛이 생기고, 재확정은 불가', () => {

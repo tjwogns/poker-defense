@@ -357,7 +357,7 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`ROUND ${g.round}`);
     this.roundSub.setText(`/ ${ROUNDS}`);
-    this.modeText.setText(g.lifeMode ? 'LIFE LAB' : mode === 'daily' ? 'DAILY' : 'STANDARD');
+    this.modeText.setText(g.lifeMode ? 'LIFE LAB' : g.crownLevel > 0 ? '♛ CROWN I' : mode === 'daily' ? 'DAILY' : 'STANDARD');
 
     const alive = aliveEnemies(g.field).length;
     const ratio = g.lifeMode
@@ -468,7 +468,7 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`R${g.round}`);
     this.roundSub.setText(`/${ROUNDS}`);
-    this.modeText.setText(g.lifeMode ? 'LIFE LAB' : mode === 'daily' ? 'DAILY' : 'STANDARD');
+    this.modeText.setText(g.lifeMode ? 'LIFE LAB' : g.crownLevel > 0 ? 'CROWN I' : mode === 'daily' ? 'DAILY' : 'STANDARD');
     const alive = aliveEnemies(g.field).length;
     const ratio = g.lifeMode
       ? Math.max(0, Math.min(1, g.lives / LIFE_MODE_STARTING_LIVES))
@@ -479,7 +479,9 @@ export class SidePanel {
     const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? UI.goldNum : UI.safe;
     this.gaugeFg.width = 180 * ratio;
     this.gaugeFg.setFillStyle(threatColor);
-    this.threatTitle.setText(g.lifeMode ? 'LIFE' : 'THREAT');
+    this.threatTitle
+      .setText(g.lifeMode ? 'LIFE' : g.crownLevel > 0 ? 'CROWN I' : 'THREAT')
+      .setColor(g.crownLevel > 0 ? UI.gold : '#74727e');
     this.gaugeText.setText(
       g.lifeMode ? `♥ ${g.lives} · 침투 ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}` : threatLabel(alive, g.fieldCap),
     );

@@ -22,6 +22,7 @@ export interface Enemy {
   alive: boolean;
   escaped: boolean;  // 생명 모드에서 한 바퀴를 완주해 전장을 이탈했는지
   mapId: MapId;
+  speedMultiplier?: number; // 왕관 난이도 등 런 단위 이동 속도 보정
 }
 
 export interface Unit {
@@ -73,12 +74,14 @@ export function createField(mapId: MapId = 'classic-ring'): Field {
 export interface SpawnOpts {
   dist?: number;
   hpOverride?: number;
+  hpMultiplier?: number;
+  speedMultiplier?: number;
   bounty?: number;
 }
 
 export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts: SpawnOpts = {}): Enemy {
   const def = ENEMY_KINDS[kind];
-  const hp = opts.hpOverride ?? enemyHp(round) * def.hpMult;
+  const hp = (opts.hpOverride ?? enemyHp(round) * def.hpMult) * (opts.hpMultiplier ?? 1);
   const enemy: Enemy = {
     id: field.nextId++,
     kind,
@@ -93,6 +96,7 @@ export function spawnEnemy(field: Field, kind: EnemyKindId, round: number, opts:
     alive: true,
     escaped: false,
     mapId: field.mapId,
+    speedMultiplier: opts.speedMultiplier ?? 1,
   };
   field.enemies.push(enemy);
   return enemy;
@@ -292,7 +296,7 @@ export function tick(
       : { damageTakenMultiplier: 1, speedMultiplier: 1, regenPctPerSec: 0 };
     const slowed = field.time < e.slowUntil;
     const stunned = field.time < e.stunUntil;
-    const speed = stunned ? 0 : ENEMY_BASE_SPEED * def.speedMult * boss.speedMultiplier * (slowed ? 1 - e.slowPct : 1);
+    const speed = stunned ? 0 : ENEMY_BASE_SPEED * def.speedMult * (e.speedMultiplier ?? 1) * boss.speedMultiplier * (slowed ? 1 - e.slowPct : 1);
     e.dist += speed * dt;
     if (e.dist >= escapeDistance) {
       e.alive = false;

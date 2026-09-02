@@ -10,6 +10,7 @@ import {
   LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BOSS_ESCAPE_DAMAGE, LIFE_MODE_BREACH_THRESHOLD,
   LIFE_MODE_BOUNTY_MULTIPLIER, LIFE_MODE_CLEAR_BONUS_MULTIPLIER, LIFE_MODE_FIELD_CAP,
   LIFE_MODE_INTEREST_CAP_MULTIPLIER, LIFE_MODE_INTEREST_RATE_MULTIPLIER, LIFE_MODE_STARTING_LIVES,
+  CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, CrownLevel,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
 import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveKind } from './enemies';
@@ -160,6 +161,7 @@ export class Game {
 
   readonly seed: number;
   readonly ruleset: GameRuleset;
+  readonly crownLevel: CrownLevel;
   readonly mapId: MapId;
   private readonly runDeck: RunDeck;
   private rng: Rng;
@@ -181,9 +183,10 @@ export class Game {
   private roundEscapedStart = 0;
   private roundLifeDamageStart = 0;
 
-  constructor(seed: number, ruleset: GameRuleset = 'classic') {
+  constructor(seed: number, ruleset: GameRuleset = 'classic', crownLevel: CrownLevel = 0) {
     this.seed = seed;
     this.ruleset = ruleset;
+    this.crownLevel = ruleset === 'classic' ? crownLevel : 0;
     this.mapId = ruleset === 'life-economy' ? 'cross-road' : 'classic-ring';
     this.field = createField(this.mapId);
     this.lives = ruleset === 'life-economy' ? LIFE_MODE_STARTING_LIVES : 0;
@@ -723,7 +726,13 @@ export class Game {
 
     this.spawnTimer -= dt;
     while (this.spawnQueue.length > 0 && this.spawnTimer <= 0) {
-      spawnEnemy(this.field, this.spawnQueue.shift()!, this.round);
+      const kind = this.spawnQueue.shift()!;
+      spawnEnemy(this.field, kind, this.round, {
+        hpMultiplier: this.crownLevel === 1
+          ? kind === 'boss' ? CROWN_I_BOSS_HP_MULTIPLIER : CROWN_I_ENEMY_HP_MULTIPLIER
+          : 1,
+        speedMultiplier: this.crownLevel === 1 ? CROWN_I_SPEED_MULTIPLIER : 1,
+      });
       this.spawnTimer += SPAWN_INTERVAL;
     }
 
@@ -819,8 +828,12 @@ export class Game {
     }
     const summonBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 50);
     while (summonBoss && this.field.time >= this.nextBossSummonAt) {
-      spawnEnemy(this.field, 'normal', summonBoss.round, { dist: summonBoss.dist - 12 });
-      spawnEnemy(this.field, 'normal', summonBoss.round, { dist: summonBoss.dist + 12 });
+      const summonOpts = {
+        hpMultiplier: this.crownLevel === 1 ? CROWN_I_ENEMY_HP_MULTIPLIER : 1,
+        speedMultiplier: this.crownLevel === 1 ? CROWN_I_SPEED_MULTIPLIER : 1,
+      };
+      spawnEnemy(this.field, 'normal', summonBoss.round, { ...summonOpts, dist: summonBoss.dist - 12 });
+      spawnEnemy(this.field, 'normal', summonBoss.round, { ...summonOpts, dist: summonBoss.dist + 12 });
       result.bossEvents.push({ type: 'summon', bossRound: 50, count: 2 });
       this.nextBossSummonAt += 8;
     }
@@ -980,6 +993,7 @@ export class Game {
       bestHand: this.bestHand,
       upgradeLevel: this.upgradeLevel,
       relics: [...this.relics],
+      crownLevel: this.crownLevel,
     };
   }
 }

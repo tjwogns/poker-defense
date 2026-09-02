@@ -1,5 +1,6 @@
 import { HandRank } from './cards/types';
 import { RelicId } from './relics';
+import type { CrownLevel } from './balance';
 
 const HAND_SCORES: Record<HandRank, number> = {
   [HandRank.HighCard]: 20,
@@ -40,4 +41,5 @@ export interface RunSummary {
   bestHand: HandRank;
   upgradeLevel: number;
   relics: readonly RelicId[];
+  crownLevel?: CrownLevel;
 }

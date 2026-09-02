@@ -1,5 +1,6 @@
 import { HandRank, isHiddenHand } from '../core/cards/types';
 import { RunSummary } from '../core/scoring';
+import type { CrownLevel } from '../core/balance';
 
 export const PROFILE_KEY = 'poker-defense:v2:profile';
 export const LEGACY_PROFILE_KEY = 'poker-defense:v2-beta:profile';
@@ -23,7 +24,7 @@ export const ACHIEVEMENTS: Record<AchievementId, { name: string; description: st
 };
 
 export interface Profile {
-  version: 4;
+  version: 5;
   totalRuns: number;
   wins: number;
   bestScore: number;
@@ -36,6 +37,9 @@ export interface Profile {
   leaderboardPlayerId: string;
   leaderboardName: string;
   discoveredHands: HandRank[];
+  crownWins: number;
+  crownBestScore: number;
+  crownBestRound: number;
 }
 
 export interface RunLog {
@@ -48,6 +52,7 @@ export interface RunLog {
   kills: number;
   bestHand: HandRank;
   relics: string[];
+  crownLevel: CrownLevel;
 }
 
 export interface StorageLike {
@@ -57,7 +62,7 @@ export interface StorageLike {
 
 export function defaultProfile(): Profile {
   return {
-    version: 4,
+    version: 5,
     totalRuns: 0,
     wins: 0,
     bestScore: 0,
@@ -70,6 +75,9 @@ export function defaultProfile(): Profile {
     leaderboardPlayerId: '',
     leaderboardName: '',
     discoveredHands: [],
+    crownWins: 0,
+    crownBestScore: 0,
+    crownBestRound: 0,
   };
 }
 
@@ -92,13 +100,19 @@ export function loadProfile(storage: StorageLike): Profile {
         : [],
       daily: isDaily(parsed.daily) ? parsed.daily : null,
       recentRuns: Array.isArray(parsed.recentRuns)
-        ? parsed.recentRuns.filter(isRunLog).slice(-20)
+        ? parsed.recentRuns
+          .filter(isRunLog)
+          .map((run) => ({ ...run, crownLevel: run.crownLevel ?? 0 }))
+          .slice(-20)
         : [],
       leaderboardPlayerId: safeIdentityPart(parsed.leaderboardPlayerId, 100),
       leaderboardName: safeIdentityPart(parsed.leaderboardName, 30),
       discoveredHands: Array.isArray(parsed.discoveredHands)
         ? parsed.discoveredHands.filter(isHiddenHandValue)
         : [],
+      crownWins: safeCount(parsed.crownWins),
+      crownBestScore: safeCount(parsed.crownBestScore),
+      crownBestRound: safeCount(parsed.crownBestRound),
     };
   } catch {
     return defaultProfile();
@@ -155,6 +169,7 @@ export function recordRun(
   mode: RunMode,
   date: string,
 ): Profile {
+  const crownLevel = summary.crownLevel ?? 0;
   const achievements = new Set(profile.achievements);
   achievements.add('first_run');
   if (summary.round >= 10) achievements.add('boss_breaker');
@@ -170,6 +185,9 @@ export function recordRun(
     wins: profile.wins + (summary.result === 'victory' ? 1 : 0),
     bestScore: Math.max(profile.bestScore, summary.score),
     bestRound: Math.max(profile.bestRound, summary.round),
+    crownWins: profile.crownWins + (crownLevel > 0 && summary.result === 'victory' ? 1 : 0),
+    crownBestScore: crownLevel > 0 ? Math.max(profile.crownBestScore, summary.score) : profile.crownBestScore,
+    crownBestRound: crownLevel > 0 ? Math.max(profile.crownBestRound, summary.round) : profile.crownBestRound,
     achievements: [...achievements],
     daily: mode === 'daily'
       ? { date, bestScore: Math.max(priorDaily, summary.score) }
@@ -186,6 +204,7 @@ export function recordRun(
         kills: summary.kills,
         bestHand: summary.bestHand,
         relics: [...summary.relics],
+        crownLevel,
       },
     ].slice(-20),
   };
@@ -199,6 +218,9 @@ export function exportPlaytestData(profile: Profile, analyticsEvents: unknown[] 
       wins: profile.wins,
       bestScore: profile.bestScore,
       bestRound: profile.bestRound,
+      crownWins: profile.crownWins,
+      crownBestScore: profile.crownBestScore,
+      crownBestRound: profile.crownBestRound,
     },
     runs: profile.recentRuns,
     events: analyticsEvents,
@@ -253,5 +275,6 @@ function isRunLog(value: unknown): value is RunLog {
     && (run.result === 'victory' || run.result === 'defeat' || run.result === 'active')
     && typeof run.kills === 'number'
     && typeof run.bestHand === 'number'
-    && Array.isArray(run.relics);
+    && Array.isArray(run.relics)
+    && (run.crownLevel === undefined || run.crownLevel === 0 || run.crownLevel === 1);
 }

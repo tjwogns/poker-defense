@@ -37,7 +37,8 @@ describe('profile persistence', () => {
     }));
 
     expect(loadProfile(storage)).toMatchObject({
-      version: 4, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [], discoveredHands: [],
+      version: 5, totalRuns: 4, wins: 1, bestScore: 5000, recentRuns: [], discoveredHands: [],
+      crownWins: 0, crownBestScore: 0, crownBestRound: 0,
     });
   });
 
@@ -86,6 +87,18 @@ describe('profile persistence', () => {
     expect(updated.achievements).toEqual(expect.arrayContaining([
       'first_run', 'boss_breaker', 'royal_victory', 'relic_collector',
     ]));
+  });
+
+  test('일반 클리어는 왕관을 해금하고 왕관 런 기록은 별도로 누적한다', () => {
+    const unlocked = recordRun(defaultProfile(), victory, 'standard', '2026-09-02');
+    expect(unlocked.wins).toBe(1);
+    expect(unlocked.crownWins).toBe(0);
+
+    const crownWin = recordRun(unlocked, { ...victory, score: 92_000, crownLevel: 1 }, 'standard', '2026-09-02');
+    expect(crownWin.crownWins).toBe(1);
+    expect(crownWin.crownBestScore).toBe(92_000);
+    expect(crownWin.crownBestRound).toBe(60);
+    expect(crownWin.recentRuns.at(-1)?.crownLevel).toBe(1);
   });
 
   test('같은 날짜는 같은 양의 데일리 시드를 만든다', () => {

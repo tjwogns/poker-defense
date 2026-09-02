@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.8';
+export const CURRENT_VERSION = 'v2.1.9';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.9',
+    title: 'CROWN ASCENT',
+    date: '2026-09-03',
+    current: true,
+    sections: [
+      {
+        heading: '클리어 후 왕관 I',
+        items: [
+          '일반 원정을 한 번 클리어한 브라우저에서 선택형 왕관 I 난이도 해금',
+          '일반 적 체력 +15%·보스 체력 +25%·모든 적 이동속도 +5%를 시작 전에 공개',
+          '기본 원정의 적·경제·승패 규칙은 유지해 첫 클리어 경험 보호',
+        ],
+      },
+      {
+        heading: '왕관 기록과 화면',
+        items: [
+          '왕관 최고 점수·최고 라운드·승리 횟수를 일반 기록과 별도로 저장',
+          '데스크톱과 세로 메뉴에 왕관 시작 버튼, 전투와 결과 화면에 CROWN I 표시',
+          '재도전 시 같은 왕관 단계를 유지하고 익명 종료 분석도 단계별 구분',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.8',
     title: 'RUN DEBRIEF',
     date: '2026-09-02',
-    current: true,
     sections: [
       {
         heading: '종료 피드백',

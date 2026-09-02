@@ -15,6 +15,12 @@ export const FIELD_CAP = 80;          // 필드 적 누적 상한 (초과 = 패�
 export const BOSS_EVERY = 10;
 export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;
 
+// ── 클리어 후 왕관 난이도 ────────────────────────────
+export type CrownLevel = 0 | 1;
+export const CROWN_I_ENEMY_HP_MULTIPLIER = 1.15;
+export const CROWN_I_BOSS_HP_MULTIPLIER = 1.25;
+export const CROWN_I_SPEED_MULTIPLIER = 1.05;
+
 // ── v2.2 생명·경제 실험 모드 ─────────────────────────
 export const LIFE_MODE_STARTING_LIVES = 20;
 export const LIFE_MODE_FIELD_CAP = 120; // 렌더링·성능 보호용 비상 상한
