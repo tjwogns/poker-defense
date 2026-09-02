@@ -9,14 +9,36 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.3';
+export const CURRENT_VERSION = 'v2.1.4';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.4',
+    title: 'ECONOMY CURVE',
+    date: '2026-09-02',
+    current: true,
+    sections: [
+      {
+        heading: '강화 비용 완화',
+        items: [
+          '전역 공격 강화 시작 비용을 50G에서 35G로 낮춰 초반 빌드 성장을 빠르게 조정',
+          '강화 비용 증가율을 20%에서 18%로 완화해 30강 누적 비용을 27,684G로 조정',
+          '20판 동일 시드 자동 비교에서 클래식·LIFE LAB 모두 평균 55.5라운드 도달 확인',
+        ],
+      },
+      {
+        heading: '다음 경제 과제',
+        items: [
+          'LIFE LAB 평균 종료 골드 1,664G를 확인해 다음 조정은 강화 추가 할인보다 골드 수급 축소를 우선',
+          '추가 서버나 유료 서비스 없이 기존 정적 배포와 헤드리스 시뮬레이터만 사용',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.3',
     title: 'BUILD CONTROL',
     date: '2026-09-01',
-    current: true,
     sections: [
       {
         heading: '문양과 합성 제어',

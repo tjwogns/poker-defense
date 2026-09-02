@@ -59,8 +59,11 @@ export function exchangeCost(exchangesUsed: number): number {
 }
 
 // ── 전역 공격력 강화 ──────────────────────────────────
+export const UPGRADE_BASE_COST = 35;
+export const UPGRADE_COST_GROWTH = 1.18;
+
 export function upgradeCost(level: number): number {
-  return Math.round(50 * Math.pow(1.2, level));
+  return Math.round(UPGRADE_BASE_COST * Math.pow(UPGRADE_COST_GROWTH, level));
 }
 export function upgradeMultiplier(level: number): number {
   return Math.pow(1.08, level);

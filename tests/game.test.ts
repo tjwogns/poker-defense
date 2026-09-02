@@ -3,7 +3,7 @@ import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
 import {
-  START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES,
+  START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
 } from '../src/core/balance';
 import { PATH_LENGTH, pathLength } from '../src/core/map';
 import { h } from './helpers';
@@ -172,8 +172,8 @@ describe('Game state machine', () => {
   test('강화: 비용 차감과 배율 증가', () => {
     const g = new Game(6);
     g.gold = 100;
-    expect(g.buyUpgrade()).toBe(true); // 50G
-    expect(g.gold).toBe(50);
+    expect(g.buyUpgrade()).toBe(true);
+    expect(g.gold).toBe(100 - upgradeCost(0));
     expect(g.upgradeLevel).toBe(1);
     expect(g.dmgMult).toBeCloseTo(1.08);
   });

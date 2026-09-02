@@ -29,9 +29,13 @@ describe('balance formulas', () => {
     expect(interest(7)).toBe(0);
   });
 
-  test('강화 비용 50×1.2^lv, 효과 +8%/lv 곱연산', () => {
-    expect(upgradeCost(0)).toBe(50);
-    expect(upgradeCost(1)).toBe(60);
+  test('강화 비용 35×1.18^lv, 효과 +8%/lv 곱연산', () => {
+    expect(upgradeCost(0)).toBe(35);
+    expect(upgradeCost(9)).toBe(155);
+    expect(upgradeCost(19)).toBe(813);
+    expect(upgradeCost(29)).toBe(4253);
+    expect(Array.from({ length: 30 }, (_, level) => upgradeCost(level)).reduce((sum, cost) => sum + cost, 0))
+      .toBe(27684);
     expect(upgradeMultiplier(0)).toBe(1);
     expect(upgradeMultiplier(2)).toBeCloseTo(1.1664, 4);
   });
