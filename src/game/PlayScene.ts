@@ -1182,6 +1182,7 @@ export class PlayScene extends Phaser.Scene {
       if (this.trackedBossDefeats.has(boss.round)) continue;
       this.trackedBossDefeats.add(boss.round);
       this.analytics.track('boss_defeated', {
+        crownLevel: this.core.crownLevel,
         bossRound: boss.round,
         resolvedRound: roundBefore,
         roundsLate: Math.max(0, roundBefore - boss.round),
@@ -1207,6 +1208,7 @@ export class PlayScene extends Phaser.Scene {
       ? 'final_timeout'
       : runEnded ? 'field_cap' : 'round_timeout';
     this.analytics.track('boss_survived', {
+      crownLevel: this.core.crownLevel,
       bossRound: originalBoss.round,
       resolvedRound: roundBefore,
       outcome,
@@ -1224,6 +1226,7 @@ export class PlayScene extends Phaser.Scene {
     this.trackedBossEncounters.add(boss.round);
     this.bossFirstSeenAt.set(boss.round, this.core.field.time);
     this.analytics.track('boss_encountered', {
+      crownLevel: this.core.crownLevel,
       bossRound: boss.round,
       currentRound,
       maxHp: Math.round(boss.maxHp),
@@ -1592,6 +1595,7 @@ export class PlayScene extends Phaser.Scene {
     this.analytics.track('run_abandoned', {
       reason,
       mode: this.mode,
+      crownLevel: this.core.crownLevel,
       phase: this.core.phase,
       round: summary.round,
       score: summary.score,

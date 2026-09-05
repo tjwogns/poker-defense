@@ -26,6 +26,45 @@ GROUP BY question, answer, ruleset
 ORDER BY question, ruleset, responses DESC;
 
 SELECT
+  COALESCE(CAST(json_extract(properties_json, '$.crownLevel') AS INTEGER), 0) AS crown_level,
+  COUNT(DISTINCT run_id) AS finished_runs,
+  SUM(CASE WHEN json_extract(properties_json, '$.result') = 'victory' THEN 1 ELSE 0 END) AS victories,
+  ROUND(100.0 * AVG(CASE WHEN json_extract(properties_json, '$.result') = 'victory' THEN 1.0 ELSE 0.0 END), 1) AS victory_percent,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.round') AS REAL)), 1) AS avg_round,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.score') AS REAL)), 0) AS avg_score
+FROM analytics_events
+WHERE name = 'run_finished'
+  AND received_at >= datetime('now', '-7 days')
+  AND COALESCE(json_extract(properties_json, '$.ruleset'), 'classic') = 'classic'
+GROUP BY crown_level
+ORDER BY crown_level;
+
+SELECT
+  COALESCE(CAST(json_extract(properties_json, '$.crownLevel') AS INTEGER), 0) AS crown_level,
+  json_extract(properties_json, '$.answer') AS difficulty_answer,
+  COUNT(*) AS responses
+FROM analytics_events
+WHERE name = 'run_feedback'
+  AND json_extract(properties_json, '$.question') = 'difficulty'
+  AND received_at >= datetime('now', '-7 days')
+  AND COALESCE(json_extract(properties_json, '$.ruleset'), 'classic') = 'classic'
+GROUP BY crown_level, difficulty_answer
+ORDER BY crown_level, responses DESC;
+
+SELECT
+  COALESCE(CAST(json_extract(properties_json, '$.crownLevel') AS INTEGER), 0) AS crown_level,
+  name AS boss_event,
+  COUNT(DISTINCT run_id) AS runs,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.combatSecondsSinceSpawn') AS REAL)), 1) AS avg_seconds,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.hpPercent') AS REAL)), 1) AS avg_surviving_hp_percent
+FROM analytics_events
+WHERE name IN ('boss_defeated', 'boss_survived')
+  AND CAST(json_extract(properties_json, '$.bossRound') AS INTEGER) = 60
+  AND received_at >= datetime('now', '-7 days')
+GROUP BY crown_level, boss_event
+ORDER BY crown_level, boss_event;
+
+SELECT
   CAST(json_extract(properties_json, '$.round') AS INTEGER) AS round,
   COUNT(*) AS reached
 FROM analytics_events

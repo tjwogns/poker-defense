@@ -25,7 +25,7 @@ describe('analytics ingestion validation', () => {
     boss.event.name = 'boss_defeated';
     boss.event.properties = {
       bossRound: 10, resolvedRound: 11, roundsLate: 1,
-      combatSecondsSinceSpawn: 51, units: 10, upgradeLevel: 4, relicCount: 0,
+      combatSecondsSinceSpawn: 51, units: 10, upgradeLevel: 4, relicCount: 0, crownLevel: 1,
     };
     expect(validateAnalyticsSubmission(boss)).toBe('');
 
