@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.9';
+export const CURRENT_VERSION = 'v2.1.10';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.1.10',
+    title: 'PIXEL ARSENAL',
+    date: '2026-09-05',
+    current: true,
+    sections: [
+      {
+        heading: '13종 픽셀 군단 프리뷰',
+        items: [
+          '하이카드부터 플러시 파이브까지 모든 족보 유닛에 96×96 투명 픽셀아트 적용',
+          '기본 게임은 기존 아트를 유지하고 URL의 art=pixel 옵션에서 비교 가능',
+          '가까운 배율과 작은 모바일 화면에서도 선명하도록 Nearest 필터와 정수 픽셀 렌더링 사용',
+        ],
+      },
+      {
+        heading: '공격 동작',
+        items: [
+          '검 베기·쌍석궁 발사·활시위·마법 시전·방패 돌진·창 돌진·신룡 브레스 등 유닛별 공격 프레임 추가',
+          '공격 대상 방향에 맞춰 스프라이트를 반전하고 준비·타격·복귀 동작을 전투 타이밍에 연결',
+          '신룡 브레스는 충전과 발사를 분리하고 공격 자세 유지 시간을 늘려 식별성 강화',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.9',
     title: 'CROWN ASCENT',
     date: '2026-09-03',
-    current: true,
     sections: [
       {
         heading: '클리어 후 왕관 I',

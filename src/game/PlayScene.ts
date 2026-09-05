@@ -175,6 +175,27 @@ export class PlayScene extends Phaser.Scene {
       this.fusionSelectedIds = [anchor.id, second.id];
       this.core.handConfirmed = true;
       this.core.lastHandRank = HandRank.Pair;
+    } else if (localVisualTest === 'pixel-motion') {
+      this.profile.tutorialDone = true;
+      this.core.round = 28;
+      this.core.upgradeLevel = 15;
+      const previewTiers = [
+        HandRank.HighCard, HandRank.Pair, HandRank.TwoPair, HandRank.Trips, HandRank.Straight,
+        HandRank.Flush, HandRank.FullHouse, HandRank.FourKind, HandRank.StraightFlush,
+        HandRank.RoyalFlush, HandRank.FiveKind, HandRank.FlushHouse, HandRank.FlushFive,
+      ];
+      const previewPositions = [
+        [2.4, 1.6], [4.1, 1.6], [5.8, 1.6], [7.5, 1.6], [9.2, 1.6],
+        [2.4, 3.2], [4.1, 3.2], [5.8, 3.2], [7.5, 3.2], [9.2, 3.2],
+        [3.2, 4.8], [5.8, 4.8], [8.4, 4.8],
+      ];
+      const previewSuits = ['S', 'H', 'D', 'C'] as const;
+      previewTiers.forEach((tier, index) => {
+        const [x, y] = previewPositions[index];
+        addUnit(this.core.field, tier, x, y, false, previewSuits[index % previewSuits.length]);
+      });
+      this.core.handConfirmed = true;
+      this.core.startCombat();
     } else if (localVisualTest === 'mastery') {
       this.profile.tutorialDone = true;
       this.core.round = 9;
@@ -1107,8 +1128,8 @@ export class PlayScene extends Phaser.Scene {
         kind: 'attack',
         unitId: unit.id,
         x1: from.x, y1: from.y, x2: to.x, y2: to.y,
-        ttl: 0.2,
-        duration: 0.2,
+        ttl: unit.tier === HandRank.RoyalFlush ? 0.34 : 0.2,
+        duration: unit.tier === HandRank.RoyalFlush ? 0.34 : 0.2,
         color: unit.suit ? SUIT_COLORS[unit.suit] : UNIT_DEFS[unit.tier].color,
         tier: unit.tier,
         targetKind: enemy.kind,

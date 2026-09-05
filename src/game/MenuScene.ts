@@ -11,7 +11,7 @@ import { PatchNotesOverlay } from './PatchNotesOverlay';
 import { CURRENT_VERSION } from '../meta/patchNotes';
 import { leaderboardConfigured } from '../meta/leaderboard';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
-import { preloadUnitSprites, UNIT_SPRITE_KEYS } from './unitAssets';
+import { isPixelArtPreview, preloadUnitSprites, unitSpriteKey } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
 import { preloadRelicSprites } from './relicAssets';
@@ -75,7 +75,7 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: FONT_DISPLAY, fontSize: '620px', color: UI.gold, fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.028);
 
-    const dragon = this.add.image(1120, 615, UNIT_SPRITE_KEYS[HandRank.RoyalFlush]!)
+    const dragon = this.add.image(1120, 615, unitSpriteKey(HandRank.RoyalFlush, window.location.search)!)
       .setDisplaySize(340, 340).setAlpha(0.38).setTint(0xc9bda4);
     this.tweens.add({ targets: dragon, y: 608, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
 
@@ -86,6 +86,9 @@ export class MenuScene extends Phaser.Scene {
     });
     if (lifeLab) {
       makeText(this, 330, 91, 'LIFE ECONOMY LAB', 11, '#7fd9a4', true).setLetterSpacing(2);
+    }
+    if (isPixelArtPreview(window.location.search)) {
+      makeText(this, 1218, 91, 'PIXEL ART PREVIEW', 10, '#7fd9a4', true).setOrigin(1, 0).setLetterSpacing(1.5);
     }
     this.add.text(88, 112, 'ROYAL\nSIEGE', {
       fontFamily: FONT_DISPLAY,
@@ -250,7 +253,7 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(195, py(290), '♠', {
       fontFamily: FONT_DISPLAY, fontSize: `${Math.round(460 * density)}px`, color: UI.gold, fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.03);
-    const dragon = this.add.image(195, py(306), UNIT_SPRITE_KEYS[HandRank.RoyalFlush]!)
+    const dragon = this.add.image(195, py(306), unitSpriteKey(HandRank.RoyalFlush, window.location.search)!)
       .setDisplaySize(264 * density, 264 * density).setAlpha(0.14).setTint(0xc9bda4);
     this.tweens.add({ targets: dragon, y: py(300), duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
 
@@ -259,6 +262,9 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold, letterSpacing: 3.3,
     });
     if (lifeLab) makeText(this, 358, py(95), 'LIFE LAB', 10, '#7fd9a4', true).setOrigin(1, 0);
+    if (!lifeLab && isPixelArtPreview(window.location.search)) {
+      makeText(this, 358, py(95), 'PIXEL PREVIEW', 9, '#7fd9a4', true).setOrigin(1, 0);
+    }
     this.add.text(32, py(118), 'ROYAL\nSIEGE', {
       fontFamily: FONT_DISPLAY, fontSize: `${Math.round(82 * density)}px`, fontStyle: 'bold', color: UI.text, lineSpacing: Math.round(-21 * density),
     });

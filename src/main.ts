@@ -5,6 +5,7 @@ import { currentLayoutMode } from './game/device';
 import { installRendererRecovery } from './game/rendererRecovery';
 import { readStoredRendererMode, shouldUseCanvasRenderer } from './game/rendererPolicy';
 import { PORTRAIT_BASE_WIDTH, portraitLogicalHeight, setActivePortraitHeight } from './game/layout';
+import { isPixelArtPreview } from './game/unitAssets';
 
 function viewportHeight(): number {
   return window.visualViewport?.height ?? window.innerHeight;
@@ -27,12 +28,14 @@ async function boot(): Promise<void> {
     window.location.search,
     readStoredRendererMode(window.sessionStorage),
   );
+  const pixelArtPreview = isPixelArtPreview(window.location.search);
   const game = new Phaser.Game({
     type: useCanvas ? Phaser.CANVAS : Phaser.AUTO,
     width: portrait ? PORTRAIT_BASE_WIDTH : 1280,
     height: portrait ? portraitHeight : 720,
     parent: 'app',
     backgroundColor: '#0a0a0f',
+    roundPixels: pixelArtPreview,
     scene: [MenuScene, PlayScene],
     scale: {
       mode: Phaser.Scale.FIT,

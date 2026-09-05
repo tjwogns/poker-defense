@@ -9,7 +9,9 @@ import {
   recommendedPlacementTiles, tileCanReachPath, tileCenter,
 } from '../core/map';
 import { UI, FONT, FONT_DISPLAY } from './ui';
-import { UNIT_SPRITE_KEYS } from './unitAssets';
+import {
+  isPixelArtPreview, pixelSpriteFacesLeft, unitAnimationFrameKey, unitSpriteKey,
+} from './unitAssets';
 import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 import { bossSpriteKey } from './bossAssets';
 import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
@@ -87,13 +89,19 @@ interface EnemyView {
 
 interface UnitView {
   root: Phaser.GameObjects.Container;
+  art: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
   selection: Phaser.GameObjects.Arc;
   halo: Phaser.GameObjects.Arc;
   introStartedAt: number;
+  facing: 1 | -1;
 }
 
-function unitVisual(scene: Phaser.Scene, tier: HandRank, color: number): Phaser.GameObjects.GameObject {
-  const key = UNIT_SPRITE_KEYS[tier];
+function unitVisual(
+  scene: Phaser.Scene,
+  tier: HandRank,
+  color: number,
+): Phaser.GameObjects.Image | Phaser.GameObjects.Graphics {
+  const key = unitSpriteKey(tier, window.location.search);
   if (!key || !scene.textures.exists(key)) return unitArt(scene, tier, color);
   const image = scene.add.image(0, -2, key);
   const extent = unitSpriteExtent(tier);
@@ -431,7 +439,7 @@ export class FieldRenderer {
           padding: { x: 2, y: 1 },
         }).setOrigin(0.5);
         const root = this.scene.add.container(0, 0, [shadow, selection, halo, art, identity]).setDepth(2);
-        view = { root, selection, halo, introStartedAt: this.scene.time.now };
+        view = { root, art, selection, halo, introStartedAt: this.scene.time.now, facing: 1 };
         this.unitViews.set(u.id, view);
       }
       const p = unitPos(u);
@@ -439,10 +447,25 @@ export class FieldRenderer {
       const fusionCandidate = fusionTier !== null && u.tier === fusionTier;
       const fusionMaterial = selectedForFusion.has(u.id);
       const attackFx = fx.find((effect) => effect.kind === 'attack' && effect.unitId === u.id);
+      const pixelArt = isPixelArtPreview(window.location.search);
+      const windupWindow = Math.min(0.28, UNIT_DEFS[u.tier].period * 0.3);
+      const windingUp = pixelArt && !attackFx && u.cooldown > 0 && u.cooldown <= windupWindow;
+      const animationFrame = attackFx ? 'attack' : windingUp ? 'windup' : 'idle';
+      if (attackFx && Math.abs(attackFx.x2 - attackFx.x1) > 0.5) {
+        view.facing = attackFx.x2 >= attackFx.x1 ? 1 : -1;
+      }
+      if (pixelArt && view.art instanceof Phaser.GameObjects.Image) {
+        const frameKey = unitAnimationFrameKey(u.tier, animationFrame, window.location.search);
+        if (frameKey && view.art.texture.key !== frameKey) view.art.setTexture(frameKey);
+        view.art.setFlipX(pixelSpriteFacesLeft(u.tier) ? view.facing > 0 : view.facing < 0);
+      }
       const recoil = attackFx ? Math.max(0, attackFx.ttl / attackFx.duration) : 0;
+      const attackProgress = attackFx ? 1 - recoil : 0;
+      const attackMotion = pixelArt && attackFx ? Math.sin(Math.PI * attackProgress) : 0;
       const attackLength = attackFx ? Math.max(1, Math.hypot(attackFx.x2 - attackFx.x1, attackFx.y2 - attackFx.y1)) : 1;
-      const recoilX = attackFx ? -((attackFx.x2 - attackFx.x1) / attackLength) * recoil * 2.5 : 0;
-      const recoilY = attackFx ? -((attackFx.y2 - attackFx.y1) / attackLength) * recoil * 2.5 : 0;
+      const motionDistance = pixelArt ? attackMotion * 4 : -recoil * 2.5;
+      const recoilX = attackFx ? ((attackFx.x2 - attackFx.x1) / attackLength) * motionDistance : 0;
+      const recoilY = attackFx ? ((attackFx.y2 - attackFx.y1) / attackLength) * motionDistance : 0;
       const bob = Math.sin(game.field.time * 2.4 + u.id * 0.7) * 0.8;
       const introDuration = unitIntroDuration(u.tier);
       const introProgress = introDuration === 0
@@ -455,8 +478,9 @@ export class FieldRenderer {
       );
       view.root.setScale(
         this.metrics.scale * (selected || fusionMaterial ? 1.12 : fusionCandidate ? 1.06 : 1)
-        * (1 + recoil * 0.06) * introScale,
+        * (1 + (pixelArt ? attackMotion : recoil) * 0.06) * introScale,
       );
+      view.root.setRotation(pixelArt ? view.facing * (windingUp ? -0.025 : attackMotion * 0.035) : 0);
       view.root.setAlpha(introDuration === 0 ? 1 : 0.5 + introProgress * 0.5);
       view.halo.setScale(introDuration === 0 ? 1 : 1 + (1 - introProgress) * 0.75);
       view.selection
