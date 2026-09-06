@@ -79,7 +79,7 @@ describe('defeat analysis', () => {
 
     expect(analysis.cause).toContain('적 탈출');
     expect(analysis.tips[0]).toContain('고속형 탈출');
-    expect(analysis.lifeDetails).toContain('최다 탈출 고속형 6기');
+    expect(analysis.lifeDetails).toContain('최다 탈출 칩 도둑 6기');
     expect(analysis.lifeDetails).toContain('최대 피해 R30 · 1기 / ♥−3');
     expect(analysis.lifeDetails).toContain('탈출 보스 HP 18%');
     expect(analysis.lifeDetails.at(-1)).toContain('R21 −0 · R24 −1 · R30 −3');

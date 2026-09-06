@@ -175,6 +175,19 @@ export class PlayScene extends Phaser.Scene {
       this.fusionSelectedIds = [anchor.id, second.id];
       this.core.handConfirmed = true;
       this.core.lastHandRank = HandRank.Pair;
+    } else if (localVisualTest === 'enemy-roster') {
+      this.profile.tutorialDone = true;
+      this.core.round = 35;
+      this.core.handConfirmed = true;
+      this.core.startCombat();
+      const previewKinds = ['normal', 'fast', 'tank', 'regen', 'splitter'] as const;
+      previewKinds.forEach((kind, index) => {
+        spawnEnemy(this.core.field, kind, 35, {
+          dist: 160 + index * 470,
+          hpOverride: 5000,
+        });
+      });
+      this.paused = true;
     } else if (localVisualTest === 'pixel-motion') {
       this.profile.tutorialDone = true;
       this.core.round = 28;

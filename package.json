@@ -1,7 +1,7 @@
 {
   "name": "poker-defense",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,8 @@
     "smoke:focus": "node scripts/focus-smoke.mjs",
     "smoke:recovery": "node scripts/context-loss-smoke.mjs",
     "smoke:mobile": "node scripts/mobile-smoke.mjs",
-    "smoke:bosses": "node scripts/boss-visual-smoke.mjs"
+    "smoke:bosses": "node scripts/boss-visual-smoke.mjs",
+    "smoke:enemies": "node scripts/enemy-art-smoke.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1"

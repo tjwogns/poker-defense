@@ -15,12 +15,12 @@ export interface EnemyKindDef {
 }
 
 export const ENEMY_KINDS: Record<EnemyKindId, EnemyKindDef> = {
-  normal:   { id: 'normal',   name: '일반',   unlockRound: 1,  hpMult: 1,    speedMult: 1,   damageTakenMult: 1,    regenPctPerSec: 0,     splits: false, color: 0xc75b5b },
-  fast:     { id: 'fast',     name: '고속형', unlockRound: 5,  hpMult: 0.7,  speedMult: 1.6, damageTakenMult: 1,    regenPctPerSec: 0,     splits: false, color: 0xe0a33c },
-  tank:     { id: 'tank',     name: '방어형', unlockRound: 12, hpMult: 1,    speedMult: 0.8, damageTakenMult: 0.75, regenPctPerSec: 0,     splits: false, color: 0x8a8f9e },
+  normal:   { id: 'normal',   name: '찢긴 카드병', hpMult: 1,    unlockRound: 1,  speedMult: 1,   damageTakenMult: 1,    regenPctPerSec: 0,     splits: false, color: 0xc75b5b },
+  fast:     { id: 'fast',     name: '칩 도둑',     hpMult: 0.7,  unlockRound: 5,  speedMult: 1.6, damageTakenMult: 1,    regenPctPerSec: 0,     splits: false, color: 0xe0a33c },
+  tank:     { id: 'tank',     name: '금고 골렘',   hpMult: 1,    unlockRound: 12, speedMult: 0.8, damageTakenMult: 0.75, regenPctPerSec: 0,     splits: false, color: 0x8a8f9e },
   // 주의: 해금 라운드는 10의 배수(보스 라운드)를 피해야 한다 — 기획안의 R20을 R21로 보정
-  regen:    { id: 'regen',    name: '재생형', unlockRound: 21, hpMult: 1,    speedMult: 1,   damageTakenMult: 1,    regenPctPerSec: 0.015, splits: false, color: 0x6fbf7a },
-  splitter: { id: 'splitter', name: '분열형', unlockRound: 32, hpMult: 1,    speedMult: 1,   damageTakenMult: 1,    regenPctPerSec: 0,     splits: true,  color: 0xba6fd0 },
+  regen:    { id: 'regen',    name: '꿰맨 하트',   unlockRound: 21, hpMult: 1, speedMult: 1, damageTakenMult: 1, regenPctPerSec: 0.015, splits: false, color: 0x6fbf7a },
+  splitter: { id: 'splitter', name: '카드 미믹',   unlockRound: 32, hpMult: 1, speedMult: 1, damageTakenMult: 1, regenPctPerSec: 0, splits: true, color: 0xba6fd0 },
   boss:     { id: 'boss',     name: '보스',   unlockRound: 0,  hpMult: BOSS_HP_MULT, speedMult: 0.7, damageTakenMult: 1, regenPctPerSec: 0, splits: false, color: 0x7a2f2f },
 };
 

@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.2.0';
+export const CURRENT_VERSION = 'v2.2.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.2.1',
+    title: 'THE DISCARDED',
+    date: '2026-09-06',
+    current: true,
+    sections: [
+      {
+        heading: '폐기된 덱 적군',
+        items: [
+          '일반 적 5종을 찢긴 카드병·칩 도둑·금고 골렘·꿰맨 하트·카드 미믹 픽셀 캐릭터로 교체',
+          '빨강·황금·회색·초록·보라 역할 색과 서로 다른 실루엣으로 밀집 전투 가독성 유지',
+          '기존 도형 적은 URL의 enemyArt=classic 옵션에서 비교 가능',
+        ],
+      },
+      {
+        heading: '고유 움직임과 피격 표현',
+        items: [
+          '보행·질주·무거운 발걸음·재생 맥동·분열 흔들림을 적 역할별 이동 속도에 연결',
+          '경로 진행 방향에 맞춰 캐릭터를 좌우 반전하고 피격 순간 흰색 플래시 적용',
+          '보스 그래픽과 전투 수치·스폰·탈출·보상 규칙은 그대로 유지',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.2.0',
     title: 'LIFE SIEGE',
     date: '2026-09-06',
-    current: true,
     sections: [
       {
         heading: 'LIFE 규칙 정식 승격',

@@ -55,7 +55,7 @@ jobs:
           cp -R release/dist/. site/
           printf '%s\n' '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>포커 디펜스</title><script>location.replace("../"+location.search+location.hash)</script><a href="../">포커 디펜스 실행</a>' > site/v2/index.html
           printf '%s\n' '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>포커 디펜스 LIFE</title><script>location.replace("../"+location.search+location.hash)</script><a href="../">LIFE 정식판 실행</a>' > site/lab/index.html
-          printf '%s\n' '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>포커 디펜스 클래식</title><script>location.replace("../?ruleset=classic&art=classic"+location.hash)</script><a href="../?ruleset=classic&art=classic">클래식 보존판 실행</a>' > site/classic/index.html
+          printf '%s\n' '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>포커 디펜스 클래식</title><script>location.replace("../?ruleset=classic&art=classic&enemyArt=classic"+location.hash)</script><a href="../?ruleset=classic&art=classic&enemyArt=classic">클래식 보존판 실행</a>' > site/classic/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

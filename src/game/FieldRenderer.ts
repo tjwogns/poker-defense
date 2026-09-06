@@ -15,6 +15,7 @@ import {
 import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 import { bossSpriteKey } from './bossAssets';
 import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
+import { enemySpriteExtent, enemySpriteKey } from './enemyAssets';
 import { isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
 
@@ -79,12 +80,17 @@ const ENEMY_RADIUS: Record<EnemyKindId, number> = {
 
 interface EnemyView {
   root: Phaser.GameObjects.Container;
+  sprite: Phaser.GameObjects.Image | null;
+  aura: Phaser.GameObjects.Arc;
   hpBg: Phaser.GameObjects.Rectangle;
   hpFg: Phaser.GameObjects.Rectangle;
   barWidth: number;
   introStartedAt: number;
   introRing: Phaser.GameObjects.Arc | null;
   escapeRing: Phaser.GameObjects.Arc;
+  facing: 1 | -1;
+  lastHp: number;
+  hitUntil: number;
 }
 
 interface UnitView {
@@ -205,7 +211,11 @@ function enemyArt(
   radius: number,
   color: number,
   round: number,
-): Phaser.GameObjects.Container {
+): {
+  root: Phaser.GameObjects.Container;
+  sprite: Phaser.GameObjects.Image | null;
+  aura: Phaser.GameObjects.Arc;
+} {
   const shadow = scene.add.ellipse(2, 4, radius * 2.2, radius * 1.45, 0x000000, 0.38);
   const aura = scene.add.circle(0, 0, radius + 3, color, kind === 'boss' ? 0.2 : 0.1)
     .setStrokeStyle(kind === 'boss' ? 2 : 1, color, 0.55);
@@ -216,8 +226,16 @@ function enemyArt(
       const extent = bossSpriteExtent(round);
       const scale = Math.min(extent / image.width, extent / image.height);
       image.setDisplaySize(image.width * scale, image.height * scale);
-      return scene.add.container(0, 0, [shadow, aura, image]).setDepth(3);
+      return { root: scene.add.container(0, 0, [shadow, aura, image]).setDepth(3), sprite: image, aura };
     }
+  }
+  const enemyKey = enemySpriteKey(kind, window.location.search);
+  if (enemyKey && scene.textures.exists(enemyKey)) {
+    const image = scene.add.image(0, -2, enemyKey);
+    const extent = enemySpriteExtent(kind);
+    const scale = Math.min(extent / image.width, extent / image.height);
+    image.setDisplaySize(image.width * scale, image.height * scale);
+    return { root: scene.add.container(0, 0, [shadow, aura, image]).setDepth(3), sprite: image, aura };
   }
   let body: Phaser.GameObjects.Shape;
   if (kind === 'fast') {
@@ -247,7 +265,7 @@ function enemyArt(
     fontStyle: 'bold',
     color: kind === 'boss' ? '#f7d95a' : '#f4eee4',
   }).setOrigin(0.5);
-  return scene.add.container(0, 0, [shadow, aura, body, emblem]).setDepth(3);
+  return { root: scene.add.container(0, 0, [shadow, aura, body, emblem]).setDepth(3), sprite: null, aura };
 }
 
 export class FieldRenderer {
@@ -505,7 +523,8 @@ export class FieldRenderer {
       if (!view) {
         const def = ENEMY_KINDS[e.kind];
         const r = ENEMY_RADIUS[e.kind];
-        const root = enemyArt(this.scene, e.kind, r, def.color, e.round);
+        const art = enemyArt(this.scene, e.kind, r, def.color, e.round);
+        const root = art.root;
         const barWidth = e.kind === 'boss' ? 50 : 24;
         const hpBg = this.scene.add.rectangle(0, 0, barWidth, e.kind === 'boss' ? 5 : 3, 0x000000, 0.78).setDepth(3);
         const hpFg = this.scene.add.rectangle(0, 0, barWidth, e.kind === 'boss' ? 5 : 3, 0x76d67a).setDepth(3);
@@ -516,7 +535,20 @@ export class FieldRenderer {
           .setStrokeStyle(2, UI.danger, 0.9).setVisible(false);
         root.addAt(escapeRing, 1);
         if (introRing) root.addAt(introRing, 1);
-        view = { root, hpBg, hpFg, barWidth, introStartedAt: this.scene.time.now, introRing, escapeRing };
+        view = {
+          root,
+          sprite: art.sprite,
+          aura: art.aura,
+          hpBg,
+          hpFg,
+          barWidth,
+          introStartedAt: this.scene.time.now,
+          introRing,
+          escapeRing,
+          facing: 1,
+          lastHp: e.hp,
+          hitUntil: 0,
+        };
         this.enemyViews.set(e.id, view);
       }
       const p = enemyPos(e);
@@ -539,7 +571,49 @@ export class FieldRenderer {
           view.introRing?.setScale(1 + intro * 1.4).setAlpha(Math.max(0, 1 - intro));
         }
       } else {
-        view.root.setScale(this.metrics.scale);
+        const next = pointAt(e.dist + 4, e.mapId);
+        if (Math.abs(next.x - p.x) > 0.5) view.facing = next.x >= p.x ? 1 : -1;
+        const phase = game.field.time * ENEMY_KINDS[e.kind].speedMult * 8 + e.id * 0.73;
+        let bob = 0;
+        let scaleX = 1;
+        let scaleY = 1;
+        let rotation = 0;
+        if (view.sprite) {
+          if (e.kind === 'fast') {
+            bob = Math.sin(phase * 1.35) * 1.25;
+            scaleX = 1.04 + Math.sin(phase * 2) * 0.035;
+            scaleY = 0.97 - Math.sin(phase * 2) * 0.025;
+          } else if (e.kind === 'tank') {
+            const step = Math.abs(Math.sin(phase * 0.55));
+            bob = -step * 0.8;
+            scaleX = 1 + step * 0.025;
+            scaleY = 1 - step * 0.035;
+          } else if (e.kind === 'regen') {
+            const pulse = Math.sin(phase * 0.65);
+            bob = pulse * 0.6;
+            scaleX = 1 + pulse * 0.045;
+            scaleY = 1 + pulse * 0.045;
+            view.aura.setScale(1.05 + pulse * 0.18).setAlpha(0.15 + (pulse + 1) * 0.08);
+          } else if (e.kind === 'splitter') {
+            bob = Math.sin(phase) * 0.7;
+            rotation = Math.sin(phase * 0.75) * 0.065;
+            scaleX = 1 + Math.sin(phase * 1.5) * 0.04;
+            scaleY = 1 - Math.sin(phase * 1.5) * 0.04;
+          } else {
+            bob = Math.sin(phase) * 0.65;
+            rotation = Math.sin(phase * 0.5) * 0.025;
+          }
+        }
+        view.root
+          .setPosition(sx, sy + bob * this.metrics.scale)
+          .setScale(this.metrics.scale * view.facing * scaleX, this.metrics.scale * scaleY)
+          .setRotation(rotation * view.facing);
+      }
+      if (e.hp < view.lastHp - 0.0001) view.hitUntil = this.scene.time.now + 85;
+      view.lastHp = e.hp;
+      if (view.sprite) {
+        if (this.scene.time.now < view.hitUntil) view.sprite.setTintFill(0xffffff);
+        else view.sprite.clearTint();
       }
       view.root.setAlpha(game.field.time < e.stunUntil ? 0.62 : 1);
       const escapeImminent = game.lifeMode && e.dist >= pathLength(game.mapId) * 0.88;

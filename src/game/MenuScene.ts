@@ -14,6 +14,7 @@ import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { preloadUnitSprites, unitSpriteKey } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
+import { preloadEnemySprites } from './enemyAssets';
 import { preloadRelicSprites } from './relicAssets';
 import { isLifeLabLocation } from './experiment';
 import { portraitScale, portraitSceneHeight, portraitY } from './layout';
@@ -29,6 +30,7 @@ export class MenuScene extends Phaser.Scene {
   preload(): void {
     preloadUnitSprites(this);
     preloadBossSprites(this);
+    preloadEnemySprites(this);
     preloadRelicSprites(this);
   }
 
