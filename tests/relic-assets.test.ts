@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { RELIC_IDS } from '../src/core/relics';
 import {
   RELIC_RARITY_STYLES, RELIC_SPRITE_KEYS, RELIC_SPRITE_PATHS,
@@ -11,6 +12,7 @@ describe('relic visual assets', () => {
     for (const id of RELIC_IDS) {
       expect(RELIC_SPRITE_KEYS[id]).toContain(id.replace(/_/g, '-'));
       expect(RELIC_SPRITE_PATHS[id]).toMatch(/\.png$/);
+      expect(existsSync(RELIC_SPRITE_PATHS[id].replace('./', 'public/'))).toBe(true);
     }
   });
 

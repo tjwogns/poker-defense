@@ -12,6 +12,7 @@ import {
   relicModifiers,
   relicUnitDamageResult,
   relicUnitDamageMultiplier,
+  relicUnitAttackSpeedMultiplier,
 } from '../src/core/relics';
 import { h } from './helpers';
 import { addUnit, createField, spawnEnemy, tick } from '../src/core/combat';
@@ -78,6 +79,15 @@ describe('relic effects', () => {
   test('압축 애호가는 덱 48장 이하에서 무료 교환 2회를 추가한다', () => {
     expect(relicModifiers(['compression_enthusiast'], 49).freeExchanges).toBe(1);
     expect(relicModifiers(['compression_enthusiast'], 48).freeExchanges).toBe(3);
+  });
+
+  test('최후의 승부는 올인으로 만든 유닛만 공격속도를 높인다', () => {
+    const regular = addUnit(createField(), HandRank.Pair, 3, 2);
+    const allIn = addUnit(createField(), HandRank.Pair, 3, 2, false, null, null, true);
+
+    expect(relicUnitAttackSpeedMultiplier(['last_stand'], regular)).toBe(1);
+    expect(relicUnitAttackSpeedMultiplier(['last_stand'], allIn)).toBe(1.15);
+    expect(relicUnitAttackSpeedMultiplier([], allIn)).toBe(1);
   });
 
   test('조건부 피해 유물은 유닛·배치·적 상태를 판정하고 ×3에서 제한한다', () => {
@@ -269,6 +279,42 @@ describe('Game relic flow', () => {
     expect(game.lastRelicTriggers).toEqual(['compression_enthusiast']);
     expect(game.doExchange()).toBe(true);
     expect(game.lastRelicTriggers).toEqual(['compression_enthusiast']);
+  });
+
+  test('최후의 승부는 마지막 교환에서 홀드를 해제하고 생성 유닛에만 각인된다', () => {
+    const game = new Game(904, 'life-economy');
+    game.relics.push('last_stand');
+    game.holds = [true, true, true, true, true];
+
+    expect(game.exchangeWillRedrawNow).toBe(false);
+    expect(game.doExchange()).toBe(false);
+    game.holds = [false, false, false, false, false];
+    expect(game.doExchange()).toBe(true);
+    expect(game.doExchange()).toBe(true);
+    expect(game.isAllInExchangeNow).toBe(true);
+
+    const before = new Set(game.hand.map((card) => `${card.rank}${card.suit}`));
+    game.holds = [true, true, true, true, true];
+    expect(game.doExchange()).toBe(true);
+    expect(game.holds).toEqual([false, false, false, false, false]);
+    expect(game.hand.every((card) => !before.has(`${card.rank}${card.suit}`))).toBe(true);
+    expect(game.lastRelicTriggers).toContain('last_stand');
+
+    expect(game.confirmHand()).not.toBeNull();
+    expect(game.lastRelicTriggers).toContain('last_stand');
+    expect(game.placeUnit(5, 2)).toBe(true);
+    const unit = game.field.units[0];
+    expect(unit.allIn).toBe(true);
+    expect(game.unitDpsMult(unit)).toBeCloseTo(game.unitDpsMult({ ...unit, allIn: false }) * 1.15);
+  });
+
+  test('최후의 승부를 쓰지 않고 일찍 확정한 유닛에는 보너스가 없다', () => {
+    const game = new Game(905, 'life-economy');
+    game.relics.push('last_stand');
+
+    expect(game.confirmHand()).not.toBeNull();
+    expect(game.placeUnit(5, 2)).toBe(true);
+    expect(game.field.units[0].allIn).toBe(false);
   });
 
   test('전투 결과는 실제 공격에 적용된 조건부 유물을 중복 없이 전달한다', () => {

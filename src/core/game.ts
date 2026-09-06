@@ -28,6 +28,7 @@ import {
   relicModifiers,
   relicSellPrice,
   relicShopChoice,
+  relicUnitAttackSpeedMultiplier,
   relicUnitDamageResult,
 } from './relics';
 import {
@@ -153,11 +154,13 @@ export class Game {
   /** 배치 대기 중인 유닛 (족보 확정 시 추가) */
   pendingUnits: HandRank[] = [];
   private pendingUnitPristine: boolean[] = [];
+  private pendingUnitAllIn: boolean[] = [];
   private pendingUnitSuits: (Suit | null)[] = [];
   private pendingUnitVariants: (HandVariant | null)[] = [];
   lastRelicGoldBonus = 0;
   lastPairBrokerBonus = false;
   lastRelicTriggers: RelicId[] = [];
+  lastExchangeWasAllIn = false;
   field: Field;
 
   readonly seed: number;
@@ -422,6 +425,7 @@ export class Game {
   doExchange(): boolean {
     if (this.phase !== 'prep' || this.handConfirmed || this.maintenancePending) return false;
     if (this.exchangesUsed >= this.maxExchangesNow) return false;
+    if (!this.exchangeWillRedrawNow) return false;
     const cost = this.exchangeCostNow;
     if (this.gold < cost) return false;
     const baseFreeExchanges = (this.lifeMode ? LIFE_MODE_BASE_EXCHANGES : 1)
@@ -431,11 +435,17 @@ export class Game {
       && this.deckSize <= COMPRESSION_DECK_THRESHOLD
       && this.exchangesUsed >= baseFreeExchanges
       && cost === 0;
-    this.lastRelicTriggers = compressionTriggered ? ['compression_enthusiast'] : [];
+    const allInTriggered = this.isAllInExchangeNow;
+    this.lastRelicTriggers = [
+      ...(compressionTriggered ? ['compression_enthusiast' as const] : []),
+      ...(allInTriggered ? ['last_stand' as const] : []),
+    ];
     this.gold -= cost;
     this.goldSpend.exchange += cost;
+    if (allInTriggered) this.holds = [false, false, false, false, false];
     this.hand = this.runDeck.exchange(this.hand, this.holds, this.rng);
     this.exchangesUsed++;
+    this.lastExchangeWasAllIn = allInTriggered;
     this.selectedDominantSuit = null;
     return true;
   }
@@ -450,7 +460,10 @@ export class Game {
     this.lastRelicGoldBonus = 0;
     this.lastPairBrokerBonus = false;
     this.lastRelicTriggers = [];
-    if (this.pendingUnits.length === 0) this.pendingUnitPristine = [];
+    if (this.pendingUnits.length === 0) {
+      this.pendingUnitPristine = [];
+      this.pendingUnitAllIn = [];
+    }
     const baseRank = evaluateHand(this.hand);
     const variant = handVariant(this.hand, baseRank);
     const bonus = this.round % BOSS_EVERY === 0
@@ -467,19 +480,23 @@ export class Game {
     this.bestHand = Math.max(this.bestHand, rank) as HandRank;
     this.score += scoreForHand(rank);
     const pristine = this.exchangesUsed === 0;
+    const allIn = this.lastExchangeWasAllIn && this.relics.includes('last_stand');
     this.pendingUnits.push(rank);
     this.pendingUnitPristine.push(pristine);
+    this.pendingUnitAllIn.push(allIn);
     this.pendingUnitSuits.push(suit);
     this.pendingUnitVariants.push(variant);
     const mods = relicModifiers(this.relics, this.deckSize);
     if (mods.pairBonusUnit && rank === HandRank.Pair) {
       this.pendingUnits.push(rank);
       this.pendingUnitPristine.push(pristine);
+      this.pendingUnitAllIn.push(false);
       this.pendingUnitSuits.push(suit);
       this.pendingUnitVariants.push(variant);
       this.lastPairBrokerBonus = true;
       this.lastRelicTriggers.push('pair_broker');
     }
+    if (allIn) this.lastRelicTriggers.push('last_stand');
     if (new Set(this.hand.map((card) => card.suit)).size === 4) {
       this.gold += mods.fourSuitGoldBonus;
       this.goldIncome.relic += mods.fourSuitGoldBonus;
@@ -509,6 +526,7 @@ export class Game {
       this.pendingUnitPristine.shift() ?? false,
       this.pendingUnitSuits.shift() ?? null,
       this.pendingUnitVariants.shift() ?? null,
+      this.pendingUnitAllIn.shift() ?? false,
     );
     return true;
   }
@@ -517,6 +535,7 @@ export class Game {
     if (this.pendingUnits.length === 0) return false;
     this.pendingUnits.shift();
     this.pendingUnitPristine.shift();
+    this.pendingUnitAllIn.shift();
     this.pendingUnitSuits.shift();
     this.pendingUnitVariants.shift();
     return true;
@@ -556,7 +575,7 @@ export class Game {
     const consumed = new Set(unitIds);
     this.field.units = this.field.units.filter((unit) => !consumed.has(unit.id));
     // 첫 번째로 지정한 기준 유닛의 위치와 문양을 의도적으로 계승한다.
-    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty, false, origin.suit, null);
+    addUnit(this.field, (tier + 1) as HandRank, origin.tx, origin.ty, false, origin.suit, null, origin.allIn);
     return true;
   }
 
@@ -587,10 +606,11 @@ export class Game {
       * handMasteryMultiplier(this.handMastery, tier);
   }
 
-  unitDpsMult(unit: Pick<Unit, 'tier' | 'suit' | 'variant'>, targetIsBoss = false): number {
+  unitDpsMult(unit: Pick<Unit, 'tier' | 'suit' | 'variant' | 'allIn'>, targetIsBoss = false): number {
     return this.unitDamageMult(unit.tier, targetIsBoss)
       * suitDamageMultiplier(unit.suit, targetIsBoss)
       * variantDamageMultiplier(unit.variant)
+      * relicUnitAttackSpeedMultiplier(this.relics, unit)
       / suitPeriodMultiplier(unit.suit)
       / variantPeriodMultiplier(unit.variant);
   }
@@ -611,6 +631,16 @@ export class Game {
 
   get exchangesRemaining(): number | null {
     return this.lifeMode ? Math.max(0, this.maxExchangesNow - this.exchangesUsed) : null;
+  }
+
+  get isAllInExchangeNow(): boolean {
+    return this.lifeMode
+      && this.relics.includes('last_stand')
+      && this.exchangesRemaining === 1;
+  }
+
+  get exchangeWillRedrawNow(): boolean {
+    return this.isAllInExchangeNow || this.holds.some((held) => !held);
   }
 
   get interestNow(): number {
@@ -751,6 +781,11 @@ export class Game {
         return relicDamage.multiplier * handMasteryMultiplier(this.handMastery, unit.tier);
       },
       this.lifeMode ? pathLength(this.mapId) : Infinity,
+      (unit) => {
+        const multiplier = relicUnitAttackSpeedMultiplier(this.relics, unit);
+        if (multiplier > 1) triggeredRelics.add('last_stand');
+        return multiplier;
+      },
     );
     result.relicTriggers = [...triggeredRelics];
     let diamondBonusGold = 0;
@@ -922,6 +957,7 @@ export class Game {
     this.hand = this.runDeck.draw(this.rng);
     this.holds = [false, false, false, false, false];
     this.exchangesUsed = 0;
+    this.lastExchangeWasAllIn = false;
     this.selectedDominantSuit = null;
     this.lastHandRank = null;
     this.lastHandSuit = null;

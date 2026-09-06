@@ -16,7 +16,8 @@
     "smoke:mobile": "node scripts/mobile-smoke.mjs",
     "smoke:crown": "node scripts/crown-smoke.mjs",
     "smoke:bosses": "node scripts/boss-visual-smoke.mjs",
-    "smoke:enemies": "node scripts/enemy-art-smoke.mjs"
+    "smoke:enemies": "node scripts/enemy-art-smoke.mjs",
+    "smoke:last-stand": "node scripts/last-stand-smoke.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1"

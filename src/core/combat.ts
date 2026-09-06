@@ -32,6 +32,7 @@ export interface Unit {
   ty: number;
   cooldown: number; // 남은 초 (0 이하 = 공격 가능)
   pristine: boolean; // 교환 없이 확정한 패에서 생성됐는지
+  allIn: boolean; // 최후의 승부 5장 올인 교환으로 생성됐는지
   suit: Suit | null; // 확정 패의 대표 문양
   variant: HandVariant | null; // 마운틴·백스트레이트 등 명명 변형
 }
@@ -110,8 +111,9 @@ export function addUnit(
   pristine = false,
   suit: Suit | null = null,
   variant: HandVariant | null = null,
+  allIn = false,
 ): Unit {
-  const unit: Unit = { id: field.nextId++, tier, tx, ty, cooldown: 0, pristine, suit, variant };
+  const unit: Unit = { id: field.nextId++, tier, tx, ty, cooldown: 0, pristine, allIn, suit, variant };
   field.units.push(unit);
   return unit;
 }
@@ -284,6 +286,7 @@ export function tick(
   globalDmgMult: number,
   relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number = () => 1,
   escapeDistance = Infinity,
+  unitAttackSpeedMultiplier: (unit: Unit) => number = () => 1,
 ): TickResult {
   const result = emptyResult();
   field.time += dt;
@@ -318,7 +321,10 @@ export function tick(
         unit.cooldown = 0;
         break;
       }
-      unit.cooldown += def.period * suitPeriodMultiplier(unit.suit) * variantPeriodMultiplier(unit.variant);
+      unit.cooldown += def.period
+        * suitPeriodMultiplier(unit.suit)
+        * variantPeriodMultiplier(unit.variant)
+        / Math.max(0.01, unitAttackSpeedMultiplier(unit));
     }
   }
 

@@ -235,13 +235,16 @@ export class HandBar {
 
     const cost = g.exchangeCostNow;
     const remaining = g.exchangesRemaining;
-    this.exchangeBtn.setLabel(g.lifeMode
+    this.exchangeBtn.setLabel(g.isAllInExchangeNow
+      ? this.portrait ? '최후의 승부\n5장 올인' : '최후의 승부 · 5장 올인\nE'
+      : g.lifeMode
       ? this.portrait ? `교환\n${remaining}회 남음` : `교환 ${remaining}/${g.maxExchangesNow}\nE`
       : this.portrait
         ? cost === 0 ? '교환\n무료' : `교환\n${cost}G`
         : cost === 0 ? '교환\n무료 · E' : `교환\n${cost}G · E`);
     this.exchangeBtn.setEnabled(
-      inPrep && !g.handConfirmed && g.gold >= cost && (remaining === null || remaining > 0),
+      inPrep && !g.handConfirmed && g.gold >= cost
+        && (remaining === null || remaining > 0) && g.exchangeWillRedrawNow,
     );
     this.confirmBtn.setLabel(needsSuitChoice ? '문양 선택 필요' : this.portrait ? '이 패로 확정' : '이 패로 확정\nENTER');
     this.confirmBtn.setEnabled(inPrep && !g.handConfirmed && !needsSuitChoice);
@@ -256,9 +259,12 @@ export class HandBar {
     this.oddsBtn.container.setVisible(visible);
     if (!visible) return;
     const deck = this.game.deckSnapshot();
+    const oddsHolds = this.game.isAllInExchangeNow
+      ? [false, false, false, false, false]
+      : this.game.holds;
     const signature = [
       this.game.hand.map((card) => `${card.rank}${card.suit}`).join(','),
-      this.game.holds.map(Number).join(''),
+      oddsHolds.map(Number).join(''),
       deck.map((card) => `${card.rank}${card.suit}`).join(','),
     ].join('|');
     if (signature !== this.oddsSignature) {
@@ -266,7 +272,7 @@ export class HandBar {
       // 덱 개조로 같은 카드가 여러 장 존재할 수 있으므로 표준 52장이 아니라
       // 실제 런 덱을 기준으로 계산해야 한다. 그렇지 않으면 복제된 카드가 두 장
       // 이상 손에 잡혔을 때 remainingCards가 예외를 던져 게임 루프까지 멈춘다.
-      this.cachedOdds = rerollOdds(this.game.hand, this.game.holds, deck);
+      this.cachedOdds = rerollOdds(this.game.hand, oddsHolds, deck);
     }
     const guide = rerollGuidance(this.cachedOdds!, formatOddsPercent);
     this.oddsText.setText(`${guide.title}\n${guide.decision}`);

@@ -23,7 +23,8 @@ export type RelicId =
   | 'pair_broker'
   | 'four_suit_crest'
   | 'delay_tactics'
-  | 'compression_enthusiast';
+  | 'compression_enthusiast'
+  | 'last_stand';
 
 export interface RelicDef {
   id: RelicId;
@@ -102,6 +103,9 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
   compression_enthusiast: {
     id: 'compression_enthusiast', name: '압축 애호가', description: '덱 48장 이하일 때 무료 교환 +2', glyph: '▣', color: 0xb781dc, rarity: 'rare',
   },
+  last_stand: {
+    id: 'last_stand', name: '최후의 승부', description: '마지막 교환은 5장 올인 · 그 유닛 공격속도 +15%', glyph: '●', color: 0xe0723d, rarity: 'rare',
+  },
 };
 
 export const RELIC_IDS = Object.keys(RELIC_DEFS) as RelicId[];
@@ -109,6 +113,7 @@ export const RELIC_SLOT_CAP = 5;
 export const RELIC_CONDITIONAL_DAMAGE_CAP = 3;
 export const COMPRESSION_DECK_THRESHOLD = 48;
 export const GREEDY_LEDGER_GOLD_THRESHOLD = 150;
+export const LAST_STAND_ATTACK_SPEED_MULTIPLIER = 1.15;
 
 export interface RelicDamageResult {
   multiplier: number;
@@ -209,6 +214,15 @@ export function relicUnitDamageMultiplier(
   field: Field,
 ): number {
   return relicUnitDamageResult(owned, unit, enemy, field).multiplier;
+}
+
+export function relicUnitAttackSpeedMultiplier(
+  owned: readonly RelicId[],
+  unit: Pick<Unit, 'allIn'>,
+): number {
+  return owned.includes('last_stand') && unit.allIn
+    ? LAST_STAND_ATTACK_SPEED_MULTIPLIER
+    : 1;
 }
 
 /** 이번 공격에서 이득 조건을 실제로 만족한 유물과 최종 배수를 함께 반환한다. */

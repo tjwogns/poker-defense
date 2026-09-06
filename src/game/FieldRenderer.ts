@@ -445,17 +445,23 @@ export class FieldRenderer {
         const shadow = this.scene.add.ellipse(2, 5, 32, 20, 0x000000, 0.42);
         const selection = this.scene.add.circle(0, 0, 20, 0xe6c84f, 0.05)
           .setStrokeStyle(2, 0xe6c84f, 0.95).setVisible(false);
-        const halo = this.scene.add.circle(0, 0, 17, def.color, 0.24)
-          .setStrokeStyle(1, def.color, 0.75);
+        const haloColor = u.allIn ? 0xe0723d : def.color;
+        const halo = this.scene.add.circle(0, 0, 17, haloColor, u.allIn ? 0.32 : 0.24)
+          .setStrokeStyle(u.allIn ? 2 : 1, haloColor, 0.75);
         const art = unitVisual(this.scene, u.tier, def.color);
-        const identity = this.scene.add.text(13, 13, u.suit ? `${SUIT_GLYPHS[u.suit]}${u.variant ? '✦' : ''}` : '', {
+        const identity = this.scene.add.text(
+          13,
+          13,
+          `${u.suit ? SUIT_GLYPHS[u.suit] : ''}${u.variant ? '✦' : ''}${u.allIn ? '●' : ''}`,
+          {
           fontFamily: FONT,
           fontSize: '10px',
           fontStyle: 'bold',
           color: u.variant ? '#ffe27a' : '#f4eee4',
           backgroundColor: '#07130cdd',
           padding: { x: 2, y: 1 },
-        }).setOrigin(0.5);
+          },
+        ).setOrigin(0.5);
         const root = this.scene.add.container(0, 0, [shadow, selection, halo, art, identity]).setDepth(2);
         view = { root, art, selection, halo, introStartedAt: this.scene.time.now, facing: 1 };
         this.unitViews.set(u.id, view);

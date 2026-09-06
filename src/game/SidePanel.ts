@@ -539,7 +539,9 @@ export class SidePanel {
     const variant = selectedUnit.variant ? ` · ${HAND_VARIANT_LABELS[selectedUnit.variant]}` : '';
     const suit = selectedUnit.suit ? `${SUIT_GLYPHS[selectedUnit.suit]} ${suitIdentityLabel(selectedUnit.suit)}` : '무문양';
     this.inspectorName.setText(`${variantUnitName(def.name, selectedUnit.variant)}   ${selectedUnit.suit ? SUIT_GLYPHS[selectedUnit.suit] : ''}`);
-    this.inspectorMeta.setText(`${HAND_NAMES_KO[def.tier]}${variant} · ${suit}`);
+    this.inspectorMeta.setText(
+      `${HAND_NAMES_KO[def.tier]}${variant} · ${suit}${selectedUnit.allIn ? ' · ● 최후의 승부' : ''}`,
+    );
     this.inspectorStats.setText(
       `DPS  ${def.dps} × ${this.game.unitDpsMult(selectedUnit).toFixed(2)}\n`
       + `사거리  ${def.range.toFixed(1)}    ${traitLabel(def)}`

@@ -158,6 +158,11 @@ export class PlayScene extends Phaser.Scene {
     if (localVisualTest === 'relics') {
       this.profile.tutorialDone = true;
       this.core.relicChoices = ['royal_seal', 'compound_ledger', 'glass_crown'];
+    } else if (localVisualTest === 'last-stand') {
+      this.profile.tutorialDone = true;
+      this.core.relics.push('last_stand');
+      this.core.exchangesUsed = this.core.maxExchangesNow - 1;
+      this.core.holds = [true, true, true, true, true];
     } else if (localVisualTest === 'suits') {
       this.profile.tutorialDone = true;
       this.core.hand = [
