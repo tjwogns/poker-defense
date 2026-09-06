@@ -6,6 +6,7 @@ import { installRendererRecovery } from './game/rendererRecovery';
 import { readStoredRendererMode, shouldUseCanvasRenderer } from './game/rendererPolicy';
 import { PORTRAIT_BASE_WIDTH, portraitLogicalHeight, setActivePortraitHeight } from './game/layout';
 import { isPixelArtEnabled } from './game/unitAssets';
+import { applyDocumentLocale, tr } from './i18n';
 
 function viewportHeight(): number {
   return window.visualViewport?.height ?? window.innerHeight;
@@ -19,6 +20,7 @@ function installViewportSizing(): void {
 }
 
 async function boot(): Promise<void> {
+  applyDocumentLocale();
   installViewportSizing();
   await document.fonts.ready;
   const portrait = currentLayoutMode() === 'portrait';
@@ -45,7 +47,7 @@ async function boot(): Promise<void> {
 
   game.canvas.tabIndex = 0;
   game.canvas.setAttribute('role', 'application');
-  game.canvas.setAttribute('aria-label', '포커 디펜스 게임 화면');
+  game.canvas.setAttribute('aria-label', tr('포커 디펜스 게임 화면', 'Poker Defense game screen'));
   game.canvas.setAttribute('aria-describedby', 'game-instructions');
   installRendererRecovery(game);
 }

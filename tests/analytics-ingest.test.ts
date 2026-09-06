@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { readFileSync } from 'node:fs';
 import worker, { validateAnalyticsSubmission } from '../leaderboard-worker/src/index.js';
 
 function validBody() {
@@ -18,6 +19,15 @@ function validBody() {
 }
 
 describe('analytics ingestion validation', () => {
+  test('첫 실행 퍼널 SQL이 언어·레이아웃·소요 시간을 집계한다', () => {
+    const sql = readFileSync(new URL('../leaderboard-worker/queries/analytics-summary.sql', import.meta.url), 'utf8');
+    expect(sql).toContain("name = 'onboarding_step'");
+    expect(sql).toContain("'$.locale'");
+    expect(sql).toContain("'$.layout'");
+    expect(sql).toContain("'$.durationSeconds'");
+    expect(sql).toContain("WHEN 'first_combat_cleared'");
+  });
+
   test('허용된 익명 이벤트를 받는다', () => {
     expect(validateAnalyticsSubmission(validBody())).toBe('');
 
@@ -43,6 +53,14 @@ describe('analytics ingestion validation', () => {
       result: 'defeat', round: 31,
     };
     expect(validateAnalyticsSubmission(deckEvent)).toBe('');
+
+    const onboarding = validBody();
+    onboarding.event.name = 'onboarding_step';
+    onboarding.event.properties = {
+      step: 'hand_confirmed', locale: 'en', layout: 'portrait', durationSeconds: 42,
+      ruleset: 'life-economy', round: 1,
+    };
+    expect(validateAnalyticsSubmission(onboarding)).toBe('');
   });
 
   test('허용된 웹 주소의 preflight에 자격 증명 CORS 헤더를 반환한다', async () => {

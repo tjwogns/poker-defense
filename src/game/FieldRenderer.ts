@@ -19,6 +19,7 @@ import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
 import { enemySpriteExtent, enemySpriteKey } from './enemyAssets';
 import { isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
+import { tr } from '../i18n';
 
 export const FIELD_X = 24;
 export const FIELD_Y = 68;
@@ -292,7 +293,7 @@ export class FieldRenderer {
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
     this.bossAbilityG = scene.add.graphics().setDepth(4);
-    this.placementHint = scene.add.text(this.metrics.portrait ? 195 : 381, this.metrics.portrait ? 374 : 76, '◆ 금색 점선이 추천 위치입니다', {
+    this.placementHint = scene.add.text(this.metrics.portrait ? 195 : 381, this.metrics.portrait ? 374 : 76, tr('◆ 금색 점선이 추천 위치입니다', '◆ GOLD DASHED TILES ARE RECOMMENDED'), {
       fontFamily: FONT,
       fontSize: '11px',
       fontStyle: 'bold',
@@ -407,13 +408,13 @@ export class FieldRenderer {
       g.lineBetween(exitX, exitY + 3, exitX, exitY - spawnRadius - 7);
       g.lineBetween(exitX, exitY - spawnRadius - 7, exitX - 4, exitY - spawnRadius - 2);
       g.lineBetween(exitX, exitY - spawnRadius - 7, exitX + 4, exitY - spawnRadius - 2);
-      this.scene.add.text(exitX + spawnRadius + 5, exitY - (portrait ? 7 : 9), 'S  입구', {
+      this.scene.add.text(exitX + spawnRadius + 5, exitY - (portrait ? 7 : 9), tr('S  입구', 'S  START'), {
         fontFamily: FONT,
         fontSize: portrait ? '8px' : '10px',
         fontStyle: 'bold',
         color: '#9fe8c7',
       }).setOrigin(0, 0.5).setDepth(1);
-      this.scene.add.text(exitX + spawnRadius + 5, exitY + (portrait ? 7 : 9), 'E  출구', {
+      this.scene.add.text(exitX + spawnRadius + 5, exitY + (portrait ? 7 : 9), tr('E  출구', 'E  EXIT'), {
         fontFamily: FONT,
         fontSize: portrait ? '8px' : '10px',
         fontStyle: 'bold',
@@ -678,7 +679,7 @@ export class FieldRenderer {
         this.metrics.x + (end.x + 0.5) * this.metrics.tile,
         this.metrics.y + (end.y + 0.25) * this.metrics.tile,
       )
-      .setText(`⚠ 탈출 임박 ${count}`)
+      .setText(tr(`⚠ 탈출 임박 ${count}`, `⚠ ${count} NEAR EXIT`))
       .setScale(pulse)
       .setVisible(true);
   }

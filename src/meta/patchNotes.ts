@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.2.5';
+export const CURRENT_VERSION = 'v2.3.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.3.0',
+    title: 'GLOBAL ASCENT',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '영어 첫 경험',
+        items: [
+          '브라우저 언어와 저장 설정에 따라 한국어·영어를 자동 선택하고 메뉴에서 즉시 전환',
+          '처음 플레이하는 이용자에게 카드 선택부터 첫 전투 클리어까지 행동형 안내 제공',
+          '메뉴·손패·전투 패널·합성·탈출 경고의 첫 3라운드 핵심 흐름을 영어로 지원',
+        ],
+      },
+      {
+        heading: '왕관 I~X와 측정',
+        items: [
+          '직전 왕관을 클리어하면 다음 단계가 열리는 왕관 I~X 진행 추가',
+          '단계마다 일반 적 체력 +15%·보스 체력 +25%·이동속도 +5%를 선형 누적',
+          '동의한 첫 실행에 한해 카드·확정·배치·전투·첫 클리어 퍼널을 언어·화면별로 익명 집계',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.2.5',
     title: 'CROSSROAD FOCUS',
     date: '2026-09-06',
-    current: true,
     sections: [
       {
         heading: '신규 유물 · 교차로 표식',

@@ -1,6 +1,6 @@
 import { HandRank, isHiddenHand } from '../core/cards/types';
 import { RunSummary } from '../core/scoring';
-import type { CrownLevel } from '../core/balance';
+import { CROWN_MAX_LEVEL, CrownLevel, isCrownLevel } from '../core/balance';
 
 export const PROFILE_KEY = 'poker-defense:v2:profile';
 export const LEGACY_PROFILE_KEY = 'poker-defense:v2-beta:profile';
@@ -24,7 +24,7 @@ export const ACHIEVEMENTS: Record<AchievementId, { name: string; description: st
 };
 
 export interface Profile {
-  version: 6;
+  version: 7;
   totalRuns: number;
   wins: number;
   standardWins: number;
@@ -41,6 +41,7 @@ export interface Profile {
   crownWins: number;
   crownBestScore: number;
   crownBestRound: number;
+  highestCrownCleared: CrownLevel;
 }
 
 export interface RunLog {
@@ -63,7 +64,7 @@ export interface StorageLike {
 
 export function defaultProfile(): Profile {
   return {
-    version: 6,
+    version: 7,
     totalRuns: 0,
     wins: 0,
     standardWins: 0,
@@ -80,6 +81,7 @@ export function defaultProfile(): Profile {
     crownWins: 0,
     crownBestScore: 0,
     crownBestRound: 0,
+    highestCrownCleared: 0,
   };
 }
 
@@ -119,6 +121,7 @@ export function loadProfile(storage: StorageLike): Profile {
       crownWins: safeCount(parsed.crownWins),
       crownBestScore: safeCount(parsed.crownBestScore),
       crownBestRound: safeCount(parsed.crownBestRound),
+      highestCrownCleared: migrateHighestCrownCleared(parsed),
     };
   } catch {
     return defaultProfile();
@@ -137,16 +140,21 @@ export function discoverHiddenHand(profile: Profile, rank: HandRank): { profile:
 
 const COMMANDER_ADJECTIVES = ['고요한', '황금빛', '용감한', '날쌘', '푸른', '붉은', '은빛', '영리한'];
 const COMMANDER_NOUNS = ['스페이드', '하트', '다이아', '클로버', '조커', '에이스', '왕관', '방패'];
+const COMMANDER_ADJECTIVES_EN = ['Silent', 'Golden', 'Brave', 'Swift', 'Azure', 'Crimson', 'Silver', 'Clever'];
+const COMMANDER_NOUNS_EN = ['Spade', 'Heart', 'Diamond', 'Club', 'Joker', 'Ace', 'Crown', 'Shield'];
 
 export function ensureLeaderboardIdentity(
   profile: Profile,
   idFactory: () => string = randomIdentity,
+  locale: 'ko' | 'en' = 'ko',
 ): Profile {
   if (profile.leaderboardPlayerId && profile.leaderboardName) return profile;
-  const playerId = idFactory();
+  const playerId = profile.leaderboardPlayerId || idFactory();
   const hash = dailySeed(playerId);
-  const adjective = COMMANDER_ADJECTIVES[hash % COMMANDER_ADJECTIVES.length];
-  const noun = COMMANDER_NOUNS[Math.floor(hash / COMMANDER_ADJECTIVES.length) % COMMANDER_NOUNS.length];
+  const adjectives = locale === 'en' ? COMMANDER_ADJECTIVES_EN : COMMANDER_ADJECTIVES;
+  const nouns = locale === 'en' ? COMMANDER_NOUNS_EN : COMMANDER_NOUNS;
+  const adjective = adjectives[hash % adjectives.length];
+  const noun = nouns[Math.floor(hash / adjectives.length) % nouns.length];
   const suffix = String(hash % 100).padStart(2, '0');
   return {
     ...profile,
@@ -185,6 +193,7 @@ export function recordRun(
   if (summary.result === 'victory') achievements.add('royal_victory');
 
   const priorDaily = profile.daily?.date === date ? profile.daily.bestScore : 0;
+  const clearedCrown = mode === 'standard' && summary.result === 'victory' ? crownLevel : 0;
   return {
     ...profile,
     totalRuns: profile.totalRuns + 1,
@@ -195,6 +204,7 @@ export function recordRun(
     crownWins: profile.crownWins + (crownLevel > 0 && summary.result === 'victory' ? 1 : 0),
     crownBestScore: crownLevel > 0 ? Math.max(profile.crownBestScore, summary.score) : profile.crownBestScore,
     crownBestRound: crownLevel > 0 ? Math.max(profile.crownBestRound, summary.round) : profile.crownBestRound,
+    highestCrownCleared: Math.max(profile.highestCrownCleared, clearedCrown) as CrownLevel,
     achievements: [...achievements],
     daily: mode === 'daily'
       ? { date, bestScore: Math.max(priorDaily, summary.score) }
@@ -217,6 +227,12 @@ export function recordRun(
   };
 }
 
+/** 0부터 시작해 클리어한 왕관의 바로 다음 단계까지만 선택할 수 있다. */
+export function highestUnlockedCrown(profile: Profile): CrownLevel {
+  if (profile.standardWins === 0) return 0;
+  return Math.min(CROWN_MAX_LEVEL, Math.max(1, profile.highestCrownCleared + 1)) as CrownLevel;
+}
+
 export function exportPlaytestData(profile: Profile, analyticsEvents: unknown[] = []): string {
   return JSON.stringify({
     schema: 'poker-defense-playtest-v2',
@@ -229,6 +245,7 @@ export function exportPlaytestData(profile: Profile, analyticsEvents: unknown[] 
       crownWins: profile.crownWins,
       crownBestScore: profile.crownBestScore,
       crownBestRound: profile.crownBestRound,
+      highestCrownCleared: profile.highestCrownCleared,
     },
     runs: profile.recentRuns,
     events: analyticsEvents,
@@ -284,5 +301,12 @@ function isRunLog(value: unknown): value is RunLog {
     && typeof run.kills === 'number'
     && typeof run.bestHand === 'number'
     && Array.isArray(run.relics)
-    && (run.crownLevel === undefined || run.crownLevel === 0 || run.crownLevel === 1);
+    && (run.crownLevel === undefined || isCrownLevel(run.crownLevel));
+}
+
+
+function migrateHighestCrownCleared(parsed: Partial<Profile>): CrownLevel {
+  if (isCrownLevel(parsed.highestCrownCleared)) return parsed.highestCrownCleared;
+  if (safeCount(parsed.crownWins) > 0) return 1;
+  return 0;
 }

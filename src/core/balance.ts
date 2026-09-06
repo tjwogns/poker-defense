@@ -16,10 +16,28 @@ export const BOSS_EVERY = 10;
 export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;
 
 // ── 클리어 후 왕관 난이도 ────────────────────────────
-export type CrownLevel = 0 | 1;
+export const CROWN_MAX_LEVEL = 10;
+export type CrownLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export const CROWN_I_ENEMY_HP_MULTIPLIER = 1.15;
 export const CROWN_I_BOSS_HP_MULTIPLIER = 1.25;
 export const CROWN_I_SPEED_MULTIPLIER = 1.05;
+
+export function isCrownLevel(value: unknown): value is CrownLevel {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= CROWN_MAX_LEVEL;
+}
+
+/** 왕관 단계마다 왕관 1의 공개 증가분을 선형으로 누적한다. */
+export function crownEnemyHpMultiplier(level: CrownLevel): number {
+  return 1 + (CROWN_I_ENEMY_HP_MULTIPLIER - 1) * level;
+}
+
+export function crownBossHpMultiplier(level: CrownLevel): number {
+  return 1 + (CROWN_I_BOSS_HP_MULTIPLIER - 1) * level;
+}
+
+export function crownSpeedMultiplier(level: CrownLevel): number {
+  return 1 + (CROWN_I_SPEED_MULTIPLIER - 1) * level;
+}
 
 // ── v2.2 생명·경제 실험 모드 ─────────────────────────
 export const LIFE_MODE_STARTING_LIVES = 20;

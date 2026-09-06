@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { firstRunCoachHint } from '../src/game/coach';
+import { setLocale } from '../src/i18n';
 
 describe('첫 3라운드 인터랙티브 안내', () => {
   test('홀드 여부와 배치 대기에 맞춰 첫 라운드 문구를 바꾼다', () => {
@@ -18,5 +19,15 @@ describe('첫 3라운드 인터랙티브 안내', () => {
     const game = new Game(2);
     game.round = 4;
     expect(firstRunCoachHint(game)).toBeNull();
+  });
+
+  test('영어 행동형 안내를 제공한다', () => {
+    setLocale('en');
+    const game = new Game(3);
+    expect(firstRunCoachHint(game)).toMatchObject({ title: 'CHOOSE CARDS' });
+    game.handConfirmed = true;
+    game.pendingUnits.push(HandRank.Pair);
+    expect(firstRunCoachHint(game)).toMatchObject({ title: 'PLACE YOUR FIRST UNIT' });
+    setLocale('ko');
   });
 });

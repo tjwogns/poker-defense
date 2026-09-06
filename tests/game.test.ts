@@ -5,6 +5,7 @@ import { spawnEnemy } from '../src/core/combat';
 import {
   START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
   CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, BOSS_HP_MULT, enemyHp,
+  crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
 } from '../src/core/balance';
 import { PATH_LENGTH, pathLength } from '../src/core/map';
 import { h } from './helpers';
@@ -53,6 +54,17 @@ describe('Game state machine', () => {
     lifeCrown.tickCombat(1 / 30);
     expect(lifeCrown.field.enemies[0].maxHp).toBeCloseTo(enemyHp(1) * CROWN_I_ENEMY_HP_MULTIPLIER);
     expect(lifeCrown.field.enemies[0].speedMultiplier).toBe(CROWN_I_SPEED_MULTIPLIER);
+  });
+
+  test('왕관 단계가 오르면 체력과 속도 증가분을 선형 누적한다', () => {
+    const crownThree = new Game(213, 'life-economy', 3);
+    crownThree.confirmHand();
+    expect(crownThree.placeUnit(5, 2)).toBe(true);
+    expect(crownThree.startCombat()).toBe(true);
+    crownThree.tickCombat(1 / 30);
+    expect(crownThree.field.enemies[0].maxHp).toBeCloseTo(enemyHp(1) * crownEnemyHpMultiplier(3));
+    expect(crownThree.field.enemies[0].speedMultiplier).toBe(crownSpeedMultiplier(3));
+    expect(crownBossHpMultiplier(3)).toBe(1.75);
   });
 
   test('확정하면 족보 등급의 배치 대기 유닛이 생기고, 재확정은 불가', () => {

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  LEGACY_PROFILE_KEY, PROFILE_KEY, dailyDate, dailySeed, defaultProfile, discoverHiddenHand, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, recordRun, saveProfile,
+  LEGACY_PROFILE_KEY, PROFILE_KEY, dailyDate, dailySeed, defaultProfile, discoverHiddenHand, ensureLeaderboardIdentity,
+  exportPlaytestData, highestUnlockedCrown, loadProfile, recordRun, saveProfile,
 } from '../src/meta/profile';
 
 class MemoryStorage {
@@ -37,8 +38,8 @@ describe('profile persistence', () => {
     }));
 
     expect(loadProfile(storage)).toMatchObject({
-      version: 6, totalRuns: 4, wins: 1, standardWins: 1, bestScore: 5000, recentRuns: [], discoveredHands: [],
-      crownWins: 0, crownBestScore: 0, crownBestRound: 0,
+      version: 7, totalRuns: 4, wins: 1, standardWins: 1, bestScore: 5000, recentRuns: [], discoveredHands: [],
+      crownWins: 0, crownBestScore: 0, crownBestRound: 0, highestCrownCleared: 0,
     });
   });
 
@@ -90,16 +91,34 @@ describe('profile persistence', () => {
   });
 
   test('일반 클리어는 왕관을 해금하고 왕관 런 기록은 별도로 누적한다', () => {
+    expect(highestUnlockedCrown(defaultProfile())).toBe(0);
     const unlocked = recordRun(defaultProfile(), victory, 'standard', '2026-09-02');
     expect(unlocked.wins).toBe(1);
     expect(unlocked.standardWins).toBe(1);
     expect(unlocked.crownWins).toBe(0);
+    expect(highestUnlockedCrown(unlocked)).toBe(1);
 
     const crownWin = recordRun(unlocked, { ...victory, score: 92_000, crownLevel: 1 }, 'standard', '2026-09-02');
     expect(crownWin.crownWins).toBe(1);
     expect(crownWin.crownBestScore).toBe(92_000);
     expect(crownWin.crownBestRound).toBe(60);
     expect(crownWin.recentRuns.at(-1)?.crownLevel).toBe(1);
+    expect(crownWin.highestCrownCleared).toBe(1);
+    expect(highestUnlockedCrown(crownWin)).toBe(2);
+
+    const crownTwoLoss = recordRun(crownWin, { ...victory, result: 'defeat', crownLevel: 2 }, 'standard', '2026-09-02');
+    expect(crownTwoLoss.highestCrownCleared).toBe(1);
+    expect(highestUnlockedCrown(crownTwoLoss)).toBe(2);
+  });
+
+  test('기존 왕관 승리 기록은 왕관 1 클리어로 이관되어 왕관 2를 해금한다', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PROFILE_KEY, JSON.stringify({
+      version: 6, wins: 2, standardWins: 2, crownWins: 1,
+    }));
+    const migrated = loadProfile(storage);
+    expect(migrated.highestCrownCleared).toBe(1);
+    expect(highestUnlockedCrown(migrated)).toBe(2);
   });
 
   test('오늘의 도전 승리는 왕관 해금용 일반 승리로 세지 않는다', () => {

@@ -15,6 +15,7 @@ import { formatOddsPercent } from './OddsOverlay';
 import { rerollGuidance } from './rerollGuidance';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, portraitScale, portraitSceneHeight, portraitY } from './layout';
+import { getLocale, handName, tr, unitName } from '../i18n';
 
 const CARD_W = 76;
 const CARD_H = 102;
@@ -75,7 +76,7 @@ export class HandBar {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#74727e', letterSpacing: 2,
       }).setOrigin(0.5, 0);
       this.portraitDecor.push(divider, dividerTitle);
-      this.combatLabel = scene.add.text(195, py(560), '전투 진행 중…', {
+      this.combatLabel = scene.add.text(195, py(560), tr('전투 진행 중…', 'COMBAT IN PROGRESS…'), {
         fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: UI.textDim,
       }).setOrigin(0.5).setVisible(false);
     } else {
@@ -140,7 +141,7 @@ export class HandBar {
       this.portrait ? py(640) : HAND_ODDS_BUTTON_BOUNDS.y + HAND_ODDS_BUTTON_BOUNDS.height / 2,
       this.portrait ? 76 : HAND_ODDS_BUTTON_BOUNDS.width,
       this.portrait ? 36 : HAND_ODDS_BUTTON_BOUNDS.height,
-      this.portrait ? '확률 보기' : '전체 확률',
+      this.portrait ? tr('확률 보기', 'ODDS') : tr('전체 확률', 'ALL ODDS'),
       () => {
       if (this.cachedOdds && this.game.phase === 'prep' && !this.game.handConfirmed) onOdds(this.cachedOdds);
       },
@@ -159,11 +160,11 @@ export class HandBar {
       return [suit, button];
     })) as Record<Suit, Button>;
 
-    this.exchangeBtn = makeButton(scene, this.portrait ? 64 : 520, this.portrait ? py(702) : 682, this.portrait ? 112 : 96, this.portrait ? 56 : compactTouch ? 52 : 48, '교환', () => {
+    this.exchangeBtn = makeButton(scene, this.portrait ? 64 : 520, this.portrait ? py(702) : 682, this.portrait ? 112 : 96, this.portrait ? 56 : compactTouch ? 52 : 48, tr('교환', 'EXCHANGE'), () => {
       this.game.doExchange();
       onAction('exchange');
     }, { fill: UI.panelRaised, textColor: UI.text, strokeAlpha: 0.22, radius: 8, fontSize: 14 });
-    this.confirmBtn = makeButton(scene, this.portrait ? 257 : 646, this.portrait ? py(702) : 682, this.portrait ? 254 : 146, this.portrait ? 56 : compactTouch ? 52 : 48, '이 패로 확정', () => {
+    this.confirmBtn = makeButton(scene, this.portrait ? 257 : 646, this.portrait ? py(702) : 682, this.portrait ? 254 : 146, this.portrait ? 56 : compactTouch ? 52 : 48, tr('이 패로 확정', 'CONFIRM HAND'), () => {
       if (this.game.confirmHand(true) !== null) onAction('confirm');
       else this.refresh();
     }, { fill: UI.goldNum, textColor: UI.goldInk, stroke: UI.goldNum, strokeAlpha: 0.5, radius: 8, fontSize: 15 });
@@ -200,26 +201,26 @@ export class HandBar {
 
     const rank = evaluateHand(g.hand);
     const variant = handVariant(g.hand, rank);
-    const variantText = variant ? ` · ${HAND_VARIANT_LABELS[variant]}` : '';
+    const variantText = variant && getLocale() === 'ko' ? ` · ${HAND_VARIANT_LABELS[variant]}` : '';
     const suit = g.dominantSuitNow;
     const suitChoices = g.dominantSuitChoicesNow;
     const showSuitChoices = inPrep && !g.handConfirmed && suitChoices.length > 1;
     const needsSuitChoice = showSuitChoices && !suit;
     if (!inPrep) {
-      this.preview.setText('전투 진행 중…');
+      this.preview.setText(tr('전투 진행 중…', 'Combat in progress…'));
     } else if (g.handConfirmed) {
       const pending = g.pendingUnits.length;
       this.preview.setText(
         pending > 0
-          ? `획득 ${variantUnitName(UNIT_DEFS[g.lastHandRank!].name, g.lastHandVariant)} · ${suitIdentityLabel(g.lastHandSuit)}`
-            + `${g.lastHandVariant ? ` · ${HAND_VARIANT_LABELS[g.lastHandVariant]}` : ''}`
-          : `${HAND_NAMES_KO[g.lastHandRank!]} 확정 완료`,
+          ? `${tr('획득', 'RECRUITED')} ${unitName(g.lastHandRank!, variantUnitName(UNIT_DEFS[g.lastHandRank!].name, g.lastHandVariant))}`
+            + `${getLocale() === 'ko' ? ` · ${suitIdentityLabel(g.lastHandSuit)}${g.lastHandVariant ? ` · ${HAND_VARIANT_LABELS[g.lastHandVariant]}` : ''}` : ''}`
+          : tr(`${HAND_NAMES_KO[g.lastHandRank!]} 확정 완료`, `${handName(g.lastHandRank!, HAND_NAMES_KO[g.lastHandRank!])} confirmed`),
       );
     } else {
       this.preview.setText(needsSuitChoice
-        ? this.portrait ? '대표 문양을 선택하세요' : `${HAND_NAMES_KO[rank]}${variantText} · 대표 문양 선택`
-        : `${HAND_NAMES_KO[rank]}${variantText}  →  ${variantUnitName(UNIT_DEFS[rank].name, variant)}`
-          + `${suit ? `  ·  ${SUIT_GLYPHS[suit]} ${SUIT_TRAIT_LABELS[suit]}` : ''}`);
+        ? this.portrait ? tr('대표 문양을 선택하세요', 'Choose a lead suit') : `${handName(rank, HAND_NAMES_KO[rank])}${variantText} · ${tr('대표 문양 선택', 'choose lead suit')}`
+        : `${handName(rank, HAND_NAMES_KO[rank])}${variantText}  →  ${unitName(rank, variantUnitName(UNIT_DEFS[rank].name, variant))}`
+          + `${suit ? getLocale() === 'ko' ? `  ·  ${SUIT_GLYPHS[suit]} ${SUIT_TRAIT_LABELS[suit]}` : `  ·  ${SUIT_GLYPHS[suit]}` : ''}`);
     }
     this.refreshOdds(inPrep && !g.handConfirmed && !showSuitChoices);
     for (const [candidate, button] of Object.entries(this.suitBtns) as [Suit, Button][]) {
@@ -236,17 +237,17 @@ export class HandBar {
     const cost = g.exchangeCostNow;
     const remaining = g.exchangesRemaining;
     this.exchangeBtn.setLabel(g.isAllInExchangeNow
-      ? this.portrait ? '최후의 승부\n5장 올인' : '최후의 승부 · 5장 올인\nE'
+      ? this.portrait ? tr('최후의 승부\n5장 올인', 'LAST STAND\nALL 5 CARDS') : tr('최후의 승부 · 5장 올인\nE', 'LAST STAND · ALL 5\nE')
       : g.lifeMode
-      ? this.portrait ? `교환\n${remaining}회 남음` : `교환 ${remaining}/${g.maxExchangesNow}\nE`
+      ? this.portrait ? tr(`교환\n${remaining}회 남음`, `EXCHANGE\n${remaining} LEFT`) : tr(`교환 ${remaining}/${g.maxExchangesNow}\nE`, `EXCHANGE ${remaining}/${g.maxExchangesNow}\nE`)
       : this.portrait
-        ? cost === 0 ? '교환\n무료' : `교환\n${cost}G`
-        : cost === 0 ? '교환\n무료 · E' : `교환\n${cost}G · E`);
+        ? cost === 0 ? tr('교환\n무료', 'EXCHANGE\nFREE') : tr(`교환\n${cost}G`, `EXCHANGE\n${cost}G`)
+        : cost === 0 ? tr('교환\n무료 · E', 'EXCHANGE\nFREE · E') : tr(`교환\n${cost}G · E`, `EXCHANGE\n${cost}G · E`));
     this.exchangeBtn.setEnabled(
       inPrep && !g.handConfirmed && g.gold >= cost
         && (remaining === null || remaining > 0) && g.exchangeWillRedrawNow,
     );
-    this.confirmBtn.setLabel(needsSuitChoice ? '문양 선택 필요' : this.portrait ? '이 패로 확정' : '이 패로 확정\nENTER');
+    this.confirmBtn.setLabel(needsSuitChoice ? tr('문양 선택 필요', 'CHOOSE A SUIT') : this.portrait ? tr('이 패로 확정', 'CONFIRM HAND') : tr('이 패로 확정\nENTER', 'CONFIRM HAND\nENTER'));
     this.confirmBtn.setEnabled(inPrep && !g.handConfirmed && !needsSuitChoice);
     if (this.portrait) {
       this.exchangeBtn.container.setVisible(inPrep && !g.handConfirmed);
@@ -275,6 +276,8 @@ export class HandBar {
       this.cachedOdds = rerollOdds(this.game.hand, oddsHolds, deck);
     }
     const guide = rerollGuidance(this.cachedOdds!, formatOddsPercent);
-    this.oddsText.setText(`${guide.title}\n${guide.decision}`);
+    this.oddsText.setText(getLocale() === 'ko'
+      ? `${guide.title}\n${guide.decision}`
+      : 'REROLL ODDS\nHOLD promising cards, then exchange the rest.');
   }
 }

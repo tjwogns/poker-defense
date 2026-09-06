@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
-  ACHIEVEMENTS, dailyDate, dailySeed, ensureLeaderboardIdentity, exportPlaytestData, loadProfile, Profile, saveProfile,
+  ACHIEVEMENTS, dailyDate, dailySeed, ensureLeaderboardIdentity, exportPlaytestData, highestUnlockedCrown,
+  loadProfile, Profile, saveProfile,
 } from '../meta/profile';
 import { dailyDateFromSearch } from '../meta/share';
 import { getAnalytics } from '../meta/analytics';
@@ -19,8 +20,9 @@ import { preloadRelicSprites } from './relicAssets';
 import { isLifeLabLocation } from './experiment';
 import { portraitScale, portraitSceneHeight, portraitY } from './layout';
 import {
-  CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER,
+  CROWN_MAX_LEVEL, CrownLevel, crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
 } from '../core/balance';
+import { getLocale, setLocale, tr } from '../i18n';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -39,7 +41,7 @@ export class MenuScene extends Phaser.Scene {
     bootSplash?.classList.add('ready');
     window.setTimeout(() => bootSplash?.remove(), 320);
 
-    let profile = ensureLeaderboardIdentity(loadProfile(localStorage));
+    let profile = ensureLeaderboardIdentity(loadProfile(localStorage), undefined, getLocale());
     saveProfile(localStorage, profile);
     const lifeLab = isLifeLabLocation();
     const analytics = getAnalytics();
@@ -59,7 +61,7 @@ export class MenuScene extends Phaser.Scene {
       });
       return;
     }
-    const crownUnlocked = profile.standardWins > 0;
+    const maxCrown = highestUnlockedCrown(profile);
     if (isPortraitLayout()) {
       this.createPortraitMenu(profile, challengeDate, hasChallenge, lifeLab);
       return;
@@ -97,29 +99,36 @@ export class MenuScene extends Phaser.Scene {
     makeText(
       this, 92, 382,
       lifeLab
-        ? '라이프 20과 침투 게이지를 지키며 교차로에서 60라운드를 방어합니다.'
-        : '다섯 장의 패로 군단을 뽑고, 순환하는 전장에서 60라운드를 버텨냅니다.',
+        ? tr('라이프 20과 침투 게이지를 지키며 교차로에서 60라운드를 방어합니다.', 'Protect 20 lives and the breach gauge through 60 rounds at the crossroads.')
+        : tr('다섯 장의 패로 군단을 뽑고, 순환하는 전장에서 60라운드를 버텨냅니다.', 'Turn five-card poker hands into an army and survive 60 rounds.'),
       17, '#a8a5b2',
     ).setWordWrapWidth(470, true).setLineSpacing(10);
 
-    makeButton(this, 202, 500, 228, 66, lifeLab ? '라이프 원정' : '클래식 원정', () => {
-      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
-    }, { fill: UI.goldNum, fontSize: 19, radius: 33, stroke: UI.goldNum, strokeAlpha: 0.5 });
-    const crown = makeButton(this, 414, 500, 180, 66, crownUnlocked ? '♛ 왕관 I 원정' : '♛ 왕관 I 잠김', () => {
-      if (!crownUnlocked) return;
-      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard', crownLevel: 1 });
-    }, { fill: UI.panelDeep, textColor: crownUnlocked ? UI.gold : UI.textFaint, fontSize: 15, radius: 33, stroke: UI.goldNum, strokeAlpha: crownUnlocked ? 0.55 : 0.14 });
-    crown.setEnabled(crownUnlocked);
-    makeButton(this, 614, 500, 168, 66, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
+    let selectedCrown = maxCrown;
+    makeText(this, 92, 458, tr('원정 난이도', 'EXPEDITION DIFFICULTY'), 11, UI.textDim, true).setLetterSpacing(1.2);
+    const crownLabel = makeText(this, 292, 458, '', 15, UI.gold, true).setOrigin(0.5, 0);
+    const crownDescription = makeText(this, 92, 558, '', 12, '#74727e');
+    const crownPrev = makeButton(this, 208, 468, 42, 36, '‹', () => {
+      if (selectedCrown > 0) selectedCrown = (selectedCrown - 1) as CrownLevel;
+      refreshCrownSelector();
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 24, radius: 18, stroke: UI.goldNum, strokeAlpha: 0.25 });
+    const crownNext = makeButton(this, 376, 468, 42, 36, '›', () => {
+      if (selectedCrown < maxCrown) selectedCrown = (selectedCrown + 1) as CrownLevel;
+      refreshCrownSelector();
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 24, radius: 18, stroke: UI.goldNum, strokeAlpha: 0.25 });
+    const refreshCrownSelector = () => {
+      crownLabel.setText(selectedCrown === 0 ? tr('♛ 왕관 0개 · 기본', '♛ CROWN 0 · BASE') : tr(`♛ 왕관 ${selectedCrown}개`, `♛ CROWN ${selectedCrown}`));
+      crownDescription.setText(crownDifficultyDescription(selectedCrown, maxCrown));
+      crownPrev.setEnabled(selectedCrown > 0);
+      crownNext.setEnabled(selectedCrown < maxCrown);
+    };
+    refreshCrownSelector();
+    makeButton(this, 230, 518, 276, 64, tr('원정 시작', 'START EXPEDITION'), () => {
+      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard', crownLevel: selectedCrown });
+    }, { fill: UI.goldNum, fontSize: 19, radius: 32, stroke: UI.goldNum, strokeAlpha: 0.5 });
+    makeButton(this, 516, 518, 236, 64, hasChallenge ? tr('도전 수락', 'ACCEPT CHALLENGE') : tr('오늘의 도전', 'DAILY CHALLENGE'), () => {
       this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
     }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 16, radius: 33, stroke: 0xf2ede3, strokeAlpha: 0.22 });
-    makeText(
-      this, 92, 552,
-      crownUnlocked
-        ? `왕관 I · 일반 적 체력 +${Math.round((CROWN_I_ENEMY_HP_MULTIPLIER - 1) * 100)}% · 보스 +${Math.round((CROWN_I_BOSS_HP_MULTIPLIER - 1) * 100)}% · 이동 +${Math.round((CROWN_I_SPEED_MULTIPLIER - 1) * 100)}%`
-        : `${lifeLab ? '라이프' : '일반'} 원정을 클리어하면 왕관 I 난이도가 해금됩니다`,
-      12, '#74727e',
-    );
 
     const recordX = 948;
     this.add.text(recordX, 110, 'COMMANDER RECORD', {
@@ -129,26 +138,26 @@ export class MenuScene extends Phaser.Scene {
     const line = (y: number, gold = false) => graphics.lineStyle(1, gold ? UI.goldNum : 0xf2ede3, gold ? 0.2 : 0.09)
       .lineBetween(recordX, y, recordRight, y);
     line(134, true);
-    makeText(this, recordX, 174, '최고 점수', 12, UI.textDim).setOrigin(0, 0.5);
+    makeText(this, recordX, 174, tr('최고 점수', 'BEST SCORE'), 12, UI.textDim).setOrigin(0, 0.5);
     this.add.text(recordRight, 147, profile.bestScore.toLocaleString(), {
       fontFamily: FONT_DISPLAY, fontSize: '42px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(1, 0);
     line(214);
-    makeText(this, recordX, 237, '최고 라운드', 12, UI.textDim).setOrigin(0, 0.5);
+    makeText(this, recordX, 237, tr('최고 라운드', 'BEST ROUND'), 12, UI.textDim).setOrigin(0, 0.5);
     this.add.text(recordRight, 224, `${profile.bestRound} / 60`, {
       fontFamily: FONT_MONO, fontSize: '17px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
     line(258);
-    makeText(this, recordX, 283, '승리 · 출전', 12, UI.textDim).setOrigin(0, 0.5);
+    makeText(this, recordX, 283, tr('승리 · 출전', 'WINS · RUNS'), 12, UI.textDim).setOrigin(0, 0.5);
     this.add.text(recordRight, 270, `${profile.wins} · ${profile.totalRuns}`, {
       fontFamily: FONT_MONO, fontSize: '17px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
     line(304);
-    makeText(this, recordX, 329, crownUnlocked ? '왕관 I 기록' : '업적', 12, UI.textDim).setOrigin(0, 0.5);
-    this.add.text(recordRight, 316, crownUnlocked
-      ? `R${profile.crownBestRound} · ${profile.crownWins}승`
+    makeText(this, recordX, 329, maxCrown > 0 ? tr('왕관 기록', 'CROWN RECORD') : tr('업적', 'ACHIEVEMENTS'), 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(recordRight, 316, maxCrown > 0
+      ? tr(`♛${profile.highestCrownCleared} · ${profile.crownWins}승`, `♛${profile.highestCrownCleared} · ${profile.crownWins} WINS`)
       : `${profile.achievements.length} / ${Object.keys(ACHIEVEMENTS).length}`, {
-      fontFamily: FONT_MONO, fontSize: '17px', fontStyle: 'bold', color: crownUnlocked ? UI.gold : UI.text,
+      fontFamily: FONT_MONO, fontSize: '17px', fontStyle: 'bold', color: maxCrown > 0 ? UI.gold : UI.text,
     }).setOrigin(1, 0);
     line(366, true);
     this.add.text(recordX, 386, 'DAILY TOP 10', {
@@ -162,7 +171,7 @@ export class MenuScene extends Phaser.Scene {
     const onlineRankingEnabled = leaderboardConfigured();
     const rankingLink = makeText(
       this, recordRight, 385,
-      onlineRankingEnabled ? '내 순위 보기  →' : '랭킹 연결 대기',
+      onlineRankingEnabled ? tr('내 순위 보기  →', 'VIEW MY RANK  →') : tr('랭킹 연결 대기', 'RANKING OFFLINE'),
       12, onlineRankingEnabled ? UI.textDim : UI.textFaint, true,
     ).setOrigin(1, 0).setInteractive({ useHandCursor: onlineRankingEnabled });
     rankingLink.on('pointerdown', () => {
@@ -199,6 +208,9 @@ export class MenuScene extends Phaser.Scene {
       anchor.click();
       URL.revokeObjectURL(anchor.href);
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 14, radius: 19, strokeAlpha: 0.16 });
+    makeButton(this, 319, 642, 48, 38, getLocale().toUpperCase(), () => switchLocale(), {
+      fill: UI.panelDeep, textColor: UI.gold, fontSize: 11, radius: 19, strokeAlpha: 0.16,
+    });
     graphics.lineStyle(1, 0xf2ede3, 0.09).lineBetween(309, 625, 309, 659);
     this.add.text(338, 637, `${CURRENT_VERSION}  —  DECK FOUNDATION`, {
       fontFamily: FONT_MONO, fontSize: '11px', color: '#74727e', letterSpacing: 1,
@@ -208,7 +220,7 @@ export class MenuScene extends Phaser.Scene {
       patchNotesOverlay?.destroy();
       patchNotesOverlay = null;
     };
-    const patchLink = makeText(this, 548, 637, '패치 노트  NEW', 11, UI.gold, true)
+    const patchLink = makeText(this, 548, 637, tr('패치 노트  NEW', 'PATCH NOTES  NEW'), 11, UI.gold, true)
       .setInteractive({ useHandCursor: true });
     patchLink.on('pointerdown', () => {
       if (patchNotesOverlay) return;
@@ -220,11 +232,11 @@ export class MenuScene extends Phaser.Scene {
     makeText(
       this, 664, 637,
       isCompactTouchDevice()
-        ? '카드 탭 HOLD · 교환 · 확정 · 배치'
-        : 'E 교환 · ENTER 확정 · SPACE 전투 · D 덱 · H 도감',
+        ? tr('카드 탭 HOLD · 교환 · 확정 · 배치', 'TAP CARDS TO HOLD · EXCHANGE · CONFIRM · PLACE')
+        : tr('E 교환 · ENTER 확정 · SPACE 전투 · D 덱 · H 도감', 'E EXCHANGE · ENTER CONFIRM · SPACE COMBAT · D DECK · H GUIDE'),
       11, UI.textFaint,
     );
-    analytics.track('menu_view', { challenge: hasChallenge, crownUnlocked });
+    analytics.track('menu_view', { challenge: hasChallenge, maxCrown, locale: getLocale(), layout: 'landscape' });
     if (analytics.consent === 'unknown') {
       openData();
     }
@@ -237,7 +249,7 @@ export class MenuScene extends Phaser.Scene {
     const portraitHeight = portraitSceneHeight(this);
     const py = (value: number) => portraitY(portraitHeight, value);
     const density = Math.min(1, portraitScale(portraitHeight));
-    const crownUnlocked = profile.standardWins > 0;
+    const maxCrown = highestUnlockedCrown(profile);
     const graphics = this.add.graphics();
     graphics.fillGradientStyle(0x1a1424, 0x17121f, 0x08080c, 0x0d0c14, 1);
     graphics.fillRect(0, 0, 390, portraitHeight);
@@ -261,8 +273,8 @@ export class MenuScene extends Phaser.Scene {
     makeText(
       this, 32, py(292),
       lifeLab
-        ? '라이프 20과 침투 게이지를 지키며\n교차로에서 60라운드를 방어합니다.'
-        : '다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.',
+        ? tr('라이프 20과 침투 게이지를 지키며\n교차로에서 60라운드를 방어합니다.', 'Protect 20 lives and the breach gauge\nthrough 60 rounds at the crossroads.')
+        : tr('다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.', 'Turn five-card poker hands into an army\nand survive 60 rounds.'),
       15, '#a8a5b2',
     ).setLineSpacing(8);
 
@@ -275,53 +287,69 @@ export class MenuScene extends Phaser.Scene {
       1, gold ? UI.goldNum : 0xf2ede3, gold ? 0.2 : 0.09,
     ).lineBetween(left, y, right, y);
     line(py(456), true);
-    makeText(this, left, py(481), '최고 점수', 12, UI.textDim).setOrigin(0, 0.5);
+    makeText(this, left, py(481), tr('최고 점수', 'BEST SCORE'), 12, UI.textDim).setOrigin(0, 0.5);
     this.add.text(right, py(465), profile.bestScore.toLocaleString(), {
       fontFamily: FONT_DISPLAY, fontSize: '34px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(1, 0);
     line(py(516));
-    makeText(this, left, py(538), '최고 라운드', 12, UI.textDim).setOrigin(0, 0.5);
+    makeText(this, left, py(538), tr('최고 라운드', 'BEST ROUND'), 12, UI.textDim).setOrigin(0, 0.5);
     this.add.text(right, py(526), `${profile.bestRound} / 60`, {
       fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
     line(py(560));
-    makeText(this, left, py(582), '승리 · 출전', 12, UI.textDim).setOrigin(0, 0.5);
-    this.add.text(right, py(570), `${profile.wins} · ${profile.totalRuns}${crownUnlocked ? ` · 왕관 ${profile.crownWins}승` : ''}`, {
+    makeText(this, left, py(582), tr('승리 · 출전', 'WINS · RUNS'), 12, UI.textDim).setOrigin(0, 0.5);
+    this.add.text(right, py(570), `${profile.wins} · ${profile.totalRuns}${maxCrown > 0 ? ` · ♛${profile.highestCrownCleared}` : ''}`, {
       fontFamily: FONT_MONO, fontSize: '15px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
     line(py(604), true);
     this.add.text(left, py(615), 'DAILY TOP 10', {
       fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold, letterSpacing: 1.8,
     });
-    makeText(this, right, py(614), leaderboardConfigured() ? '내 순위 보기 →' : '랭킹 연결 대기', 12, UI.textDim)
+    makeText(this, right, py(614), leaderboardConfigured() ? tr('내 순위 보기 →', 'VIEW MY RANK →') : tr('랭킹 연결 대기', 'RANKING OFFLINE'), 12, UI.textDim)
       .setOrigin(1, 0);
 
-    makeButton(this, 112, py(667), 154, 62, lifeLab ? '라이프 원정' : '일반 원정', () => {
-      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
-    }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 16, radius: 31, stroke: UI.goldNum, strokeAlpha: 0.5 });
-    const crown = makeButton(this, 278, py(667), 154, 62, crownUnlocked ? '♛ 왕관 I' : '왕관 잠김', () => {
-      if (!crownUnlocked) return;
-      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard', crownLevel: 1 });
-    }, { fill: UI.panelDeep, textColor: crownUnlocked ? UI.gold : UI.textFaint, fontSize: 15, radius: 31, stroke: UI.goldNum, strokeAlpha: crownUnlocked ? 0.55 : 0.14 });
-    crown.setEnabled(crownUnlocked);
-    makeButton(this, 195, py(735), 326, 54, hasChallenge ? '도전 수락' : '오늘의 도전', () => {
+    let selectedCrown = maxCrown;
+    const crownLabel = makeText(this, 195, py(632), '', 15, UI.gold, true).setOrigin(0.5, 0);
+    const crownPrev = makeButton(this, 66, py(645), 44, 40, '‹', () => {
+      if (selectedCrown > 0) selectedCrown = (selectedCrown - 1) as CrownLevel;
+      refreshCrownSelector();
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 24, radius: 20, stroke: UI.goldNum, strokeAlpha: 0.25 });
+    const crownNext = makeButton(this, 324, py(645), 44, 40, '›', () => {
+      if (selectedCrown < maxCrown) selectedCrown = (selectedCrown + 1) as CrownLevel;
+      refreshCrownSelector();
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 24, radius: 20, stroke: UI.goldNum, strokeAlpha: 0.25 });
+    const crownDescription = makeText(this, 195, py(663), '', 10, UI.textFaint).setOrigin(0.5, 0);
+    const refreshCrownSelector = () => {
+      crownLabel.setText(selectedCrown === 0 ? tr('♛ 왕관 0개 · 기본', '♛ CROWN 0 · BASE') : tr(`♛ 왕관 ${selectedCrown}개`, `♛ CROWN ${selectedCrown}`));
+      crownDescription.setText(crownDifficultyDescription(selectedCrown, maxCrown, true));
+      crownPrev.setEnabled(selectedCrown > 0);
+      crownNext.setEnabled(selectedCrown < maxCrown);
+    };
+    refreshCrownSelector();
+    makeButton(this, 195, py(716), 326, 58, tr('원정 시작', 'START EXPEDITION'), () => {
+      this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard', crownLevel: selectedCrown });
+    }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 17, radius: 29, stroke: UI.goldNum, strokeAlpha: 0.5 });
+    makeButton(this, 195, py(770), 326, 42, hasChallenge ? tr('도전 수락', 'ACCEPT CHALLENGE') : tr('오늘의 도전', 'DAILY CHALLENGE'), () => {
       this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
-    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 15, radius: 27, stroke: 0xf2ede3, strokeAlpha: 0.22 });
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 14, radius: 21, stroke: 0xf2ede3, strokeAlpha: 0.22 });
 
-    const sound = makeButton(this, 54, py(796), 36, 36, profile.soundEnabled ? '♪' : '×', () => {
+    const sound = makeButton(this, 54, py(808), 34, 34, profile.soundEnabled ? '♪' : '×', () => {
       profile = { ...profile, soundEnabled: !profile.soundEnabled };
       saveProfile(localStorage, profile);
       sound.setLabel(profile.soundEnabled ? '♪' : '×');
-    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 14, radius: 18, strokeAlpha: 0.16 });
-    makeButton(this, 98, py(796), 36, 36, 'i', () => {
+    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 14, radius: 17, strokeAlpha: 0.16 });
+    makeButton(this, 96, py(808), 34, 34, 'i', () => {
       new AnalyticsConsentOverlay(this, (allowed) => analytics.setConsent(allowed ? 'granted' : 'denied'));
-    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 18, strokeAlpha: 0.16 });
-    this.add.text(286, py(791), CURRENT_VERSION, {
+    }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 17, strokeAlpha: 0.16 });
+    makeButton(this, 138, py(808), 44, 34, getLocale().toUpperCase(), () => switchLocale(), {
+      fill: UI.panelDeep, textColor: UI.gold, fontSize: 10, radius: 17, strokeAlpha: 0.16,
+    });
+    this.add.text(286, py(803), CURRENT_VERSION, {
       fontFamily: FONT_MONO, fontSize: '11px', color: UI.textFaint,
     }).setOrigin(1, 0);
-    makeText(this, 358, py(790), '패치 NEW', 11, UI.gold, true).setOrigin(1, 0);
+    makeText(this, 358, py(802), tr('패치 NEW', 'PATCH NEW'), 11, UI.gold, true).setOrigin(1, 0);
 
-    analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait', crownUnlocked });
+    analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait', maxCrown, locale: getLocale() });
     if (analytics.consent === 'unknown') {
       new AnalyticsConsentOverlay(this, (allowed) => {
         analytics.setConsent(allowed ? 'granted' : 'denied');
@@ -330,4 +358,27 @@ export class MenuScene extends Phaser.Scene {
     }
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
   }
+}
+
+function crownDifficultyDescription(level: CrownLevel, maxUnlocked: CrownLevel, compact = false): string {
+  if (level === 0) return maxUnlocked === 0
+    ? tr('기본 원정 클리어 시 왕관 1개 해금', 'Clear the base expedition to unlock Crown 1')
+    : tr('기본 원정 · 추가 난이도 없음', 'Base expedition · no modifiers');
+  const enemy = Math.round((crownEnemyHpMultiplier(level) - 1) * 100);
+  const boss = Math.round((crownBossHpMultiplier(level) - 1) * 100);
+  const speed = Math.round((crownSpeedMultiplier(level) - 1) * 100);
+  const stats = compact
+    ? tr(`적 +${enemy}% · 보스 +${boss}% · 속도 +${speed}%`, `Enemy +${enemy}% · Boss +${boss}% · Speed +${speed}%`)
+    : tr(`일반 적 체력 +${enemy}% · 보스 +${boss}% · 이동 +${speed}%`, `Enemy HP +${enemy}% · Boss +${boss}% · Move +${speed}%`);
+  return level === maxUnlocked && level < CROWN_MAX_LEVEL
+    ? `${stats} · ${tr('클리어 시 다음 왕관 해금', 'clear to unlock the next Crown')}`
+    : stats;
+}
+
+function switchLocale(): void {
+  const locale = getLocale() === 'ko' ? 'en' : 'ko';
+  setLocale(locale);
+  const url = new URL(window.location.href);
+  url.searchParams.set('lang', locale);
+  window.location.assign(url.toString());
 }

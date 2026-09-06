@@ -13,6 +13,7 @@ export type AnalyticsEventName =
   | 'consent_granted'
   | 'run_started'
   | 'tutorial_finished'
+  | 'onboarding_step'
   | 'hand_confirmed'
   | 'combat_started'
   | 'round_reached'

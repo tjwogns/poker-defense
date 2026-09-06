@@ -4,7 +4,7 @@ const ID_RE = /^[A-Za-z0-9_-]{8,100}$/;
 const VERSION_RE = /^v\d+\.\d+(?:\.\d+)?(?:-[A-Za-z0-9.-]+)?$/;
 const ANALYTICS_RETENTION_DAYS = 90;
 const ANALYTICS_EVENT_NAMES = new Set([
-  'menu_view', 'consent_granted', 'run_started', 'tutorial_finished', 'hand_confirmed',
+  'menu_view', 'consent_granted', 'run_started', 'tutorial_finished', 'onboarding_step', 'hand_confirmed',
   'combat_started', 'round_reached', 'placement_blocked', 'unit_fused', 'relic_selected',
   'run_finished', 'run_feedback', 'run_abandoned', 'retry_clicked', 'result_shared', 'leaderboard_viewed',
   'leaderboard_submitted', 'patch_notes_viewed', 'background_pause',

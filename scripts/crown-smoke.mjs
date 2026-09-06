@@ -27,11 +27,19 @@ try {
       version: 1, consent: 'denied', visitorId: '', events: [],
     }));
     localStorage.setItem('poker-defense:v2:profile', JSON.stringify({
-      version: 6, wins: 1, standardWins: 1,
+      version: 7, wins: 2, standardWins: 2, crownWins: 1, highestCrownCleared: 1,
     }));
   });
   await page.reload({ waitUntil: 'networkidle0' });
   await page.waitForFunction(() => window.__menuReady === true);
+  await page.screenshot({ path: '/tmp/poker-crown-selector.png' });
+
+  const portraitPage = await browser.newPage();
+  await portraitPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+  await portraitPage.goto(BASE_URL, { waitUntil: 'networkidle0' });
+  await portraitPage.waitForFunction(() => window.__menuReady === true);
+  await portraitPage.screenshot({ path: '/tmp/poker-crown-selector-portrait.png' });
+  await portraitPage.close();
 
   const clickMenuButton = async (sceneX, sceneY) => {
     const canvas = await page.$('canvas');
@@ -43,20 +51,24 @@ try {
     );
   };
 
-  await clickMenuButton(414, 500);
-  await page.waitForFunction(() => window.__game?.crownLevel === 1);
+  await clickMenuButton(208, 468);
+  await clickMenuButton(208, 468);
+  await clickMenuButton(376, 468);
+  await clickMenuButton(376, 468);
+  await clickMenuButton(230, 518);
+  await page.waitForFunction(() => window.__game?.crownLevel === 2);
   const crown = await page.evaluate(() => ({
     crownLevel: window.__game?.crownLevel,
     ruleset: window.__game?.ruleset,
     lives: window.__game?.lives,
   }));
-  if (crown.crownLevel !== 1 || crown.ruleset !== 'life-economy' || crown.lives !== 20) {
+  if (crown.crownLevel !== 2 || crown.ruleset !== 'life-economy' || crown.lives !== 20) {
     throw new Error(`LIFE 왕관 시작 실패: ${JSON.stringify(crown)}`);
   }
 
   await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
   await page.waitForFunction(() => window.__menuReady === true);
-  await clickMenuButton(614, 500);
+  await clickMenuButton(516, 518);
   await page.waitForFunction(() => Boolean(window.__game));
   const daily = await page.evaluate(() => ({
     crownLevel: window.__game?.crownLevel,

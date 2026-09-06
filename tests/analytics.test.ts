@@ -53,6 +53,23 @@ describe('anonymous play analytics', () => {
     expect(storage.values.get(ANALYTICS_KEY)).not.toContain('email');
   });
 
+  test('첫 실행 퍼널 단계와 글로벌 문맥을 안정적으로 기록한다', () => {
+    const analytics = new Analytics(new MemoryStorage(), { idFactory: () => 'onboarding-id' });
+    analytics.setConsent('granted');
+    const runId = analytics.beginRun({ firstRun: true, tutorialDone: false, locale: 'en', layout: 'portrait' });
+    const event = analytics.track('onboarding_step', {
+      step: 'first_combat_cleared', round: 2, durationSeconds: 47,
+      locale: 'en', layout: 'portrait', ruleset: 'life-economy',
+    }, runId);
+    expect(event).toMatchObject({
+      name: 'onboarding_step', runId,
+      properties: {
+        step: 'first_combat_cleared', round: 2, durationSeconds: 47,
+        locale: 'en', layout: 'portrait', ruleset: 'life-economy',
+      },
+    });
+  });
+
   test('같은 브라우저 저장소에서는 새 페이지 세션에도 익명 방문 ID를 유지한다', () => {
     const storage = new MemoryStorage();
     let id = 0;

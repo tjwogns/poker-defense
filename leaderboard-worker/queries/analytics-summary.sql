@@ -14,6 +14,24 @@ WHERE received_at >= datetime('now', '-7 days')
 GROUP BY name
 ORDER BY events DESC, name ASC;
 
+-- First-run onboarding funnel, split by locale and layout. Each client emits
+-- every step at most once per run, but DISTINCT keeps the query migration-safe.
+SELECT
+  COALESCE(json_extract(properties_json, '$.locale'), 'unknown') AS locale,
+  COALESCE(json_extract(properties_json, '$.layout'), 'unknown') AS layout,
+  json_extract(properties_json, '$.step') AS onboarding_step,
+  COUNT(DISTINCT run_id) AS runs,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.durationSeconds') AS REAL)), 1) AS avg_seconds
+FROM analytics_events
+WHERE name = 'onboarding_step'
+  AND received_at >= datetime('now', '-7 days')
+GROUP BY locale, layout, onboarding_step
+ORDER BY locale, layout,
+  CASE onboarding_step
+    WHEN 'run_started' THEN 1 WHEN 'card_held' THEN 2 WHEN 'cards_exchanged' THEN 3
+    WHEN 'hand_confirmed' THEN 4 WHEN 'unit_placed' THEN 5 WHEN 'combat_started' THEN 6
+    WHEN 'first_combat_cleared' THEN 7 ELSE 99 END;
+
 SELECT
   json_extract(properties_json, '$.question') AS question,
   json_extract(properties_json, '$.answer') AS answer,

@@ -10,7 +10,7 @@ import {
   LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BREACH_THRESHOLD,
   LIFE_MODE_BOUNTY_MULTIPLIER, LIFE_MODE_CLEAR_BONUS_MULTIPLIER, LIFE_MODE_FIELD_CAP,
   LIFE_MODE_INTEREST_CAP_MULTIPLIER, LIFE_MODE_INTEREST_RATE_MULTIPLIER, LIFE_MODE_STARTING_LIVES,
-  CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, CrownLevel,
+  CrownLevel, crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
 import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveKind } from './enemies';
@@ -762,10 +762,10 @@ export class Game {
     while (this.spawnQueue.length > 0 && this.spawnTimer <= 0) {
       const kind = this.spawnQueue.shift()!;
       spawnEnemy(this.field, kind, this.round, {
-        hpMultiplier: this.crownLevel === 1
-          ? kind === 'boss' ? CROWN_I_BOSS_HP_MULTIPLIER : CROWN_I_ENEMY_HP_MULTIPLIER
-          : 1,
-        speedMultiplier: this.crownLevel === 1 ? CROWN_I_SPEED_MULTIPLIER : 1,
+        hpMultiplier: kind === 'boss'
+          ? crownBossHpMultiplier(this.crownLevel)
+          : crownEnemyHpMultiplier(this.crownLevel),
+        speedMultiplier: crownSpeedMultiplier(this.crownLevel),
       });
       this.spawnTimer += SPAWN_INTERVAL;
     }
@@ -870,8 +870,8 @@ export class Game {
     const summonBoss = this.field.enemies.find((enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === 50);
     while (summonBoss && this.field.time >= this.nextBossSummonAt) {
       const summonOpts = {
-        hpMultiplier: this.crownLevel === 1 ? CROWN_I_ENEMY_HP_MULTIPLIER : 1,
-        speedMultiplier: this.crownLevel === 1 ? CROWN_I_SPEED_MULTIPLIER : 1,
+        hpMultiplier: crownEnemyHpMultiplier(this.crownLevel),
+        speedMultiplier: crownSpeedMultiplier(this.crownLevel),
       };
       spawnEnemy(this.field, 'normal', summonBoss.round, { ...summonOpts, dist: summonBoss.dist - 12 });
       spawnEnemy(this.field, 'normal', summonBoss.round, { ...summonOpts, dist: summonBoss.dist + 12 });

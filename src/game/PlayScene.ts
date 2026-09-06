@@ -4,7 +4,7 @@ import { Enemy, TickResult, addUnit, enemyPos, spawnEnemy, unitPos } from '../co
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
-import { CrownLevel, LIFE_MODE_BREACH_THRESHOLD, TICK_RATE } from '../core/balance';
+import { CROWN_MAX_LEVEL, CrownLevel, LIFE_MODE_BREACH_THRESHOLD, TICK_RATE } from '../core/balance';
 import { FieldRenderer, Fx, fieldScreenPoint, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
@@ -16,7 +16,6 @@ import {
   dailyDate, discoverHiddenHand, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
 } from '../meta/profile';
 import { AudioManager } from './AudioManager';
-import { TutorialOverlay } from './TutorialOverlay';
 import { BossHud } from './BossHud';
 import { downloadShareCard, shareRun } from './ShareCard';
 import { GuideOverlay } from './GuideOverlay';
@@ -37,6 +36,7 @@ import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
 import { isLifeLabLocation } from './experiment';
 import { portraitSceneHeight, portraitY } from './layout';
+import { getLocale, handName, handVariantName, suitIdentityName, tr, unitName } from '../i18n';
 
 const DT = 1 / TICK_RATE;
 
@@ -94,6 +94,8 @@ export class PlayScene extends Phaser.Scene {
   private trackedRelicTriggers = new Set<string>();
   private lastRelicFeedbackAt = -Infinity;
   private compactFx = false;
+  private firstRun = false;
+  private onboardingSteps = new Set<string>();
 
   constructor() {
     super('play');
@@ -107,12 +109,19 @@ export class PlayScene extends Phaser.Scene {
     this.crownLevel = data.mode === 'daily' ? 0 : data.crownLevel ?? 0;
     this.runDate = data.date ?? dailyDate();
     const lifeLab = isLifeLabLocation();
+    const startingProfile = loadProfile(localStorage);
+    this.firstRun = !startingProfile.tutorialDone;
     this.analytics = getAnalytics();
     this.runId = this.analytics.beginRun({
       mode: this.mode,
       retry: data.retry ?? false,
       ruleset: lifeLab ? 'life-economy' : 'classic',
       crownLevel: this.crownLevel,
+      firstRun: this.firstRun,
+      tutorialDone: startingProfile.tutorialDone,
+      locale: getLocale(),
+      layout: isPortraitLayout() ? 'portrait' : 'landscape',
+      durationSeconds: 0,
     });
     this.runStartedAt = performance.now();
   }
@@ -151,7 +160,8 @@ export class PlayScene extends Phaser.Scene {
     this.trackedRelicTriggers.clear();
     this.lastRelicFeedbackAt = -Infinity;
     this.compactFx = isCompactTouchDevice();
-    this.profile = ensureLeaderboardIdentity(loadProfile(localStorage));
+    this.onboardingSteps.clear();
+    this.profile = ensureLeaderboardIdentity(loadProfile(localStorage), undefined, getLocale());
     const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
       ? new URLSearchParams(window.location.search).get('visualTest')
       : null;
@@ -362,16 +372,9 @@ export class PlayScene extends Phaser.Scene {
     this.refreshUI();
     this.bindKeys();
     if (!this.profile.tutorialDone) {
-      this.tutorialActive = true;
-      new TutorialOverlay(this, (result) => {
-        this.tutorialActive = false;
-        this.firstRunCoachActive = result === 'completed';
-        this.profile.tutorialDone = true;
-        saveProfile(localStorage, this.profile);
-        this.analytics.track('tutorial_finished', { result }, this.runId);
-        this.audio.play('confirm');
-        this.refreshUI();
-      });
+      this.firstRunCoachActive = true;
+      this.trackOnboardingStep('run_started');
+      this.refreshUI();
     }
     this.pageHideHandler = () => this.trackAbandoned('page_hidden');
     window.addEventListener('pagehide', this.pageHideHandler);
@@ -456,7 +459,7 @@ export class PlayScene extends Phaser.Scene {
     if (!this.backgroundPaused) return;
     this.paused = pauseStateAfterFocus(this.paused, this.backgroundPaused);
     this.backgroundPaused = false;
-    this.flashCenter(`게임 재개 · ×${this.speed} 유지`, 0xe6c84f);
+    this.flashCenter(tr(`게임 재개 · ×${this.speed} 유지`, `RESUMED · SPEED ×${this.speed}`), 0xe6c84f);
     this.refreshUI();
   }
 
@@ -507,7 +510,7 @@ export class PlayScene extends Phaser.Scene {
           tier: movingUnit.tier,
           action: 'move',
         }, this.runId);
-        this.flashCenter('경로가 사거리 밖입니다', UI.danger);
+        this.flashCenter(tr('경로가 사거리 밖입니다', 'THE PATH IS OUT OF RANGE'), UI.danger);
         return;
       }
       if (this.core.moveUnit(this.selectedUnitId, t.tx, t.ty)) {
@@ -523,12 +526,12 @@ export class PlayScene extends Phaser.Scene {
       if (!anchor) {
         this.cancelFusionSelection();
       } else if (!unit || unit.tier !== anchor.tier) {
-        this.flashCenter(`같은 ${HAND_NAMES_KO[anchor.tier]} 유닛을 선택하세요`, 0x9f74cf);
+        this.flashCenter(tr(`같은 ${HAND_NAMES_KO[anchor.tier]} 유닛을 선택하세요`, `SELECT ANOTHER ${handName(anchor.tier, HAND_NAMES_KO[anchor.tier]).toUpperCase()} UNIT`), 0x9f74cf);
         return;
       } else if (unit.id === anchor.id) {
         this.cancelFusionSelection();
         this.audio.play('click');
-        this.flashCenter('합성 선택을 취소했습니다', 0xf2ede3);
+        this.flashCenter(tr('합성 선택을 취소했습니다', 'FUSION SELECTION CANCELED'), 0xf2ede3);
         this.refreshUI();
         return;
       } else {
@@ -538,7 +541,7 @@ export class PlayScene extends Phaser.Scene {
         } else if (this.fusionSelectedIds.length < 3) {
           this.fusionSelectedIds.push(unit.id);
         } else {
-          this.flashCenter('재료는 2기까지 선택할 수 있습니다', 0x9f74cf);
+          this.flashCenter(tr('재료는 2기까지 선택할 수 있습니다', 'SELECT UP TO 2 MATERIAL UNITS'), 0x9f74cf);
           return;
         }
         this.audio.play('click');
@@ -558,10 +561,11 @@ export class PlayScene extends Phaser.Scene {
           tier: pendingTier,
           action: 'place',
         }, this.runId);
-        this.flashCenter('붉은 타일은 공격할 수 없습니다', UI.danger);
+        this.flashCenter(tr('붉은 타일은 공격할 수 없습니다', 'RED TILES CANNOT REACH THE PATH'), UI.danger);
         return;
       }
       if (this.core.placeUnit(t.tx, t.ty)) {
+        if (this.firstRun) this.trackOnboardingStep('unit_placed');
         this.audio.play('click');
         this.refreshUI();
         return;
@@ -605,6 +609,9 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onHandAction(action: 'hold' | 'exchange' | 'confirm'): void {
+    if (this.firstRun) this.trackOnboardingStep(
+      action === 'hold' ? 'card_held' : action === 'exchange' ? 'cards_exchanged' : 'hand_confirmed',
+    );
     this.audio.play(action === 'confirm' ? 'confirm' : action === 'exchange' ? 'card' : 'click');
     const rank = this.core.lastHandRank;
     let newlyDiscovered = false;
@@ -628,16 +635,24 @@ export class PlayScene extends Phaser.Scene {
         newlyDiscovered,
         suit: this.core.lastHandSuit,
         variant: this.core.lastHandVariant,
+        firstRun: this.firstRun,
+        tutorialDone: this.profile.tutorialDone,
+        locale: getLocale(),
+        durationSeconds: this.elapsedSeconds(),
       }, this.runId);
       if (this.core.lastHandVariant) {
         this.flashCenter(
-          `${HAND_VARIANT_LABELS[this.core.lastHandVariant]} · ${suitIdentityLabel(this.core.lastHandSuit)}`,
+          `${handVariantName(this.core.lastHandVariant, HAND_VARIANT_LABELS[this.core.lastHandVariant])} · ${suitIdentityName(this.core.lastHandSuit, suitIdentityLabel(this.core.lastHandSuit))}`,
           0xffe27a,
           20,
         );
       }
       this.showRelicTriggers(this.core.lastRelicTriggers, 'hand');
-      if (this.core.lastRelicGoldBonus > 0) this.flashCenter(`유물 보상  +${this.core.lastRelicGoldBonus}G`, 0xe6c84f, 17);
+      if (this.core.lastRelicGoldBonus > 0) this.flashCenter(
+        tr(`유물 보상  +${this.core.lastRelicGoldBonus}G`, `RELIC BONUS  +${this.core.lastRelicGoldBonus}G`),
+        0xe6c84f,
+        17,
+      );
     } else if (action === 'exchange') {
       this.showRelicTriggers(this.core.lastRelicTriggers, 'exchange');
     }
@@ -655,14 +670,17 @@ export class PlayScene extends Phaser.Scene {
       this.moving = false;
       this.audio.play('click');
       this.flashCenter(
-        `${selected.suit ? SUIT_GLYPHS[selected.suit] : '◇'} 기준 유닛 · 같은 종류 2기 선택 · 기준 재클릭 취소`,
+        tr(
+          `${selected.suit ? SUIT_GLYPHS[selected.suit] : '◇'} 기준 유닛 · 같은 종류 2기 선택 · 기준 재클릭 취소`,
+          `${selected.suit ? SUIT_GLYPHS[selected.suit] : '◇'} ANCHOR · SELECT 2 MATCHING UNITS · CLICK ANCHOR TO CANCEL`,
+        ),
         selected.suit ? SUIT_COLORS[selected.suit] : 0x9f74cf,
       );
       this.refreshUI();
       return;
     }
     if (this.fusionSelectedIds.length !== 3) {
-      this.flashCenter(`합성 재료 선택 ${this.fusionSelectedIds.length}/3`, 0x9f74cf);
+      this.flashCenter(tr(`합성 재료 선택 ${this.fusionSelectedIds.length}/3`, `FUSION MATERIALS ${this.fusionSelectedIds.length}/3`), 0x9f74cf);
       return;
     }
     const materialIds = [...this.fusionSelectedIds];
@@ -672,7 +690,10 @@ export class PlayScene extends Phaser.Scene {
       this.selectedUnitId = null;
       this.audio.play('fuse');
       this.flashCenter(
-        `${inheritedSuit ? SUIT_GLYPHS[inheritedSuit] : '◇'} ${UNIT_DEFS[(selected.tier + 1) as HandRank].name} 합성!`,
+        tr(
+          `${inheritedSuit ? SUIT_GLYPHS[inheritedSuit] : '◇'} ${UNIT_DEFS[(selected.tier + 1) as HandRank].name} 합성!`,
+          `${inheritedSuit ? SUIT_GLYPHS[inheritedSuit] : '◇'} ${unitName((selected.tier + 1) as HandRank, UNIT_DEFS[(selected.tier + 1) as HandRank].name).toUpperCase()} FUSED!`,
+        ),
         inheritedSuit ? SUIT_COLORS[inheritedSuit] : 0xb781dc,
       );
       this.analytics.track('unit_fused', {
@@ -1106,10 +1127,16 @@ export class PlayScene extends Phaser.Scene {
     if (result.escaped.length > 0) {
       this.flashCenter(
         this.core.defeatReason === 'boss-escaped'
-          ? '보스 출구 돌파 · 즉시 패배'
+          ? tr('보스 출구 돌파 · 즉시 패배', 'BOSS ESCAPED · DEFEAT')
           : this.core.lastLifeDamage > 0
-          ? `라이프 −${this.core.lastLifeDamage} · 남은 ${this.core.lives}`
-          : `적 ${result.escaped.length}기 침투 · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
+          ? tr(
+            `라이프 −${this.core.lastLifeDamage} · 남은 ${this.core.lives}`,
+            `LIVES −${this.core.lastLifeDamage} · ${this.core.lives} LEFT`,
+          )
+          : tr(
+            `적 ${result.escaped.length}기 침투 · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
+            `${result.escaped.length} ENEMY BREACHED · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
+          ),
         UI.danger,
       );
       if (!this.reducedMotion()) this.cameras.main.shake(140, 0.003);
@@ -1299,7 +1326,9 @@ export class PlayScene extends Phaser.Scene {
     const won = this.core.phase === 'victory';
     const endMessage = won
       ? this.core.crownLevel > 0
-        ? '왕관 I의 최종 보스를 격파하고 더 높은 왕좌를 지켰습니다'
+        ? this.core.crownLevel < CROWN_MAX_LEVEL
+          ? `왕관 ${this.core.crownLevel}개의 최종 보스를 격파하고 다음 왕관을 해금했습니다`
+          : `최고 왕관 ${CROWN_MAX_LEVEL}개의 원정을 정복했습니다`
         : '최종 보스를 격파하고 왕좌를 지켰습니다'
       : this.core.defeatReason === 'final-boss-timeout'
         ? '제한시간 안에 최종 보스를 격파하지 못했습니다'
@@ -1332,8 +1361,8 @@ export class PlayScene extends Phaser.Scene {
     this.add.rectangle(centerX, portrait ? portraitHeight / 2 : 360, portrait ? 390 : 1280, portrait ? portraitHeight : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
     if (portrait) {
       const endModeLabel = this.core.lifeMode
-        ? this.core.crownLevel > 0 ? 'LIFE · CROWN I' : this.mode === 'daily' ? 'LIFE · DAILY' : 'LIFE'
-        : this.core.crownLevel > 0 ? 'CROWN I' : this.mode === 'daily' ? 'DAILY' : 'CLASSIC';
+        ? this.core.crownLevel > 0 ? `LIFE · CROWN ${this.core.crownLevel}` : this.mode === 'daily' ? 'LIFE · DAILY' : 'LIFE'
+        : this.core.crownLevel > 0 ? `CROWN ${this.core.crownLevel}` : this.mode === 'daily' ? 'DAILY' : 'CLASSIC';
       this.add.text(30, py(38), `${won ? '60 ROUNDS CLEARED' : 'RUN ENDED'} · ${endModeLabel}`, {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
         letterSpacing: 2.2,
@@ -1386,6 +1415,10 @@ export class PlayScene extends Phaser.Scene {
       upgradeLevel: summary.upgradeLevel,
       relics: [...summary.relics],
       durationSeconds: this.elapsedSeconds(),
+      firstRun: this.firstRun,
+      tutorialDone: this.profile.tutorialDone,
+      locale: getLocale(),
+      layout: isPortraitLayout() ? 'portrait' : 'landscape',
       masteryRanks: masteryRanks.map((entry) => entry.rank),
       masteryLevels: masteryRanks.map((entry) => entry.level),
       damageRanks: damageLeaders.map((entry) => entry.rank),
@@ -1627,18 +1660,37 @@ export class PlayScene extends Phaser.Scene {
   private trackCombatStarted(): void {
     if (this.firstCombatTracked) return;
     this.firstCombatTracked = true;
-    this.analytics.track('combat_started', { round: this.core.round }, this.runId);
+    if (this.firstRun) this.trackOnboardingStep('combat_started');
+    this.analytics.track('combat_started', {
+      round: this.core.round, firstRun: this.firstRun, tutorialDone: this.profile.tutorialDone,
+      locale: getLocale(), layout: isPortraitLayout() ? 'portrait' : 'landscape',
+      durationSeconds: this.elapsedSeconds(), ruleset: this.core.ruleset,
+    }, this.runId);
   }
 
   private trackRoundProgress(): void {
     if (this.core.round <= this.lastTrackedRound) return;
     this.lastTrackedRound = this.core.round;
+    if (this.firstRun && !this.profile.tutorialDone && this.core.round >= 2) {
+      this.profile.tutorialDone = true;
+      saveProfile(localStorage, this.profile);
+      this.trackOnboardingStep('first_combat_cleared');
+      this.analytics.track('tutorial_finished', {
+        result: 'completed', round: this.core.round, firstRun: true, tutorialDone: true,
+        locale: getLocale(), layout: isPortraitLayout() ? 'portrait' : 'landscape',
+        durationSeconds: this.elapsedSeconds(), ruleset: this.core.ruleset,
+      }, this.runId);
+    }
     if ([2, 5, 10, 20, 30, 40, 50, 60].includes(this.core.round)) {
       this.analytics.track('round_reached', {
         round: this.core.round,
         score: this.core.score,
         units: this.core.field.units.length,
         relics: this.core.relics.length,
+        firstRun: this.firstRun,
+        tutorialDone: this.profile.tutorialDone,
+        locale: getLocale(),
+        durationSeconds: this.elapsedSeconds(),
       }, this.runId);
     }
   }
@@ -1655,11 +1707,27 @@ export class PlayScene extends Phaser.Scene {
       round: summary.round,
       score: summary.score,
       durationSeconds: this.elapsedSeconds(),
+      firstRun: this.firstRun,
+      tutorialDone: this.profile.tutorialDone,
+      locale: getLocale(),
+      layout: isPortraitLayout() ? 'portrait' : 'landscape',
+      ruleset: this.core.ruleset,
     }, this.runId);
   }
 
   private elapsedSeconds(): number {
     return Math.max(0, Math.round((performance.now() - this.runStartedAt) / 1000));
+  }
+
+  private trackOnboardingStep(step: string): void {
+    if (!this.firstRun || this.onboardingSteps.has(step)) return;
+    this.onboardingSteps.add(step);
+    this.analytics.track('onboarding_step', {
+      step, round: this.core?.round ?? 1, locale: getLocale(),
+      layout: isPortraitLayout() ? 'portrait' : 'landscape',
+      durationSeconds: this.elapsedSeconds(),
+      ruleset: this.core?.ruleset ?? (isLifeLabLocation() ? 'life-economy' : 'classic'),
+    }, this.runId);
   }
 
 }
