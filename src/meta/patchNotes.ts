@@ -9,14 +9,45 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.1.10';
+export const CURRENT_VERSION = 'v2.2.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.2.0',
+    title: 'LIFE SIEGE',
+    date: '2026-09-06',
+    current: true,
+    sections: [
+      {
+        heading: 'LIFE 규칙 정식 승격',
+        items: [
+          '라이프 20과 침투 피해, 라운드당 무료 교환 3회, 5열 × 3행 네 배치 구역을 정식 규칙으로 전환',
+          '중앙 십자를 반복 통과하는 교차로 전장에서 탈출 직전 적과 라이프 피해를 중심으로 방어',
+          '기존 LAB 주소는 정식 게임으로 연결하고 클래식 규칙은 별도 보존 주소에서 비교 가능',
+        ],
+      },
+      {
+        heading: '픽셀 군단 정식 적용',
+        items: [
+          '하이카드부터 플러시 파이브까지 13종 픽셀 유닛을 기본 그래픽으로 적용',
+          '검·활·석궁·마법·방패·창·신룡 브레스 등 유닛별 공격 동작을 실전 전투에 연결',
+          '작은 화면에서도 픽셀 윤곽이 선명하도록 Nearest 필터와 정수 픽셀 렌더링 유지',
+        ],
+      },
+      {
+        heading: '운영 기준 정리',
+        items: [
+          '정식 루트에서 분석 데이터를 life-economy 규칙으로 분리 기록',
+          '규칙이 다른 클래식 보존판은 일일 랭킹 등록을 막아 공식 점수의 공정성 유지',
+          '추가 서버나 유료 API 없이 기존 GitHub Pages와 분석 인프라를 그대로 사용',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.1.10',
     title: 'PIXEL ARSENAL',
     date: '2026-09-05',
-    current: true,
     sections: [
       {
         heading: '13종 픽셀 군단 프리뷰',

@@ -1302,7 +1302,7 @@ export class PlayScene extends Phaser.Scene {
     const centerX = portrait ? 195 : 640;
     this.add.rectangle(centerX, portrait ? portraitHeight / 2 : 360, portrait ? 390 : 1280, portrait ? portraitHeight : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
     if (portrait) {
-      this.add.text(30, py(38), won ? `60 ROUNDS CLEARED · ${this.core.lifeMode ? 'LIFE LAB' : this.core.crownLevel > 0 ? 'CROWN I' : 'STANDARD'}` : `RUN ENDED · ${this.core.lifeMode ? 'LIFE LAB' : this.core.crownLevel > 0 ? 'CROWN I' : this.mode === 'daily' ? 'DAILY' : 'STANDARD'}`, {
+      this.add.text(30, py(38), won ? `60 ROUNDS CLEARED · ${this.core.lifeMode ? 'LIFE' : this.core.crownLevel > 0 ? 'CROWN I' : 'CLASSIC'}` : `RUN ENDED · ${this.core.lifeMode ? 'LIFE' : this.core.crownLevel > 0 ? 'CROWN I' : this.mode === 'daily' ? 'DAILY' : 'CLASSIC'}`, {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
         letterSpacing: 2.2,
       }).setDepth(21);
@@ -1385,7 +1385,9 @@ export class PlayScene extends Phaser.Scene {
     });
     btn.container.setDepth(22);
     const actionY = portrait ? py(770) : won ? 536 : 568;
-    if (this.mode === 'daily') {
+    // 정식 LIFE 규칙과 클래식 보존판의 점수가 한 랭킹에 섞이지 않도록
+    // 온라인 일일 랭킹 등록은 현재 정식 규칙에서만 허용한다.
+    if (this.mode === 'daily' && this.core.lifeMode) {
       const ranking = makeButton(this, portrait ? centerX : 384, portrait ? py(632) : actionY, portrait ? 330 : 220, portrait ? 44 : 42, '일일 랭킹 등록', async () => {
         ranking.setEnabled(false);
         ranking.setLabel('등록 중…');

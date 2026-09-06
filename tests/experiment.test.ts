@@ -1,15 +1,16 @@
 import { describe, expect, test } from 'vitest';
 import { isLifeLabLocation } from '../src/game/experiment';
 
-describe('LIFE LAB route', () => {
-  test('별도 /lab/ 주소에서만 공개 실험 모드를 활성화한다', () => {
+describe('LIFE 정식 route', () => {
+  test('루트와 기존 /lab/ 주소에서 LIFE 규칙을 기본 활성화한다', () => {
     expect(isLifeLabLocation({ hostname: 'tjwogns.github.io', pathname: '/poker-defense/lab/', search: '' })).toBe(true);
-    expect(isLifeLabLocation({ hostname: 'tjwogns.github.io', pathname: '/poker-defense/', search: '' })).toBe(false);
-    expect(isLifeLabLocation({ hostname: 'tjwogns.github.io', pathname: '/poker-defense/', search: '?experiment=life' })).toBe(false);
+    expect(isLifeLabLocation({ hostname: 'tjwogns.github.io', pathname: '/poker-defense/', search: '' })).toBe(true);
   });
 
-  test('localhost에서는 개발 편의를 위해 쿼리 주소도 허용한다', () => {
-    expect(isLifeLabLocation({ hostname: '127.0.0.1', pathname: '/', search: '?experiment=life' })).toBe(true);
-    expect(isLifeLabLocation({ hostname: 'localhost', pathname: '/', search: '' })).toBe(false);
+  test('classic 보존 주소와 쿼리에서만 이전 규칙을 활성화한다', () => {
+    expect(isLifeLabLocation({ hostname: 'tjwogns.github.io', pathname: '/poker-defense/classic/', search: '' })).toBe(false);
+    expect(isLifeLabLocation({ hostname: 'tjwogns.github.io', pathname: '/poker-defense/', search: '?ruleset=classic' })).toBe(false);
+    expect(isLifeLabLocation({ hostname: 'localhost', pathname: '/', search: '?ruleset=classic' })).toBe(false);
+    expect(isLifeLabLocation({ hostname: 'localhost', pathname: '/', search: '' })).toBe(true);
   });
 });

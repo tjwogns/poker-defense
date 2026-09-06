@@ -10,7 +10,7 @@ import {
 } from '../core/map';
 import { UI, FONT, FONT_DISPLAY } from './ui';
 import {
-  isPixelArtPreview, pixelSpriteFacesLeft, unitAnimationFrameKey, unitSpriteKey,
+  isPixelArtEnabled, pixelSpriteFacesLeft, unitAnimationFrameKey, unitSpriteKey,
 } from './unitAssets';
 import { unitIntroDuration, unitSpriteExtent } from './unitVisualPolicy';
 import { bossSpriteKey } from './bossAssets';
@@ -447,7 +447,7 @@ export class FieldRenderer {
       const fusionCandidate = fusionTier !== null && u.tier === fusionTier;
       const fusionMaterial = selectedForFusion.has(u.id);
       const attackFx = fx.find((effect) => effect.kind === 'attack' && effect.unitId === u.id);
-      const pixelArt = isPixelArtPreview(window.location.search);
+      const pixelArt = isPixelArtEnabled(window.location.search);
       const windupWindow = Math.min(0.28, UNIT_DEFS[u.tier].period * 0.3);
       const windingUp = pixelArt && !attackFx && u.cooldown > 0 && u.cooldown <= windupWindow;
       const animationFrame = attackFx ? 'attack' : windingUp ? 'windup' : 'idle';

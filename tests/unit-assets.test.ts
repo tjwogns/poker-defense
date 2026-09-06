@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  isPixelArtPreview, PIXEL_UNIT_SPRITE_KEYS, PIXEL_UNIT_SPRITE_PATHS,
+  isPixelArtEnabled, PIXEL_UNIT_SPRITE_KEYS, PIXEL_UNIT_SPRITE_PATHS,
   pixelSpriteFacesLeft, unitAnimationFrameKey, unitSpriteKey,
 } from '../src/game/unitArtStyle';
 
-describe('픽셀아트 비교 모드', () => {
-  test('art=pixel에서만 비교 모드를 활성화한다', () => {
-    expect(isPixelArtPreview('?art=pixel')).toBe(true);
-    expect(isPixelArtPreview('?art=classic')).toBe(false);
-    expect(isPixelArtPreview('')).toBe(false);
+describe('픽셀아트 정식 모드', () => {
+  test('픽셀아트를 기본으로 사용하고 art=classic에서만 이전 그래픽을 쓴다', () => {
+    expect(isPixelArtEnabled('?art=pixel')).toBe(true);
+    expect(isPixelArtEnabled('?art=classic')).toBe(false);
+    expect(isPixelArtEnabled('')).toBe(true);
   });
 
   test('13개 족보 유닛 모두 픽셀 스프라이트를 사용한다', () => {

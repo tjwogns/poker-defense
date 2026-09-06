@@ -11,7 +11,7 @@ import { PatchNotesOverlay } from './PatchNotesOverlay';
 import { CURRENT_VERSION } from '../meta/patchNotes';
 import { leaderboardConfigured } from '../meta/leaderboard';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
-import { isPixelArtPreview, preloadUnitSprites, unitSpriteKey } from './unitAssets';
+import { preloadUnitSprites, unitSpriteKey } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
 import { preloadRelicSprites } from './relicAssets';
@@ -84,12 +84,7 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold,
       letterSpacing: 3.7,
     });
-    if (lifeLab) {
-      makeText(this, 330, 91, 'LIFE ECONOMY LAB', 11, '#7fd9a4', true).setLetterSpacing(2);
-    }
-    if (isPixelArtPreview(window.location.search)) {
-      makeText(this, 1218, 91, 'PIXEL ART PREVIEW', 10, '#7fd9a4', true).setOrigin(1, 0).setLetterSpacing(1.5);
-    }
+    if (lifeLab) makeText(this, 330, 91, 'LIFE SIEGE', 11, '#7fd9a4', true).setLetterSpacing(2);
     this.add.text(88, 112, 'ROYAL\nSIEGE', {
       fontFamily: FONT_DISPLAY,
       fontSize: '112px',
@@ -100,12 +95,12 @@ export class MenuScene extends Phaser.Scene {
     makeText(
       this, 92, 382,
       lifeLab
-        ? '라이프 20과 침투 게이지를 지키며 새로운 경제 규칙을 시험합니다.'
+        ? '라이프 20과 침투 게이지를 지키며 교차로에서 60라운드를 방어합니다.'
         : '다섯 장의 패로 군단을 뽑고, 순환하는 전장에서 60라운드를 버텨냅니다.',
       17, '#a8a5b2',
     ).setWordWrapWidth(470, true).setLineSpacing(10);
 
-    makeButton(this, 202, 500, 228, 66, lifeLab ? 'LIFE LAB 시작' : '일반 원정', () => {
+    makeButton(this, 202, 500, 228, 66, lifeLab ? '라이프 원정' : '클래식 원정', () => {
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
     }, { fill: UI.goldNum, fontSize: 19, radius: 33, stroke: UI.goldNum, strokeAlpha: 0.5 });
     if (!lifeLab) {
@@ -261,17 +256,14 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(62, py(95), 'POKER DEFENSE', {
       fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: UI.gold, letterSpacing: 3.3,
     });
-    if (lifeLab) makeText(this, 358, py(95), 'LIFE LAB', 10, '#7fd9a4', true).setOrigin(1, 0);
-    if (!lifeLab && isPixelArtPreview(window.location.search)) {
-      makeText(this, 358, py(95), 'PIXEL PREVIEW', 9, '#7fd9a4', true).setOrigin(1, 0);
-    }
+    if (lifeLab) makeText(this, 358, py(95), 'LIFE SIEGE', 10, '#7fd9a4', true).setOrigin(1, 0);
     this.add.text(32, py(118), 'ROYAL\nSIEGE', {
       fontFamily: FONT_DISPLAY, fontSize: `${Math.round(82 * density)}px`, fontStyle: 'bold', color: UI.text, lineSpacing: Math.round(-21 * density),
     });
     makeText(
       this, 32, py(292),
       lifeLab
-        ? '라이프 20과 침투 게이지로\n새로운 방어 규칙을 시험합니다.'
+        ? '라이프 20과 침투 게이지를 지키며\n교차로에서 60라운드를 방어합니다.'
         : '다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.',
       15, '#a8a5b2',
     ).setLineSpacing(8);
@@ -307,7 +299,7 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(1, 0);
 
     if (lifeLab) {
-      makeButton(this, 195, py(667), 326, 62, 'LIFE LAB 시작', () => {
+      makeButton(this, 195, py(667), 326, 62, '라이프 원정', () => {
         this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard' });
       }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 19, radius: 31, stroke: UI.goldNum, strokeAlpha: 0.5 });
     } else {

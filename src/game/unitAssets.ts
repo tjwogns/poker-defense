@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import {
-  isPixelArtPreview, PIXEL_UNIT_SPRITE_PATHS,
+  isPixelArtEnabled, PIXEL_UNIT_SPRITE_PATHS,
 } from './unitArtStyle';
 
 export {
-  isPixelArtPreview, pixelSpriteFacesLeft, UNIT_SPRITE_KEYS, unitAnimationFrameKey, unitSpriteKey,
+  isPixelArtEnabled, pixelSpriteFacesLeft, UNIT_SPRITE_KEYS, unitAnimationFrameKey, unitSpriteKey,
 } from './unitArtStyle';
 
 const UNIT_SPRITE_PATHS: Record<string, string> = {
@@ -25,7 +25,7 @@ const UNIT_SPRITE_PATHS: Record<string, string> = {
 
 export function preloadUnitSprites(scene: Phaser.Scene): void {
   for (const [key, path] of Object.entries(UNIT_SPRITE_PATHS)) scene.load.image(key, path);
-  if (!isPixelArtPreview(window.location.search)) return;
+  if (!isPixelArtEnabled(window.location.search)) return;
   for (const [key, path] of Object.entries(PIXEL_UNIT_SPRITE_PATHS)) scene.load.image(key, path);
   scene.load.once(Phaser.Loader.Events.COMPLETE, () => {
     for (const key of Object.keys(PIXEL_UNIT_SPRITE_PATHS)) {

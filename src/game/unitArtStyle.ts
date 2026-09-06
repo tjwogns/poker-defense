@@ -138,12 +138,12 @@ export function pixelSpriteFacesLeft(tier: HandRank): boolean {
   return tier === HandRank.RoyalFlush;
 }
 
-export function isPixelArtPreview(search: string): boolean {
-  return new URLSearchParams(search).get('art') === 'pixel';
+export function isPixelArtEnabled(search: string): boolean {
+  return new URLSearchParams(search).get('art') !== 'classic';
 }
 
 export function unitSpriteKey(tier: HandRank, search: string): string | undefined {
-  if (isPixelArtPreview(search) && PIXEL_UNIT_SPRITE_KEYS[tier]) {
+  if (isPixelArtEnabled(search) && PIXEL_UNIT_SPRITE_KEYS[tier]) {
     return PIXEL_UNIT_SPRITE_KEYS[tier];
   }
   return UNIT_SPRITE_KEYS[tier];
@@ -154,6 +154,6 @@ export function unitAnimationFrameKey(
   frame: UnitAnimationFrame,
   search: string,
 ): string | undefined {
-  if (!isPixelArtPreview(search)) return UNIT_SPRITE_KEYS[tier];
+  if (!isPixelArtEnabled(search)) return UNIT_SPRITE_KEYS[tier];
   return PIXEL_UNIT_ANIMATION_KEYS[tier]?.[frame] ?? PIXEL_UNIT_SPRITE_KEYS[tier] ?? UNIT_SPRITE_KEYS[tier];
 }
