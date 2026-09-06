@@ -102,7 +102,9 @@ export class PlayScene extends Phaser.Scene {
   init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean; crownLevel?: CrownLevel }): void {
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
-    this.crownLevel = data.mode === 'daily' || isLifeLabLocation() ? 0 : data.crownLevel ?? 0;
+    // 오늘의 도전은 모두가 같은 기본 난이도로 경쟁한다. 일반 원정은
+    // LIFE 규칙에서도 해금한 왕관 단계를 그대로 사용한다.
+    this.crownLevel = data.mode === 'daily' ? 0 : data.crownLevel ?? 0;
     this.runDate = data.date ?? dailyDate();
     const lifeLab = isLifeLabLocation();
     this.analytics = getAnalytics();
@@ -1315,7 +1317,10 @@ export class PlayScene extends Phaser.Scene {
     const centerX = portrait ? 195 : 640;
     this.add.rectangle(centerX, portrait ? portraitHeight / 2 : 360, portrait ? 390 : 1280, portrait ? portraitHeight : 720, 0x000000, portrait ? 0.9 : 0.72).setDepth(20);
     if (portrait) {
-      this.add.text(30, py(38), won ? `60 ROUNDS CLEARED · ${this.core.lifeMode ? 'LIFE' : this.core.crownLevel > 0 ? 'CROWN I' : 'CLASSIC'}` : `RUN ENDED · ${this.core.lifeMode ? 'LIFE' : this.core.crownLevel > 0 ? 'CROWN I' : this.mode === 'daily' ? 'DAILY' : 'CLASSIC'}`, {
+      const endModeLabel = this.core.lifeMode
+        ? this.core.crownLevel > 0 ? 'LIFE · CROWN I' : this.mode === 'daily' ? 'LIFE · DAILY' : 'LIFE'
+        : this.core.crownLevel > 0 ? 'CROWN I' : this.mode === 'daily' ? 'DAILY' : 'CLASSIC';
+      this.add.text(30, py(38), `${won ? '60 ROUNDS CLEARED' : 'RUN ENDED'} · ${endModeLabel}`, {
         fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: won ? UI.gold : UI.dangerText,
         letterSpacing: 2.2,
       }).setDepth(21);

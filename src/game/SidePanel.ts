@@ -357,7 +357,9 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`ROUND ${g.round}`);
     this.roundSub.setText(`/ ${ROUNDS}`);
-    this.modeText.setText(g.lifeMode ? 'LIFE' : g.crownLevel > 0 ? '♛ CROWN I' : mode === 'daily' ? 'DAILY' : 'CLASSIC');
+    this.modeText.setText(g.lifeMode
+      ? g.crownLevel > 0 ? 'LIFE · ♛ CROWN I' : mode === 'daily' ? 'LIFE · DAILY' : 'LIFE'
+      : g.crownLevel > 0 ? '♛ CROWN I' : mode === 'daily' ? 'DAILY' : 'CLASSIC');
 
     const alive = aliveEnemies(g.field).length;
     const ratio = g.lifeMode
@@ -468,7 +470,9 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`R${g.round}`);
     this.roundSub.setText(`/${ROUNDS}`);
-    this.modeText.setText(g.lifeMode ? 'LIFE' : g.crownLevel > 0 ? 'CROWN I' : mode === 'daily' ? 'DAILY' : 'CLASSIC');
+    this.modeText.setText(g.lifeMode
+      ? g.crownLevel > 0 ? 'LIFE CROWN I' : mode === 'daily' ? 'LIFE DAILY' : 'LIFE'
+      : g.crownLevel > 0 ? 'CROWN I' : mode === 'daily' ? 'DAILY' : 'CLASSIC');
     const alive = aliveEnemies(g.field).length;
     const ratio = g.lifeMode
       ? Math.max(0, Math.min(1, g.lives / LIFE_MODE_STARTING_LIVES))

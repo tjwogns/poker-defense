@@ -43,8 +43,16 @@ describe('Game state machine', () => {
     expect(boss.field.enemies[0].maxHp).toBeCloseTo(enemyHp(10) * BOSS_HP_MULT * CROWN_I_BOSS_HP_MULTIPLIER);
   });
 
-  test('LIFE LAB과 일일 규칙 코어에는 왕관 배율을 섞지 않는다', () => {
-    expect(new Game(212, 'life-economy', 1).crownLevel).toBe(0);
+  test('LIFE 원정도 왕관 I 배율을 적용하되 라이프 규칙은 유지한다', () => {
+    const lifeCrown = new Game(212, 'life-economy', 1);
+    expect(lifeCrown.crownLevel).toBe(1);
+    expect(lifeCrown.lives).toBe(LIFE_MODE_STARTING_LIVES);
+    lifeCrown.confirmHand();
+    expect(lifeCrown.placeUnit(5, 2)).toBe(true);
+    expect(lifeCrown.startCombat()).toBe(true);
+    lifeCrown.tickCombat(1 / 30);
+    expect(lifeCrown.field.enemies[0].maxHp).toBeCloseTo(enemyHp(1) * CROWN_I_ENEMY_HP_MULTIPLIER);
+    expect(lifeCrown.field.enemies[0].speedMultiplier).toBe(CROWN_I_SPEED_MULTIPLIER);
   });
 
   test('확정하면 족보 등급의 배치 대기 유닛이 생기고, 재확정은 불가', () => {

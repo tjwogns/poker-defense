@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.2.1';
+export const CURRENT_VERSION = 'v2.2.2';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.2.2',
+    title: 'CROWNED SIEGE',
+    date: '2026-09-06',
+    current: true,
+    sections: [
+      {
+        heading: 'LIFE 왕관 I 원정',
+        items: [
+          '정식 LIFE 일반 원정을 한 번 클리어하면 선택형 왕관 I 난이도 해금',
+          '왕관 I에서 일반 적 체력 +15%·보스 체력 +25%·모든 적 이동속도 +5%',
+          '라이프 20·침투 피해·무료 교환 3회·골드 경제·보스 제한시간은 기본 LIFE와 동일',
+        ],
+      },
+      {
+        heading: '공정한 기록과 검증',
+        items: [
+          '왕관 최고 점수·라운드·승리와 익명 분석을 기본 원정과 분리 유지',
+          '오늘의 도전은 모두 같은 조건을 위해 왕관 배율 없이 기본 LIFE로 고정',
+          '데스크톱·세로 메뉴와 전투·종료 화면에 LIFE CROWN I 상태를 명확히 표시',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.2.1',
     title: 'THE DISCARDED',
     date: '2026-09-06',
-    current: true,
     sections: [
       {
         heading: '폐기된 덱 적군',

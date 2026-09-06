@@ -186,7 +186,7 @@ export class Game {
   constructor(seed: number, ruleset: GameRuleset = 'classic', crownLevel: CrownLevel = 0) {
     this.seed = seed;
     this.ruleset = ruleset;
-    this.crownLevel = ruleset === 'classic' ? crownLevel : 0;
+    this.crownLevel = crownLevel;
     this.mapId = ruleset === 'life-economy' ? 'cross-road' : 'classic-ring';
     this.field = createField(this.mapId);
     this.lives = ruleset === 'life-economy' ? LIFE_MODE_STARTING_LIVES : 0;

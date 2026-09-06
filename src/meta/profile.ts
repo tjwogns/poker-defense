@@ -24,9 +24,10 @@ export const ACHIEVEMENTS: Record<AchievementId, { name: string; description: st
 };
 
 export interface Profile {
-  version: 5;
+  version: 6;
   totalRuns: number;
   wins: number;
+  standardWins: number;
   bestScore: number;
   bestRound: number;
   tutorialDone: boolean;
@@ -62,9 +63,10 @@ export interface StorageLike {
 
 export function defaultProfile(): Profile {
   return {
-    version: 5,
+    version: 6,
     totalRuns: 0,
     wins: 0,
+    standardWins: 0,
     bestScore: 0,
     bestRound: 0,
     tutorialDone: false,
@@ -91,6 +93,10 @@ export function loadProfile(storage: StorageLike): Profile {
       ...base,
       totalRuns: safeCount(parsed.totalRuns),
       wins: safeCount(parsed.wins),
+      // v5 이하에는 모드별 승리가 없으므로 기존 승리자는 해금을 유지한다.
+      standardWins: parsed.standardWins === undefined
+        ? safeCount(parsed.wins)
+        : safeCount(parsed.standardWins),
       bestScore: safeCount(parsed.bestScore),
       bestRound: safeCount(parsed.bestRound),
       tutorialDone: typeof parsed.tutorialDone === 'boolean' ? parsed.tutorialDone : base.tutorialDone,
@@ -183,6 +189,7 @@ export function recordRun(
     ...profile,
     totalRuns: profile.totalRuns + 1,
     wins: profile.wins + (summary.result === 'victory' ? 1 : 0),
+    standardWins: profile.standardWins + (mode === 'standard' && summary.result === 'victory' ? 1 : 0),
     bestScore: Math.max(profile.bestScore, summary.score),
     bestRound: Math.max(profile.bestRound, summary.round),
     crownWins: profile.crownWins + (crownLevel > 0 && summary.result === 'victory' ? 1 : 0),
@@ -216,6 +223,7 @@ export function exportPlaytestData(profile: Profile, analyticsEvents: unknown[] 
     aggregate: {
       totalRuns: profile.totalRuns,
       wins: profile.wins,
+      standardWins: profile.standardWins,
       bestScore: profile.bestScore,
       bestRound: profile.bestRound,
       crownWins: profile.crownWins,
