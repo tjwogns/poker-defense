@@ -69,9 +69,9 @@ describe('defeat analysis', () => {
         escapedBossHpPercent: null,
       },
       {
-        round: 30, escaped: 1, lifeDamage: 3,
-        escapedByKind: { normal: 0, fast: 0, tank: 0, regen: 0, splitter: 0, boss: 1 },
-        escapedBossHpPercent: 18,
+        round: 30, escaped: 14, lifeDamage: 3,
+        escapedByKind: { normal: 0, fast: 14, tank: 0, regen: 0, splitter: 0, boss: 0 },
+        escapedBossHpPercent: null,
       },
     ];
 
@@ -79,13 +79,30 @@ describe('defeat analysis', () => {
 
     expect(analysis.cause).toContain('적 탈출');
     expect(analysis.tips[0]).toContain('고속형 탈출');
-    expect(analysis.lifeDetails).toContain('최다 탈출 칩 도둑 6기');
-    expect(analysis.lifeDetails).toContain('최대 피해 R30 · 1기 / ♥−3');
-    expect(analysis.lifeDetails).toContain('탈출 보스 HP 18%');
+    expect(analysis.lifeDetails).toContain('최다 탈출 칩 도둑 20기');
+    expect(analysis.lifeDetails).toContain('최대 피해 R30 · 14기 / ♥−3');
     expect(analysis.lifeDetails.at(-1)).toContain('R21 −0 · R24 −1 · R30 −3');
     expect(analysis.topEscapedKind).toBe('fast');
     expect(analysis.worstLifeRound).toBe(30);
     expect(analysis.worstLifeDamage).toBe(3);
+  });
+
+  test('보스 탈출 패배는 라이프와 구분해 즉시 패배 원인을 알려준다', () => {
+    const input = baseInput();
+    input.reason = 'boss-escaped';
+    input.round = 20;
+    input.lives = 17;
+    input.lifeRoundHistory = [{
+      round: 20, escaped: 1, lifeDamage: 0,
+      escapedByKind: { normal: 0, fast: 0, tank: 0, regen: 0, splitter: 0, boss: 1 },
+      escapedBossHpPercent: 42,
+    }];
+
+    const analysis = analyzeDefeat(input);
+
+    expect(analysis.cause).toContain('보스가 출구 돌파');
+    expect(analysis.boss).toBe('탈출 보스 · HP 42%');
+    expect(analysis.tips[0]).toContain('한 번만 출구를 통과해도 패배');
   });
 
   test('이월 보스가 남은 필드 패배에는 보스 대응 조언을 제공한다', () => {

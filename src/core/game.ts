@@ -7,7 +7,7 @@ import {
   START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
   FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
-  LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BOSS_ESCAPE_DAMAGE, LIFE_MODE_BREACH_THRESHOLD,
+  LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BREACH_THRESHOLD,
   LIFE_MODE_BOUNTY_MULTIPLIER, LIFE_MODE_CLEAR_BONUS_MULTIPLIER, LIFE_MODE_FIELD_CAP,
   LIFE_MODE_INTEREST_CAP_MULTIPLIER, LIFE_MODE_INTEREST_RATE_MULTIPLIER, LIFE_MODE_STARTING_LIVES,
   CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, CrownLevel,
@@ -47,7 +47,7 @@ import {
 } from './cards/handIdentity';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
-export type DefeatReason = 'field-cap' | 'life-depleted' | 'final-boss-timeout';
+export type DefeatReason = 'field-cap' | 'life-depleted' | 'boss-escaped' | 'final-boss-timeout';
 export type GameRuleset = 'classic' | 'life-economy';
 export type DeckSealId = 'banish' | 'duplicate';
 export type DeckEditStatus =
@@ -775,10 +775,7 @@ export class Game {
     );
 
     if (this.lifeMode && result.escaped.length > 0) {
-      const bossDamage = result.escaped.reduce(
-        (total, enemy) => total + (enemy.kind === 'boss' ? LIFE_MODE_BOSS_ESCAPE_DAMAGE : 0),
-        0,
-      );
+      const bossEscaped = result.escaped.some((enemy) => enemy.kind === 'boss');
       const breachAdded = result.escaped.reduce(
         (total, enemy) => total + enemyBreachPoints(enemy.kind),
         0,
@@ -786,7 +783,7 @@ export class Game {
       const accumulatedBreach = this.breach + breachAdded;
       const breachDamage = Math.floor(accumulatedBreach / LIFE_MODE_BREACH_THRESHOLD);
       this.breach = accumulatedBreach % LIFE_MODE_BREACH_THRESHOLD;
-      const damage = bossDamage + breachDamage;
+      const damage = breachDamage;
       let lifeRecord = this.lifeRoundHistory.find((record) => record.round === this.round);
       if (!lifeRecord) {
         lifeRecord = {
@@ -811,6 +808,11 @@ export class Game {
       this.escapedEnemies += result.escaped.length;
       this.lifeDamageTaken += damage;
       this.lives = Math.max(0, this.lives - damage);
+      if (bossEscaped) {
+        this.defeatReason = 'boss-escaped';
+        this.phase = 'defeat';
+        return result;
+      }
       if (this.lives === 0) {
         this.defeatReason = 'life-depleted';
         this.phase = 'defeat';

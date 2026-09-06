@@ -1097,7 +1097,9 @@ export class PlayScene extends Phaser.Scene {
     this.showRelicTriggers(result.relicTriggers, 'combat');
     if (result.escaped.length > 0) {
       this.flashCenter(
-        this.core.lastLifeDamage > 0
+        this.core.defeatReason === 'boss-escaped'
+          ? '보스 출구 돌파 · 즉시 패배'
+          : this.core.lastLifeDamage > 0
           ? `라이프 −${this.core.lastLifeDamage} · 남은 ${this.core.lives}`
           : `적 ${result.escaped.length}기 침투 · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
         UI.danger,
@@ -1231,7 +1233,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     const originalBoss = this.core.field.enemies.find(
-      (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === roundBefore,
+      (enemy) => enemy.kind === 'boss' && enemy.round === roundBefore,
     );
     if (!originalBoss || this.trackedBossSurvivals.has(originalBoss.round)) return;
 
@@ -1242,6 +1244,8 @@ export class PlayScene extends Phaser.Scene {
     this.trackedBossSurvivals.add(originalBoss.round);
     const outcome = this.core.defeatReason === 'final-boss-timeout'
       ? 'final_timeout'
+      : this.core.defeatReason === 'boss-escaped'
+        ? 'boss_escape'
       : runEnded ? 'field_cap' : 'round_timeout';
     this.analytics.track('boss_survived', {
       crownLevel: this.core.crownLevel,
@@ -1291,6 +1295,8 @@ export class PlayScene extends Phaser.Scene {
         : '최종 보스를 격파하고 왕좌를 지켰습니다'
       : this.core.defeatReason === 'final-boss-timeout'
         ? '제한시간 안에 최종 보스를 격파하지 못했습니다'
+        : this.core.defeatReason === 'boss-escaped'
+          ? `라운드 ${this.core.round}의 보스가 출구를 돌파했습니다`
         : this.core.defeatReason === 'life-depleted'
           ? `라운드 ${this.core.round}에서 왕국의 라이프를 모두 잃었습니다`
         : `라운드 ${this.core.round}에서 필드가 뚫렸습니다`;

@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.2.2';
+export const CURRENT_VERSION = 'v2.2.3';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.2.3',
+    title: 'HOLD THE LINE',
+    date: '2026-09-06',
+    current: true,
+    sections: [
+      {
+        heading: '보스 돌파는 즉시 패배',
+        items: [
+          'R10·20·30·40·50·60 모든 보스가 출구에 도달하면 남은 라이프와 관계없이 즉시 패배',
+          '보스 탈출은 라이프 피해로 처리하지 않고 별도 패배 원인과 탈출 당시 HP로 기록',
+          '일반 적의 침투 5칸당 라이프 피해 규칙은 그대로 유지',
+        ],
+      },
+      {
+        heading: '명확한 결과 안내',
+        items: [
+          '전투 중 보스 출구 돌파·즉시 패배 경고 표시',
+          '패배 분석에 돌파한 보스 HP와 교차로 집중 화력 조언 추가',
+          '왕관·일일 도전에서도 같은 보스 방어 규칙 적용',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.2.2',
     title: 'CROWNED SIEGE',
     date: '2026-09-06',
-    current: true,
     sections: [
       {
         heading: 'LIFE 왕관 I 원정',

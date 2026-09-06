@@ -66,8 +66,25 @@ try {
     throw new Error(`오늘의 도전 왕관 분리 실패: ${JSON.stringify(daily)}`);
   }
 
+  const bossEscape = await page.evaluate(() => {
+    const game = window.__game;
+    game.round = 10;
+    game.handConfirmed = true;
+    game.pendingUnits = [];
+    if (!game.startCombat()) throw new Error('보스 탈출 검사 전투 시작 실패');
+    game.tickCombat(1 / 30);
+    const boss = game.field.enemies.find((enemy) => enemy.kind === 'boss');
+    if (!boss) throw new Error('보스 생성 실패');
+    boss.dist = Number.MAX_SAFE_INTEGER;
+    game.tickCombat(1 / 30);
+    return { phase: game.phase, reason: game.defeatReason, lives: game.lives };
+  });
+  if (bossEscape.phase !== 'defeat' || bossEscape.reason !== 'boss-escaped' || bossEscape.lives !== 20) {
+    throw new Error(`보스 즉시 패배 실패: ${JSON.stringify(bossEscape)}`);
+  }
+
   console.log('CROWN_SMOKE_OK');
-  console.log(JSON.stringify({ crown, daily }));
+  console.log(JSON.stringify({ crown, daily, bossEscape }));
 } finally {
   await browser.close();
 }

@@ -303,9 +303,9 @@ describe('Game state machine', () => {
     });
   });
 
-  test('보스 탈출은 침투 게이지와 별개로 라이프 3을 즉시 깎는다', () => {
+  test('보스가 탈출하면 남은 라이프와 관계없이 즉시 패배한다', () => {
     const g = new Game(206, 'life-economy');
-    g.lives = 3;
+    g.lives = LIFE_MODE_STARTING_LIVES;
     g.round = 10;
     g.handConfirmed = true;
     g.startCombat();
@@ -313,9 +313,11 @@ describe('Game state machine', () => {
 
     g.tickCombat(1 / 30);
 
-    expect(g.lives).toBe(0);
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES);
     expect(g.breach).toBe(0);
-    expect(g.defeatReason).toBe('life-depleted');
+    expect(g.phase).toBe('defeat');
+    expect(g.defeatReason).toBe('boss-escaped');
+    expect(g.lifeRoundHistory[0].lifeDamage).toBe(0);
     expect(g.lifeRoundHistory[0].escapedBossHpPercent).toBe(100);
   });
 

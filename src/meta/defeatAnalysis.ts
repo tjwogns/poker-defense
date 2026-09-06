@@ -2,10 +2,10 @@ import { FINAL_BOSS_MAX_TIME } from '../core/balance';
 import { HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { HandMasteryLevels, MASTERABLE_HANDS } from '../core/mastery';
 import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
-import type { LifeRoundRecord } from '../core/game';
+import type { DefeatReason, LifeRoundRecord } from '../core/game';
 
 export interface DefeatAnalysisInput {
-  reason: 'field-cap' | 'life-depleted' | 'final-boss-timeout' | null;
+  reason: DefeatReason | null;
   round: number;
   lives?: number;
   fieldCap: number;
@@ -96,6 +96,9 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
   if (input.reason === 'final-boss-timeout') {
     addTip('최종 보스에는 스페이드 대표 문양과 고등급 단일 화력 유닛을 집중해보세요.');
   }
+  if (input.reason === 'boss-escaped') {
+    addTip('보스는 한 번만 출구를 통과해도 패배합니다. 교차로 중첩 구간에 단일 화력을 집중하세요.');
+  }
   if (input.reason === 'life-depleted') {
     if (topEscaped?.[0] === 'fast') {
       addTip('고속형 탈출이 가장 많습니다. 출구 직전과 첫 교차 지점에 즉시 대응 화력을 보강하세요.');
@@ -119,10 +122,14 @@ export function analyzeDefeat(input: DefeatAnalysisInput): DefeatAnalysis {
 
   const cause = input.reason === 'final-boss-timeout'
     ? `최종 보스 제한시간 ${FINAL_BOSS_MAX_TIME}초 종료`
+    : input.reason === 'boss-escaped'
+      ? `R${input.round} 보스가 출구 돌파 · 즉시 패배`
     : input.reason === 'life-depleted'
       ? `왕국 라이프 ${input.lives ?? 0} · 적 탈출로 방어선 붕괴`
     : `필드 위협도 ${alive.length} / ${input.fieldCap} 도달`;
-  const boss = aliveBoss
+  const boss = escapedBoss
+    ? `탈출 보스 · HP ${escapedBoss.escapedBossHpPercent}%`
+    : aliveBoss
     ? `생존 보스 R${aliveBoss.round} · HP ${bossHpPercent}%`
     : '생존 보스 없음';
 
