@@ -26,6 +26,9 @@ try {
     localStorage.setItem('poker-defense:v2:analytics', JSON.stringify({
       version: 1, consent: 'denied', visitorId: '', events: [],
     }));
+    localStorage.setItem('poker-defense:v2:profile', JSON.stringify({
+      version: 6, wins: 1, standardWins: 1,
+    }));
   });
   await page.reload({ waitUntil: 'networkidle0' });
   await page.waitForFunction(() => window.__menuReady === true);
