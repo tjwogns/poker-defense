@@ -7,6 +7,7 @@ import { ENEMY_KINDS, EnemyKindId } from '../core/enemies';
 import {
   GRID_W, GRID_H, MapId, TILE, isPathTile, isPlaceable, pathCorners, pathLength, pointAt,
   recommendedPlacementTiles, tileCanReachPath, tileCenter,
+  CROSSROAD_INTERSECTION_RADIUS_TILES, CROSSROAD_INTERSECTION_TILE,
 } from '../core/map';
 import { UI, FONT, FONT_DISPLAY } from './ui';
 import {
@@ -280,6 +281,7 @@ export class FieldRenderer {
   private metrics: FieldMetrics;
   private mapId: MapId;
   private escapeWarningText?: Phaser.GameObjects.Text;
+  private intersectionMarkText?: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, mapId: MapId = 'classic-ring') {
     this.scene = scene;
@@ -303,6 +305,20 @@ export class FieldRenderer {
         fontFamily: FONT, fontSize: this.metrics.portrait ? '9px' : '12px', fontStyle: 'bold',
         color: '#ff9b96', backgroundColor: '#351316dd', padding: { x: 7, y: 4 },
       }).setOrigin(0.5, 1).setDepth(7).setVisible(false);
+      const center = tileCenter(CROSSROAD_INTERSECTION_TILE.x, CROSSROAD_INTERSECTION_TILE.y);
+      this.intersectionMarkText = scene.add.text(
+        this.metrics.x + center.x * this.metrics.scale,
+        this.metrics.y + center.y * this.metrics.scale + (this.metrics.portrait ? 15 : 25),
+        '교차로 +25%',
+        {
+          fontFamily: FONT,
+          fontSize: this.metrics.portrait ? '7px' : '10px',
+          fontStyle: 'bold',
+          color: '#a8f0cf',
+          backgroundColor: '#09241bcc',
+          padding: { x: 5, y: 2 },
+        },
+      ).setOrigin(0.5).setDepth(1).setVisible(false);
     }
   }
 
@@ -735,6 +751,21 @@ export class FieldRenderer {
 
   private updateHighlight(game: Game, placingTier: HandRank | null): void {
     this.highlightG.clear();
+    const showIntersection = game.mapId === 'cross-road' && game.relics.includes('crossroad_mark');
+    this.intersectionMarkText?.setVisible(showIntersection);
+    if (showIntersection) {
+      const center = tileCenter(CROSSROAD_INTERSECTION_TILE.x, CROSSROAD_INTERSECTION_TILE.y);
+      const x = this.metrics.x + center.x * this.metrics.scale;
+      const y = this.metrics.y + center.y * this.metrics.scale;
+      const radius = CROSSROAD_INTERSECTION_RADIUS_TILES * TILE * this.metrics.scale;
+      const pulse = 0.5 + Math.sin(game.field.time * 3) * 0.08;
+      this.highlightG.fillStyle(0x55c99a, 0.08);
+      this.highlightG.fillCircle(x, y, radius);
+      this.highlightG.lineStyle(this.metrics.portrait ? 1.5 : 2, 0x7ee0b5, pulse);
+      this.highlightG.strokeCircle(x, y, radius);
+      this.highlightG.lineBetween(x - radius * 0.45, y, x + radius * 0.45, y);
+      this.highlightG.lineBetween(x, y - radius * 0.45, x, y + radius * 0.45);
+    }
     this.placementHint.setVisible(placingTier !== null && !this.metrics.portrait);
     if (placingTier === null) return;
     const range = UNIT_DEFS[placingTier].range;

@@ -16,6 +16,7 @@ import {
 } from '../src/core/relics';
 import { h } from './helpers';
 import { addUnit, createField, spawnEnemy, tick } from '../src/core/combat';
+import { TILE } from '../src/core/map';
 
 describe('relic offers', () => {
   test('같은 시드와 마일스톤은 중복 없는 동일한 선택지 3개를 만든다', () => {
@@ -88,6 +89,22 @@ describe('relic effects', () => {
     expect(relicUnitAttackSpeedMultiplier(['last_stand'], regular)).toBe(1);
     expect(relicUnitAttackSpeedMultiplier(['last_stand'], allIn)).toBe(1.15);
     expect(relicUnitAttackSpeedMultiplier([], allIn)).toBe(1);
+  });
+
+  test('교차로 표식은 LIFE 중앙 교차로 안의 적에게만 피해를 높인다', () => {
+    const field = createField('cross-road');
+    const unit = addUnit(field, HandRank.Pair, 7, 4);
+    const enemy = spawnEnemy(field, 'normal', 20, { dist: 10 * TILE });
+
+    const active = relicUnitDamageResult(['crossroad_mark'], unit, enemy, field);
+    expect(active.multiplier).toBe(1.25);
+    expect(active.active).toEqual(['crossroad_mark']);
+
+    enemy.dist = 6 * TILE;
+    expect(relicUnitDamageMultiplier(['crossroad_mark'], unit, enemy, field)).toBe(1);
+    enemy.mapId = 'classic-ring';
+    enemy.dist = 10 * TILE;
+    expect(relicUnitDamageMultiplier(['crossroad_mark'], unit, enemy, field)).toBe(1);
   });
 
   test('조건부 피해 유물은 유닛·배치·적 상태를 판정하고 ×3에서 제한한다', () => {

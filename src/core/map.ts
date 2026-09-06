@@ -6,6 +6,8 @@
 export const GRID_W = 17;
 export const GRID_H = 12;
 export const TILE = 42; // px
+export const CROSSROAD_INTERSECTION_TILE: Pt = { x: 8, y: 5 };
+export const CROSSROAD_INTERSECTION_RADIUS_TILES = 1.25;
 
 export interface Pt { x: number; y: number }
 export type MapId = 'classic-ring' | 'cross-road';
@@ -96,6 +98,15 @@ export function pointAt(dist: number, mapId: MapId = 'classic-ring'): Pt {
     d -= segment.len;
   }
   return { ...segments[segments.length - 1].b };
+}
+
+/** LIFE 교차로의 중앙 표식 범위 안에 있는 경로 거리인지 판정한다. */
+export function isInCrossroadIntersection(dist: number, mapId: MapId): boolean {
+  if (mapId !== 'cross-road') return false;
+  const point = pointAt(dist, mapId);
+  const center = tileCenter(CROSSROAD_INTERSECTION_TILE.x, CROSSROAD_INTERSECTION_TILE.y);
+  return Math.hypot(point.x - center.x, point.y - center.y)
+    <= CROSSROAD_INTERSECTION_RADIUS_TILES * TILE;
 }
 
 /** 해당 타일이 선택한 맵의 경로 위인지 판정한다. */

@@ -1,6 +1,6 @@
 import { HandRank } from './cards/types';
 import type { Enemy, Field, Unit } from './combat';
-import { distanceToPathTiles } from './map';
+import { distanceToPathTiles, isInCrossroadIntersection } from './map';
 import { mulberry32, shuffle } from './rng';
 
 export type RelicRarity = 'common' | 'rare' | 'legendary';
@@ -24,7 +24,8 @@ export type RelicId =
   | 'four_suit_crest'
   | 'delay_tactics'
   | 'compression_enthusiast'
-  | 'last_stand';
+  | 'last_stand'
+  | 'crossroad_mark';
 
 export interface RelicDef {
   id: RelicId;
@@ -105,6 +106,9 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
   },
   last_stand: {
     id: 'last_stand', name: '최후의 승부', description: '마지막 교환은 5장 올인 · 그 유닛 공격속도 +15%', glyph: '●', color: 0xe0723d, rarity: 'rare',
+  },
+  crossroad_mark: {
+    id: 'crossroad_mark', name: '교차로 표식', description: '중앙 교차로 안의 적이 받는 피해 +25%', glyph: '✣', color: 0x55c99a, rarity: 'rare',
   },
 };
 
@@ -245,6 +249,10 @@ export function relicUnitDamageResult(
     } else {
       multiplier *= 0.9;
     }
+  }
+  if (owned.includes('crossroad_mark') && isInCrossroadIntersection(enemy.dist, enemy.mapId)) {
+    multiplier *= 1.25;
+    active.push('crossroad_mark');
   }
   if (owned.includes('underdog_banner') && unit.tier <= HandRank.Pair) {
     multiplier *= 1.75;

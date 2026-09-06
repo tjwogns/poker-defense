@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   GRID_W, GRID_H, TILE, PATH_LENGTH,
   pathLength, pointAt, recommendedPlacementTiles, tileCenter, isPathTile, isPlaceable, tileCanReachPath,
+  isInCrossroadIntersection,
 } from '../src/core/map';
 
 describe('map & path', () => {
@@ -55,6 +56,14 @@ describe('LIFE LAB cross-road map', () => {
 
   test('시작과 출구가 같은 포털이어도 완주 거리 이후에는 끝점에 고정된다', () => {
     expect(pointAt(pathLength(mapId) + TILE, mapId)).toEqual(tileCenter(2, 1));
+  });
+
+  test('중앙 교차로의 네 차례 통과 구간만 표식 범위로 판정한다', () => {
+    for (const distance of [10, 30, 50, 70]) {
+      expect(isInCrossroadIntersection(distance * TILE, mapId)).toBe(true);
+    }
+    expect(isInCrossroadIntersection(6 * TILE, mapId)).toBe(false);
+    expect(isInCrossroadIntersection(10 * TILE, 'classic-ring')).toBe(false);
   });
 
   test('네 배치 구역은 각각 5열 × 3행이며 바깥 여백은 배치할 수 없다', () => {

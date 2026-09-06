@@ -163,6 +163,9 @@ export class PlayScene extends Phaser.Scene {
       this.core.relics.push('last_stand');
       this.core.exchangesUsed = this.core.maxExchangesNow - 1;
       this.core.holds = [true, true, true, true, true];
+    } else if (localVisualTest === 'crossroad-mark') {
+      this.profile.tutorialDone = true;
+      this.core.relics.push('crossroad_mark');
     } else if (localVisualTest === 'suits') {
       this.profile.tutorialDone = true;
       this.core.hand = [

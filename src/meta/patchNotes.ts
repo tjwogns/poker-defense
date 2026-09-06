@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.2.4';
+export const CURRENT_VERSION = 'v2.2.5';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.2.5',
+    title: 'CROSSROAD FOCUS',
+    date: '2026-09-06',
+    current: true,
+    sections: [
+      {
+        heading: '신규 유물 · 교차로 표식',
+        items: [
+          '중앙 교차로 1.25칸 안의 적이 받는 피해 +25%',
+          '적이 중앙을 네 차례 통과하는 교차로 경로 특성을 집중 화력 전략으로 연결',
+          '유물 보유 중 전장에 초록색 효과 범위와 교차로 +25% 안내 표시',
+        ],
+      },
+      {
+        heading: '전용 시각과 검증',
+        items: [
+          '금빛 나침반과 교차 경로를 표현한 전용 픽셀 유물 아이콘 추가',
+          '클래식 경로에서는 효과가 발동하지 않도록 맵 판정 분리',
+          '중앙 네 차례 통과 지점과 범위 밖 피해를 자동 테스트로 고정',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.2.4',
     title: 'FOUR FORTUNES',
     date: '2026-09-06',
-    current: true,
     sections: [
       {
         heading: '선명해진 유물 빌드',
