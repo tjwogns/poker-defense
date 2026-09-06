@@ -75,9 +75,9 @@ describe('relic effects', () => {
     expect(mods.pairBonusUnit).toBe(false);
   });
 
-  test('압축 애호가는 덱 45장 이하에서만 무료 교환을 추가한다', () => {
-    expect(relicModifiers(['compression_enthusiast'], 46).freeExchanges).toBe(1);
-    expect(relicModifiers(['compression_enthusiast'], 45).freeExchanges).toBe(2);
+  test('압축 애호가는 덱 48장 이하에서 무료 교환 2회를 추가한다', () => {
+    expect(relicModifiers(['compression_enthusiast'], 49).freeExchanges).toBe(1);
+    expect(relicModifiers(['compression_enthusiast'], 48).freeExchanges).toBe(3);
   });
 
   test('조건부 피해 유물은 유닛·배치·적 상태를 판정하고 ×3에서 제한한다', () => {
@@ -91,6 +91,9 @@ describe('relic effects', () => {
     expect(relicUnitDamageMultiplier(['rear_position'], unit, enemy, field)).toBe(1.25);
     expect(relicUnitDamageMultiplier(['pristine_oath'], unit, enemy, field)).toBe(1.6);
     expect(relicUnitDamageMultiplier(['delay_tactics'], unit, enemy, field)).toBe(1.25);
+    expect(relicUnitDamageMultiplier(['blood_contract'], unit, enemy, field)).toBe(0.9);
+    const bossEnemy = spawnEnemy(field, 'boss', 30);
+    expect(relicUnitDamageMultiplier(['blood_contract'], unit, bossEnemy, field)).toBe(1.55);
     const royal = addUnit(field, HandRank.FullHouse, 8, 5);
     expect(relicUnitDamageMultiplier(['royal_bloodline'], royal, enemy, field)).toBe(1.5);
     const mult = relicUnitDamageMultiplier([
@@ -245,8 +248,8 @@ describe('Game relic flow', () => {
   });
 
   test('압축 애호가가 추가 무료 교환을 제공한 순간만 발동 기록을 남긴다', () => {
-    const game = new Game(901);
-    for (let i = 0; i < 7; i++) {
+    const game = new Game(901, 'life-economy');
+    for (let i = 0; i < 4; i++) {
       const handKeys = new Set(game.hand.map((card) => `${card.rank}${card.suit}`));
       const target = game.deckSnapshot().find((card) => !handKeys.has(`${card.rank}${card.suit}`))!;
       game.grantDeckSeal('banish');
@@ -255,9 +258,15 @@ describe('Game relic flow', () => {
     game.relics.push('compression_enthusiast');
     game.gold = 100;
 
-    expect(game.deckSize).toBe(45);
+    expect(game.deckSize).toBe(48);
     expect(game.doExchange()).toBe(true);
     expect(game.lastRelicTriggers).toEqual([]);
+    expect(game.doExchange()).toBe(true);
+    expect(game.lastRelicTriggers).toEqual([]);
+    expect(game.doExchange()).toBe(true);
+    expect(game.lastRelicTriggers).toEqual([]);
+    expect(game.doExchange()).toBe(true);
+    expect(game.lastRelicTriggers).toEqual(['compression_enthusiast']);
     expect(game.doExchange()).toBe(true);
     expect(game.lastRelicTriggers).toEqual(['compression_enthusiast']);
   });
@@ -300,15 +309,18 @@ describe('Game relic flow', () => {
     expect(game.gold).toBe(150);
   });
 
-  test('탐욕의 장부는 이자를 두 배로 늘리고 유료 교환 비용을 50% 올린다', () => {
+  test('탐욕의 장부는 이자를 두 배로 늘리고 150G 비축 시 피해를 높인다', () => {
     const game = new Game(94);
     game.relics.push('greedy_ledger');
-    game.gold = 100;
+    game.gold = 149;
 
-    expect(game.interestNow).toBe(20);
+    expect(game.interestNow).toBe(29);
+    expect(game.dmgMult).toBe(1);
+    game.gold = 150;
+    expect(game.dmgMult).toBe(1.25);
     expect(game.exchangeCostNow).toBe(0);
     game.doExchange();
-    expect(game.exchangeCostNow).toBe(15);
+    expect(game.exchangeCostNow).toBe(10);
   });
 
   test('유리 왕관은 큰 피해 보너스 대신 처치 골드를 낮춘다', () => {
@@ -349,7 +361,7 @@ describe('Game relic flow', () => {
     expect(game.defeatReason).toBe('field-cap');
   });
 
-  test('증축 허가증은 유닛 12기 이상 진형에서 피해를 높인다', () => {
+  test('증축 허가증은 유닛 12기 이상 진형에서 피해를 30% 높인다', () => {
     const game = new Game(963);
     game.relics.push('fortified_table');
     for (let index = 0; index < 12; index++) {
@@ -357,15 +369,15 @@ describe('Game relic flow', () => {
     }
     const enemy = spawnEnemy(game.field, 'normal', 1);
     const result = relicUnitDamageResult(game.relics, game.field.units[0], enemy, game.field);
-    expect(result.multiplier).toBeCloseTo(1.18);
+    expect(result.multiplier).toBeCloseTo(1.3);
     expect(result.active).toEqual(['fortified_table']);
   });
 
-  test('피의 계약은 피해를 높이는 대신 처치 골드를 낮춘다', () => {
+  test('피의 계약은 전역 피해·골드를 바꾸지 않고 대상별 피해를 가른다', () => {
     const mods = relicModifiers(['blood_contract']);
 
-    expect(mods.damageMultiplier).toBeCloseTo(1.25);
-    expect(mods.bountyMultiplier).toBeCloseTo(0.75);
+    expect(mods.damageMultiplier).toBe(1);
+    expect(mods.bountyMultiplier).toBe(1);
   });
 
   test('보스를 처치하지 못하고 10라운드를 넘기면 아직 유물 선택지가 나오지 않는다', () => {

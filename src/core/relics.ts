@@ -58,7 +58,7 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'compound_ledger', name: '복리 장부', description: '이자 +50%, 상한 +20G', glyph: '₩', color: 0x69c98f, rarity: 'rare',
   },
   fortified_table: {
-    id: 'fortified_table', name: '증축 허가증', description: '필드 유닛 12기 이상이면 모든 피해 +18%', glyph: '▦', color: 0x6ca4d9, rarity: 'common',
+    id: 'fortified_table', name: '증축 허가증', description: '필드 유닛 12기 이상이면 모든 피해 +30%', glyph: '▦', color: 0x6ca4d9, rarity: 'common',
   },
   swift_shuffle: {
     id: 'swift_shuffle', name: '재빠른 손놀림', description: '매 라운드 교환 2회 무료', glyph: '↻', color: 0xb781dc, rarity: 'common',
@@ -67,7 +67,7 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'ace_up_sleeve', name: '소매 속 에이스', description: '보스 라운드 족보 +1등급', glyph: 'A', color: 0xe86c78, rarity: 'rare',
   },
   greedy_ledger: {
-    id: 'greedy_ledger', name: '탐욕의 장부', description: '이자 ×2 · 유료 교환 비용 +50%', glyph: '₲', color: 0xc69a45, rarity: 'rare',
+    id: 'greedy_ledger', name: '탐욕의 장부', description: '이자 ×2 · 150G 이상 보유 시 모든 피해 +25%', glyph: '₲', color: 0xc69a45, rarity: 'rare',
   },
   glass_crown: {
     id: 'glass_crown', name: '유리 왕관', description: '모든 피해 +35% · 처치 골드 −15%', glyph: '♕', color: 0xe57b77, rarity: 'legendary',
@@ -76,7 +76,7 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'frozen_clover', name: '행운의 클로버', description: '모든 피해 +8% · 무료 교환 +1', glyph: '♣', color: 0x78cde0, rarity: 'rare',
   },
   blood_contract: {
-    id: 'blood_contract', name: '피의 계약', description: '모든 피해 +25% · 처치 골드 −25%', glyph: '♥', color: 0xd85c68, rarity: 'rare',
+    id: 'blood_contract', name: '피의 계약', description: '보스 피해 +55% · 일반 적 피해 −10%', glyph: '♥', color: 0xd85c68, rarity: 'rare',
   },
   underdog_banner: {
     id: 'underdog_banner', name: '언더독 깃발', description: '하이카드·원페어 유닛 피해 ×1.75', glyph: '⚑', color: 0xd8894a, rarity: 'rare',
@@ -100,13 +100,15 @@ export const RELIC_DEFS: Record<RelicId, RelicDef> = {
     id: 'delay_tactics', name: '지연 전술', description: '이미 느리거나 기절한 적에게 피해 +25%', glyph: '◷', color: 0x78cde0, rarity: 'common',
   },
   compression_enthusiast: {
-    id: 'compression_enthusiast', name: '압축 애호가', description: '덱 45장 이하일 때 무료 교환 +1', glyph: '▣', color: 0xb781dc, rarity: 'rare',
+    id: 'compression_enthusiast', name: '압축 애호가', description: '덱 48장 이하일 때 무료 교환 +2', glyph: '▣', color: 0xb781dc, rarity: 'rare',
   },
 };
 
 export const RELIC_IDS = Object.keys(RELIC_DEFS) as RelicId[];
 export const RELIC_SLOT_CAP = 5;
 export const RELIC_CONDITIONAL_DAMAGE_CAP = 3;
+export const COMPRESSION_DECK_THRESHOLD = 48;
+export const GREEDY_LEDGER_GOLD_THRESHOLD = 150;
 
 export interface RelicDamageResult {
   multiplier: number;
@@ -179,23 +181,22 @@ export interface RelicModifiers {
   pairBonusUnit: boolean;
 }
 
-export function relicModifiers(owned: readonly RelicId[], deckSize = 52): RelicModifiers {
+export function relicModifiers(owned: readonly RelicId[], deckSize = 52, gold = 0): RelicModifiers {
   const has = (id: RelicId) => owned.includes(id);
   return {
     damageMultiplier: (has('royal_seal') ? 1.12 : 1)
       * (has('glass_crown') ? 1.35 : 1)
       * (has('frozen_clover') ? 1.08 : 1)
-      * (has('blood_contract') ? 1.25 : 1),
+      * (has('greedy_ledger') && gold >= GREEDY_LEDGER_GOLD_THRESHOLD ? 1.25 : 1),
     bountyMultiplier: (has('war_chest') ? 1.25 : 1)
-      * (has('glass_crown') ? 0.85 : 1)
-      * (has('blood_contract') ? 0.75 : 1),
+      * (has('glass_crown') ? 0.85 : 1),
     interestMultiplier: (has('compound_ledger') ? 1.5 : 1) * (has('greedy_ledger') ? 2 : 1),
     interestCapBonus: has('compound_ledger') ? 20 : 0,
     freeExchanges: (has('swift_shuffle') ? 2 : 1)
       + (has('frozen_clover') ? 1 : 0)
-      + (has('compression_enthusiast') && deckSize <= 45 ? 1 : 0),
+      + (has('compression_enthusiast') && deckSize <= COMPRESSION_DECK_THRESHOLD ? 2 : 0),
     bossRankBonus: has('ace_up_sleeve') ? 1 : 0,
-    exchangeCostMultiplier: has('greedy_ledger') ? 1.5 : 1,
+    exchangeCostMultiplier: 1,
     fourSuitGoldBonus: has('four_suit_crest') ? 15 : 0,
     pairBonusUnit: has('pair_broker'),
   };
@@ -220,8 +221,16 @@ export function relicUnitDamageResult(
   let multiplier = 1;
   const active: RelicId[] = [];
   if (owned.includes('fortified_table') && field.units.length >= 12) {
-    multiplier *= 1.18;
+    multiplier *= 1.3;
     active.push('fortified_table');
+  }
+  if (owned.includes('blood_contract')) {
+    if (enemy.kind === 'boss') {
+      multiplier *= 1.55;
+      active.push('blood_contract');
+    } else {
+      multiplier *= 0.9;
+    }
   }
   if (owned.includes('underdog_banner') && unit.tier <= HandRank.Pair) {
     multiplier *= 1.75;

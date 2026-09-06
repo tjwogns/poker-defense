@@ -9,14 +9,38 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.2.3';
+export const CURRENT_VERSION = 'v2.2.4';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.2.4',
+    title: 'FOUR FORTUNES',
+    date: '2026-09-06',
+    current: true,
+    sections: [
+      {
+        heading: '선명해진 유물 빌드',
+        items: [
+          '증축 허가증은 유닛 12기 이상일 때 피해 +30%로 다수 배치의 보상을 강화',
+          '피의 계약은 보스 피해 +55%·일반 적 피해 −10%로 보스 사냥 특화 유물로 변경',
+          '탐욕의 장부는 이자 ×2와 150G 이상 피해 +25%를 제공해 골드 비축 빌드 지원',
+          '압축 애호가는 덱 48장 이하부터 무료 교환 +2를 제공해 덱 개조의 보상을 앞당김',
+        ],
+      },
+      {
+        heading: '규칙 정합성과 검증',
+        items: [
+          '탐욕의 장부의 LIFE 규칙과 맞지 않던 유료 교환 비용 페널티 제거',
+          '압축 애호가 발동 표시는 유물로 늘어난 추가 무료 교환을 사용할 때만 노출',
+          '보스 돌파 자동 시뮬레이션과 유물 조건 회귀 테스트로 변경 효과 검증',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.2.3',
     title: 'HOLD THE LINE',
     date: '2026-09-06',
-    current: true,
     sections: [
       {
         heading: '보스 돌파는 즉시 패배',

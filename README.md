@@ -3,6 +3,15 @@
 포커 족보로 유닛을 뽑아 순환 경로를 도는 적을 막는 웹 디펜스 게임.
 카드 조합, 군단 성장, 순환형 전장을 결합한 독립 오리지널 프로젝트다.
 
+## v2.2.4 Four Fortunes
+
+- 정식 게임 주소: https://tjwogns.github.io/poker-defense/
+- `증축 허가증`: 필드 유닛 12기 이상 피해 +30%로 다수 배치 빌드 강화
+- `피의 계약`: 보스 피해 +55%·일반 적 피해 −10%로 보스 사냥 특화
+- `탐욕의 장부`: 이자 ×2·150G 이상 피해 +25%로 골드 비축 빌드 지원
+- `압축 애호가`: 덱 48장 이하 무료 교환 +2로 덱 압축 보상을 앞당김
+- LIFE 규칙과 맞지 않던 탐욕의 장부 유료 교환 비용 페널티 제거
+
 ## v2.2.3 Hold the Line
 
 - 정식 게임 주소: https://tjwogns.github.io/poker-defense/
@@ -187,6 +196,7 @@ npm run sim -- 5 clear-high6     # 고점 실험: 풀하우스3·포카드2·스
 npm run sim -- 30 hidden-compare  # 기본/복제/히든 추적 전략 비교
 npm run sim -- 30 mastery-compare # 미구매/전부/저족보/고족보 연마 전략 비교
 npm run sim -- 30 life-compare    # 클래식과 LIFE LAB 동일 시드 비교
+npm run sim -- 30 boss-gate      # 기본 LIFE·왕관 I 보스별 돌파 패배 비교
 npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
 SINGLEFILE=1 npm run build  # 단일 HTML 파일 빌드 (배포/공유용)
 node scripts/smoke.mjs      # E2E 스모크 (Chrome 필요, 프리뷰 서버 선행)

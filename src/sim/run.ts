@@ -3,7 +3,8 @@
  * 휴리스틱 전략으로 자동 플레이해 클리어율/도달 라운드 통계를 낸다.
  * core만 import — 렌더링 의존성 없음.
  */
-import { DeckSealId, Game, GameRuleset } from '../core/game';
+import { DeckSealId, DefeatReason, Game, GameRuleset } from '../core/game';
+import { CrownLevel } from '../core/balance';
 import { Card, HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { evaluateHand } from '../core/cards/evaluator';
 import { GRID_W, GRID_H, MapId, distanceToPathTiles, isPlaceable, tileCanReachPath } from '../core/map';
@@ -291,6 +292,9 @@ interface GameStats {
   incomeInterest: number;
   incomeRelic: number;
   incomeSales: number;
+  defeatReason: DefeatReason | null;
+  escapedBossRound: number | null;
+  escapedBossHpPct: number | null;
 }
 
 function playGame(
@@ -301,8 +305,9 @@ function playGame(
   upgradeFromRound = 1,
   forcedHands: ReadonlyMap<number, readonly Card[]> = new Map(),
   ruleset: GameRuleset = 'classic',
+  crownLevel: CrownLevel = 0,
 ): GameStats {
-  const g = new Game(seed, ruleset);
+  const g = new Game(seed, ruleset, crownLevel);
   const stats: GameStats = {
     seed, result: 'defeat', roundReached: 1, upgradeLevel: 0,
     handCounts: Array(HandRank.FlushFive + 1).fill(0), score: 0,
@@ -312,6 +317,7 @@ function playGame(
     finalBossHpPct: 1,
     livesEnd: g.lives, escapedEnemies: 0, lifeDamageTaken: 0,
     incomeBounty: 0, incomeDiamond: 0, incomeClear: 0, incomeInterest: 0, incomeRelic: 0, incomeSales: 0,
+    defeatReason: null, escapedBossRound: null, escapedBossHpPct: null,
   };
   const dt = 1 / 30;
   let guard = 0;
@@ -338,6 +344,11 @@ function playGame(
   stats.incomeInterest = g.goldIncome.interest;
   stats.incomeRelic = g.goldIncome.relic;
   stats.incomeSales = g.goldIncome.sales;
+  stats.defeatReason = g.defeatReason;
+  const escapedBoss = [...g.lifeRoundHistory].reverse()
+    .find((record) => record.escapedBossHpPercent !== null);
+  stats.escapedBossRound = escapedBoss?.round ?? null;
+  stats.escapedBossHpPct = escapedBoss?.escapedBossHpPercent ?? null;
   const finalBoss = g.field.enemies.find((enemy) => enemy.kind === 'boss' && enemy.round === 60);
   stats.finalBossHpPct = finalBoss ? Math.max(0, finalBoss.hp / finalBoss.maxHp) : 0;
   return stats;
@@ -351,6 +362,7 @@ else if (strategyArg === 'relic-compare') printRelicComparison(games);
 else if (strategyArg === 'hidden-compare') printHiddenComparison(games);
 else if (strategyArg === 'mastery-compare') printMasteryComparison(games);
 else if (strategyArg === 'life-compare') printLifeComparison(games);
+else if (strategyArg === 'boss-gate') printBossGateComparison(games);
 else if (strategyArg === 'clear') printClearAttempt(runClearGames(games, 1), 1);
 else if (strategyArg === 'clear-delay30') printClearAttempt(runClearGames(games, 31), 31);
 else if (strategyArg === 'clear-high6') printClearAttempt(runHighHandGames(games), 1, '고족보 6회');
@@ -380,6 +392,48 @@ function runLifeGames(count: number): GameStats[] {
     { length: count },
     (_, index) => playGame(index + 1, 'both', 'targeted', 'low', 1, new Map(), 'life-economy'),
   );
+}
+
+function runBossGateGames(
+  count: number,
+  crownLevel: CrownLevel,
+  forcedHands: ReadonlyMap<number, readonly Card[]> = new Map(),
+): GameStats[] {
+  return Array.from(
+    { length: count },
+    (_, index) => playGame(index + 1, 'both', 'targeted', 'low', 1, forcedHands, 'life-economy', crownLevel),
+  );
+}
+
+function printBossGateComparison(count: number): void {
+  const print = (label: string, all: GameStats[]) => {
+    const wins = all.filter((game) => game.result === 'victory').length;
+    const averageRound = all.reduce((sum, game) => sum + game.roundReached, 0) / all.length;
+    const bossEscapes = all.filter((game) => game.defeatReason === 'boss-escaped');
+    const byRound = [10, 20, 30, 40, 50, 60]
+      .map((round) => `${round}:${bossEscapes.filter((game) => game.escapedBossRound === round).length}`)
+      .join(' · ');
+    const averageEscapeHp = bossEscapes.length > 0
+      ? bossEscapes.reduce((sum, game) => sum + (game.escapedBossHpPct ?? 0), 0) / bossEscapes.length
+      : 0;
+    const otherReasons = all
+      .filter((game) => game.result === 'defeat' && game.defeatReason !== 'boss-escaped')
+      .reduce<Record<string, number>>((counts, game) => {
+        const reason = game.defeatReason ?? 'unknown';
+        counts[reason] = (counts[reason] ?? 0) + 1;
+        return counts;
+      }, {});
+    console.log(`\n${label}`);
+    console.log(`클리어 ${wins}/${all.length} (${((wins / all.length) * 100).toFixed(1)}%) · 평균 R${averageRound.toFixed(1)}`);
+    console.log(`보스 돌파 패배 ${bossEscapes.length} · 라운드별 ${byRound} · 평균 잔여 HP ${averageEscapeHp.toFixed(1)}%`);
+    console.log(`기타 패배 ${JSON.stringify(otherReasons)}`);
+  };
+
+  console.log(`\n=== 보스 관문 비교 · 동일 시드 각 ${count}판 ===`);
+  print('기본 LIFE', runBossGateGames(count, 0));
+  print('기본 LIFE · 고족보 6회', runBossGateGames(count, 0, HIGH_HAND_SCHEDULE));
+  print('왕관 I', runBossGateGames(count, 1));
+  print('왕관 I · 고족보 6회', runBossGateGames(count, 1, HIGH_HAND_SCHEDULE));
 }
 
 function printLifeComparison(count: number): void {

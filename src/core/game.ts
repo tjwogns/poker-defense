@@ -21,6 +21,7 @@ import { MapId, isPlaceable, pathLength, tileCanReachPath } from './map';
 import { UNIT_DEFS } from './units';
 import {
   RelicId,
+  COMPRESSION_DECK_THRESHOLD,
   RELIC_SLOT_CAP,
   relicChoices as makeRelicChoices,
   relicBuyPrice,
@@ -423,9 +424,11 @@ export class Game {
     if (this.exchangesUsed >= this.maxExchangesNow) return false;
     const cost = this.exchangeCostNow;
     if (this.gold < cost) return false;
-    const baseFreeExchanges = this.relics.includes('swift_shuffle') ? 2 : 1;
+    const baseFreeExchanges = (this.lifeMode ? LIFE_MODE_BASE_EXCHANGES : 1)
+      + (this.relics.includes('swift_shuffle') ? 1 : 0)
+      + (this.relics.includes('frozen_clover') ? 1 : 0);
     const compressionTriggered = this.relics.includes('compression_enthusiast')
-      && this.deckSize <= 45
+      && this.deckSize <= COMPRESSION_DECK_THRESHOLD
       && this.exchangesUsed >= baseFreeExchanges
       && cost === 0;
     this.lastRelicTriggers = compressionTriggered ? ['compression_enthusiast'] : [];
@@ -575,7 +578,8 @@ export class Game {
   }
 
   get dmgMult(): number {
-    return upgradeMultiplier(this.upgradeLevel) * relicModifiers(this.relics).damageMultiplier;
+    return upgradeMultiplier(this.upgradeLevel)
+      * relicModifiers(this.relics, this.deckSize, this.gold).damageMultiplier;
   }
 
   unitDamageMult(tier: HandRank, _targetIsBoss = false): number {
