@@ -69,6 +69,7 @@ export interface GoldIncomeLedger {
   clear: number;
   interest: number;
   relic: number;
+  wager: number;
   sales: number;
 }
 
@@ -100,7 +101,7 @@ export interface LifeRoundRecord {
 }
 
 function emptyIncomeLedger(): GoldIncomeLedger {
-  return { bounty: 0, diamond: 0, clear: 0, interest: 0, relic: 0, sales: 0 };
+  return { bounty: 0, diamond: 0, clear: 0, interest: 0, relic: 0, wager: 0, sales: 0 };
 }
 
 function emptySpendLedger(): GoldSpendLedger {
@@ -355,6 +356,12 @@ export class Game {
   grantDeckSeal(id: DeckSealId, count = 1): void {
     if (!Number.isInteger(count) || count <= 0) throw new Error('seal count must be a positive integer');
     this.deckSeals[id] += count;
+  }
+
+  grantWagerGold(amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    this.gold += amount;
+    this.goldIncome.wager += amount;
   }
 
   /** 현재 패의 교환 가능성을 깨뜨리지 않는 범위에서만 덱 개조를 허용한다. */

@@ -119,6 +119,7 @@ export class SidePanel {
   private relicIconIds = '';
   private relicTriggerText!: Phaser.GameObjects.Text;
   private combatText!: Phaser.GameObjects.Text;
+  private wagerText!: Phaser.GameObjects.Text;
   private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
   private inspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
   private inspectorName!: Phaser.GameObjects.Text;
@@ -224,6 +225,7 @@ export class SidePanel {
       cb.onSpeed(SPEEDS[(current + 1) % SPEEDS.length]);
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 12, radius: 0, strokeAlpha: 0.14 });
     this.combatText = makeText(scene, 816, 638, '', 11, UI.textDim).setWordWrapWidth(420, true);
+    this.wagerText = makeText(scene, 816, 670, '', 10, UI.gold, true).setWordWrapWidth(420, true);
 
     const inspectorBg = scene.add.rectangle(646, 382, 240, 172, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(10);
@@ -302,6 +304,10 @@ export class SidePanel {
     this.buildText = scene.add.text(0, 0, '').setVisible(false);
     this.combatText = scene.add.text(0, 0, '').setVisible(false);
     this.relicTriggerText = makeText(scene, 195, py(372), '', 12, UI.gold, true).setOrigin(0.5).setAlpha(0).setDepth(7);
+    this.wagerText = scene.add.text(195, py(104), '', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold,
+      backgroundColor: '#0d0d13', padding: { x: 7, y: 3 }, align: 'center',
+    }).setOrigin(0.5, 0).setDepth(6);
 
     this.deckBtn = makeButton(scene, 53, py(769), 82, 50, tr('덱', 'DECK'), cb.onDeck, {
       fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14,
@@ -351,6 +357,10 @@ export class SidePanel {
     this.scene.tweens.add({
       targets: this.relicTriggerText, alpha: 0, scale: 1, delay: 650, duration: 450, ease: 'Cubic.Out',
     });
+  }
+
+  setWagerStatus(text: string, visible: boolean): void {
+    this.wagerText.setText(text).setVisible(visible);
   }
 
   refresh(
@@ -410,9 +420,11 @@ export class SidePanel {
       ? tr(
         `처치 +${settlement.income.bounty} · 클리어 +${settlement.income.clear} · 이자 +${settlement.income.interest}`
           + `${otherIncome > 0 ? ` · 기타 +${otherIncome}` : ''}`
+          + `${settlement.income.wager > 0 ? ` · 내기 +${settlement.income.wager}` : ''}`
           + `${settlement.escaped > 0 ? ` · 탈출 ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`,
         `KILLS +${settlement.income.bounty} · CLEAR +${settlement.income.clear} · INTEREST +${settlement.income.interest}`
           + `${otherIncome > 0 ? ` · OTHER +${otherIncome}` : ''}`
+          + `${settlement.income.wager > 0 ? ` · WAGER +${settlement.income.wager}` : ''}`
           + `${settlement.escaped > 0 ? ` · ESCAPED ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`,
       )
       : waveHint(wave.kind));

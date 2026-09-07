@@ -1,7 +1,7 @@
 {
   "name": "poker-defense",
   "private": true,
-  "version": "2.3.1",
+  "version": "2.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,7 +18,8 @@
     "smoke:bosses": "node scripts/boss-visual-smoke.mjs",
     "smoke:enemies": "node scripts/enemy-art-smoke.mjs",
     "smoke:last-stand": "node scripts/last-stand-smoke.mjs",
-    "smoke:crossroad-mark": "node scripts/crossroad-mark-smoke.mjs"
+    "smoke:crossroad-mark": "node scripts/crossroad-mark-smoke.mjs",
+    "smoke:wager": "node scripts/wager-smoke.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1"

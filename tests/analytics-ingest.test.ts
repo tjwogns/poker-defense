@@ -28,6 +28,17 @@ describe('analytics ingestion validation', () => {
     expect(sql).toContain("WHEN 'first_combat_cleared'");
   });
 
+  test('로열 웨이저 SQL이 선택률과 정산 성공률을 집계한다', () => {
+    const sql = readFileSync(new URL('../leaderboard-worker/queries/analytics-summary.sql', import.meta.url), 'utf8');
+    expect(sql).toContain("name = 'wager_selected'");
+    expect(sql).toContain("events.name = 'wager_offered'");
+    expect(sql).toContain("'$.offeredIds'");
+    expect(sql).toContain('selected_run_percent');
+    expect(sql).toContain("name = 'wager_resolved'");
+    expect(sql).toContain("'$.success'");
+    expect(sql).toContain('success_percent');
+  });
+
   test('허용된 익명 이벤트를 받는다', () => {
     expect(validateAnalyticsSubmission(validBody())).toBe('');
 
@@ -61,6 +72,30 @@ describe('analytics ingestion validation', () => {
       ruleset: 'life-economy', round: 1,
     };
     expect(validateAnalyticsSubmission(onboarding)).toBe('');
+
+    const wagerOffered = validBody();
+    wagerOffered.event.name = 'wager_offered';
+    wagerOffered.event.properties = {
+      offeredIds: ['pristine_three', 'pair_three', 'straight_one'],
+      round: 1, locale: 'en', layout: 'landscape',
+    };
+    expect(validateAnalyticsSubmission(wagerOffered)).toBe('');
+
+    const wagerSelected = validBody();
+    wagerSelected.event.name = 'wager_selected';
+    wagerSelected.event.properties = {
+      wagerId: 'pristine_three', offeredIds: ['pristine_three', 'pair_three', 'straight_one'],
+      round: 1, locale: 'en', layout: 'landscape',
+    };
+    expect(validateAnalyticsSubmission(wagerSelected)).toBe('');
+
+    const wagerResolved = validBody();
+    wagerResolved.event.name = 'wager_resolved';
+    wagerResolved.event.properties = {
+      wagerId: 'pristine_three', success: true, progress: 3, target: 3,
+      rewardType: 'gold', rewardAmount: 35, round: 10,
+    };
+    expect(validateAnalyticsSubmission(wagerResolved)).toBe('');
   });
 
   test('허용된 웹 주소의 preflight에 자격 증명 CORS 헤더를 반환한다', async () => {

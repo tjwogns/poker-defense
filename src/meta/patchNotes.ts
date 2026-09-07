@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.3.1';
+export const CURRENT_VERSION = 'v2.4.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.4.0',
+    title: 'ROYAL WAGER',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '첫 10라운드의 새로운 선택',
+        items: [
+          '원정 시작 시 시드로 정해진 왕실 내기 3개 중 하나를 선택하거나 내기 없이 시작',
+          '무교환·원페어·대표 문양·투페어 이상·네 문양·스트레이트 목표를 R1~R9에 도전',
+          '진행도를 전투 화면에서 확인하고 R10 진입 시 성공 보상을 한 번만 지급',
+        ],
+      },
+      {
+        heading: '안전한 보상과 측정',
+        items: [
+          '성공 시 30~40G 또는 추방·복제 인장 1개를 지급하고 실패에는 페널티 없음',
+          '내기 골드를 별도 경제 원장으로 집계해 유물 수입과 분리',
+          'DATA ON에서 제시·선택·완료율을 익명 집계하며 DATA OFF에서는 기록하지 않음',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.3.1',
     title: 'FULL EXPEDITION',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '끝까지 이어지는 영어 원정',

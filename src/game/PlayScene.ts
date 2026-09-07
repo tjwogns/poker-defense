@@ -28,6 +28,7 @@ import { OddsOverlay } from './OddsOverlay';
 import { RerollOdds } from '../core/cards/odds';
 import { analyzeDefeat, DefeatAnalysis } from '../meta/defeatAnalysis';
 import { DeckOverlay } from './DeckOverlay';
+import { WagerOverlay } from './WagerOverlay';
 import { MaintenanceOverlay } from './MaintenanceOverlay';
 import { FirstRunCoach } from './FirstRunCoach';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
@@ -40,6 +41,11 @@ import {
   getLocale, handName, handVariantName, relicDescription, relicName, relicRarityName,
   suitIdentityName, tr, unitName,
 } from '../i18n';
+import { evaluateHand } from '../core/cards/evaluator';
+import {
+  createRoyalWagerState, recordRoyalWagerConfirmation, resolveRoyalWager,
+  royalWagerOutcome, ROYAL_WAGERS, royalWagerOffers, RoyalWagerId, RoyalWagerState,
+} from '../core/wagers';
 
 const DT = 1 / TICK_RATE;
 
@@ -99,6 +105,10 @@ export class PlayScene extends Phaser.Scene {
   private compactFx = false;
   private firstRun = false;
   private onboardingSteps = new Set<string>();
+  private wagerOverlay: WagerOverlay | null = null;
+  private wagerState: RoyalWagerState = createRoyalWagerState(null);
+  private wagerChoiceMade = false;
+  private wagerOfferedIds: RoyalWagerId[] = [];
 
   constructor() {
     super('play');
@@ -164,6 +174,10 @@ export class PlayScene extends Phaser.Scene {
     this.lastRelicFeedbackAt = -Infinity;
     this.compactFx = isCompactTouchDevice();
     this.onboardingSteps.clear();
+    this.wagerOverlay = null;
+    this.wagerState = createRoyalWagerState(null);
+    this.wagerChoiceMade = false;
+    this.wagerOfferedIds = royalWagerOffers(this.seedValue).map(({ id }) => id);
     this.profile = ensureLeaderboardIdentity(loadProfile(localStorage), undefined, getLocale());
     const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
       ? new URLSearchParams(window.location.search).get('visualTest')
@@ -374,6 +388,31 @@ export class PlayScene extends Phaser.Scene {
 
     this.refreshUI();
     this.bindKeys();
+    const wagerVisualTest = localVisualTest === 'wager-gold' || localVisualTest === 'wager-seal';
+    if ((!localVisualTest || wagerVisualTest) && this.core.round === 1) {
+      this.wagerOverlay = new WagerOverlay(this, this.wagerOfferedIds.map((id) => ROYAL_WAGERS[id]), (id) => {
+        this.wagerOverlay = null;
+        this.wagerChoiceMade = true;
+        this.wagerState = createRoyalWagerState(id);
+        if (id) this.analytics.track('wager_selected', {
+          wagerId: id,
+          offeredIds: this.wagerOfferedIds,
+          round: this.core.round,
+          locale: getLocale(),
+          layout: isPortraitLayout() ? 'portrait' : 'landscape',
+        }, this.runId);
+        this.audio.play('click');
+        this.refreshUI();
+      });
+      this.analytics.track('wager_offered', {
+        offeredIds: this.wagerOfferedIds,
+        round: this.core.round,
+        locale: getLocale(),
+        layout: isPortraitLayout() ? 'portrait' : 'landscape',
+      }, this.runId);
+    } else {
+      this.wagerChoiceMade = true;
+    }
     if (!this.profile.tutorialDone) {
       this.firstRunCoachActive = true;
       this.trackOnboardingStep('run_started');
@@ -417,6 +456,9 @@ export class PlayScene extends Phaser.Scene {
         speed(): number;
         paused(): boolean;
         backgroundPaused(): boolean;
+        wager(): RoyalWagerState;
+        wagerOffers(): RoyalWagerId[];
+        setWagerForTest?(id: RoyalWagerId, progress: number): void;
       };
     };
     debugWindow.__game = this.core;
@@ -424,6 +466,14 @@ export class PlayScene extends Phaser.Scene {
       speed: () => this.speed,
       paused: () => this.paused,
       backgroundPaused: () => this.backgroundPaused,
+      wager: () => ({ ...this.wagerState, recordedRounds: [...this.wagerState.recordedRounds] }),
+      wagerOffers: () => [...this.wagerOfferedIds],
+      ...(wagerVisualTest ? {
+        setWagerForTest: (id: RoyalWagerId, progress: number) => {
+          const target = ROYAL_WAGERS[id].target;
+          this.wagerState = { ...createRoyalWagerState(id), progress: Math.max(0, Math.min(target, progress)) };
+        },
+      } : {}),
     };
     if (localVisualTest === 'mastery-result' || localVisualTest === 'mastery-victory' || localVisualTest === 'life-result') {
       this.time.delayedCall(0, () => this.showEnd());
@@ -437,6 +487,7 @@ export class PlayScene extends Phaser.Scene {
       this.resumeFromBackground();
     }
     const dt = safeFrameDelta(deltaMs);
+    this.resolveWagerIfNeeded();
     this.damageLabelShownThisFrame = false;
     this.cameraShakenThisFrame = false;
     if (this.core.phase === 'combat' && !this.paused) this.stepCombat(dt);
@@ -587,6 +638,7 @@ export class PlayScene extends Phaser.Scene {
   // ── UI 동기화 ─────────────────────────────────────
 
   private refreshUI(): void {
+    this.resolveWagerIfNeeded();
     const selected =
       this.selectedUnitId === null
         ? null
@@ -605,6 +657,7 @@ export class PlayScene extends Phaser.Scene {
       this.fusionAnchorId !== null,
       this.fusionSelectedIds.length,
     );
+    this.panel.setWagerStatus(this.wagerHudText(), this.wagerChoiceMade && this.core.round <= 9);
     this.bossHud.refresh(this.core);
     this.firstRunCoach.refresh(this.core, this.firstRunCoachActive);
     this.syncRelicPicker();
@@ -630,6 +683,13 @@ export class PlayScene extends Phaser.Scene {
       this.celebrate(rank, newlyDiscovered);
     }
     if (action === 'confirm' && this.core.lastHandRank !== null) {
+      this.wagerState = recordRoyalWagerConfirmation(this.wagerState, {
+        round: this.core.round,
+        hand: this.core.hand,
+        rank: evaluateHand(this.core.hand),
+        exchangesUsed: this.core.exchangesUsed,
+        dominantSuit: this.core.lastHandSuit,
+      });
       this.analytics.track('hand_confirmed', {
         round: this.core.round,
         rank: this.core.lastHandRank,
@@ -737,15 +797,15 @@ export class PlayScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     keyboard.on('keydown-E', () => {
-      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.wagerOverlay || this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.doExchange()) this.onHandAction('exchange');
     });
     keyboard.on('keydown-ENTER', () => {
-      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.wagerOverlay || this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.confirmHand(true) !== null) this.onHandAction('confirm');
     });
     keyboard.on('keydown-SPACE', () => {
-      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.wagerOverlay || this.tutorialActive || this.ended || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.core.phase === 'combat') this.togglePause();
       else if (this.core.startCombat()) {
         this.trackCombatStarted();
@@ -755,7 +815,7 @@ export class PlayScene extends Phaser.Scene {
     });
     for (const [key, n] of [['ONE', 1], ['TWO', 2], ['FOUR', 4]] as const) {
       keyboard.on(`keydown-${key}`, () => {
-        if (this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+        if (this.wagerOverlay || this.maintenanceOverlay || this.guideOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
         if (this.core.phase === 'combat') {
           this.speed = n;
           this.refreshUI();
@@ -763,15 +823,15 @@ export class PlayScene extends Phaser.Scene {
       });
     }
     keyboard.on('keydown-M', () => {
-      if (!this.maintenanceOverlay && !this.guideOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.toggleSound();
+      if (!this.wagerOverlay && !this.maintenanceOverlay && !this.guideOverlay && !this.oddsOverlay && !this.deckOverlay && !this.exitOverlay) this.toggleSound();
     });
     keyboard.on('keydown-H', () => {
-      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.relicOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
+      if (this.wagerOverlay || this.tutorialActive || this.ended || this.maintenanceOverlay || this.relicOverlay || this.oddsOverlay || this.deckOverlay || this.exitOverlay) return;
       if (this.guideOverlay) this.closeGuide();
       else this.openGuide();
     });
     keyboard.on('keydown-D', () => {
-      if (this.tutorialActive || this.ended || this.maintenanceOverlay || this.relicOverlay || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
+      if (this.wagerOverlay || this.tutorialActive || this.ended || this.maintenanceOverlay || this.relicOverlay || this.guideOverlay || this.oddsOverlay || this.exitOverlay) return;
       if (this.deckOverlay) this.closeDeck();
       else this.openDeck();
     });
@@ -1077,16 +1137,22 @@ export class PlayScene extends Phaser.Scene {
     this.relicOverlay = this.add.container(0, 0, children).setDepth(18);
   }
 
-  private flashCenter(labelText: string, color: number, depth = 16): void {
+  private flashCenter(
+    labelText: string,
+    color: number,
+    depth = 16,
+    position?: { x?: number; y?: number; targetY?: number; fontSize?: number; wrapWidth?: number },
+  ): void {
     const portrait = isPortraitLayout();
     const portraitHeight = portraitSceneHeight(this);
     const label = makeText(
-      this, portrait ? 195 : 390, portrait ? portraitY(portraitHeight, 330) : 270, labelText, portrait ? 20 : 30,
+      this, position?.x ?? (portrait ? 195 : 390), position?.y ?? (portrait ? portraitY(portraitHeight, 330) : 270), labelText, position?.fontSize ?? (portrait ? 20 : 30),
       `#${color.toString(16).padStart(6, '0')}`, true,
     )
       .setOrigin(0.5).setDepth(depth).setShadow(0, 3, '#000000', 8);
+    if (position?.wrapWidth) label.setWordWrapWidth(position.wrapWidth, true).setAlign('center');
     this.tweens.add({
-      targets: label, y: portrait ? portraitY(portraitHeight, 300) : 230, alpha: 0, duration: 1200, ease: 'Cubic.Out',
+      targets: label, y: position?.targetY ?? (portrait ? portraitY(portraitHeight, 300) : 230), alpha: 0, duration: 1200, ease: 'Cubic.Out',
       onComplete: () => label.destroy(),
     });
   }
@@ -1321,6 +1387,82 @@ export class PlayScene extends Phaser.Scene {
     return Math.max(0, Math.round(this.core.field.time - startedAt));
   }
 
+  private wagerHudText(): string {
+    const id = this.wagerState.selectedId;
+    if (!id) return '';
+    const definition = ROYAL_WAGERS[id];
+    const copy = getLocale() === 'ko' ? definition.ko : definition.en;
+    const suit = this.wagerState.lockedSuit ? ` ${SUIT_GLYPHS[this.wagerState.lockedSuit]}` : '';
+    const complete = this.wagerState.progress >= definition.target;
+    return `${complete ? '✓ ' : '♛ '}${copy.name}${suit}  ${this.wagerState.progress}/${definition.target}`;
+  }
+
+  private wagerResultText(): string {
+    const id = this.wagerState.selectedId;
+    if (!id) return tr('왕실 내기 — 미선택', 'ROYAL WAGER — NONE');
+    const definition = ROYAL_WAGERS[id];
+    const copy = getLocale() === 'ko' ? definition.ko : definition.en;
+    const outcome = royalWagerOutcome(this.wagerState);
+    if (outcome === 'achieved-pending') return tr(
+      `왕실 내기 달성 · ${copy.name} ${this.wagerState.progress}/${definition.target} · R10 보상 예정`,
+      `ROYAL WAGER ACHIEVED · ${copy.name.toUpperCase()} ${this.wagerState.progress}/${definition.target} · REWARD AT R10`,
+    );
+    if (outcome === 'unfinished') return tr(
+      `왕실 내기 미완료 · ${copy.name} ${this.wagerState.progress}/${definition.target}`,
+      `ROYAL WAGER UNFINISHED · ${copy.name.toUpperCase()} ${this.wagerState.progress}/${definition.target}`,
+    );
+    const success = outcome === 'succeeded';
+    return tr(
+      `왕실 내기 ${success ? '성공' : '실패'} · ${copy.name} ${this.wagerState.progress}/${definition.target}`,
+      `ROYAL WAGER ${success ? 'CLEARED' : 'FAILED'} · ${copy.name.toUpperCase()} ${this.wagerState.progress}/${definition.target}`,
+    );
+  }
+
+  private resolveWagerIfNeeded(): void {
+    const wagerId = this.wagerState.selectedId;
+    if (this.core.round < 10 || !wagerId || this.wagerState.resolved) return;
+    const result = resolveRoyalWager(this.wagerState, this.core.round);
+    if (!result.state.resolved) return;
+    this.wagerState = result.state;
+    if (result.reward?.kind === 'gold') {
+      this.core.grantWagerGold(result.reward.amount);
+    } else if (result.reward?.kind === 'deck-seal') {
+      this.core.grantDeckSeal(result.reward.id, result.reward.amount);
+    }
+    const definition = ROYAL_WAGERS[wagerId];
+    this.analytics.track('wager_resolved', {
+      wagerId,
+      success: this.wagerState.succeeded,
+      progress: this.wagerState.progress,
+      target: definition.target,
+      rewardType: definition.reward.kind,
+      rewardAmount: definition.reward.amount,
+      round: this.core.round,
+    }, this.runId);
+    const rewardText = definition.reward.kind === 'gold'
+      ? tr(`+${definition.reward.amount}G 지급`, `+${definition.reward.amount}G PAID`)
+      : tr(
+        `${definition.reward.id === 'duplicate' ? '복제' : '추방'} 인장 ×${definition.reward.amount} 지급`,
+        `${definition.reward.id.toUpperCase()} SEAL ×${definition.reward.amount} AWARDED`,
+      );
+    const portrait = isPortraitLayout();
+    const height = portraitSceneHeight(this);
+    this.flashCenter(
+      this.wagerState.succeeded
+        ? tr(`왕실 내기 성공 · ${rewardText}`, `ROYAL WAGER CLEARED · ${rewardText}`)
+        : tr('왕실 내기 실패 · 페널티 없음', 'ROYAL WAGER FAILED · NO PENALTY'),
+      this.wagerState.succeeded ? UI.goldNum : UI.danger,
+      60,
+      {
+        x: portrait ? 195 : 640,
+        y: portrait ? portraitY(height, 150) : 68,
+        targetY: portrait ? portraitY(height, 120) : 48,
+        fontSize: portrait ? 15 : 30,
+        wrapWidth: portrait ? 350 : undefined,
+      },
+    );
+  }
+
   // ── 종료 ──────────────────────────────────────────
 
   private showEnd(): void {
@@ -1386,8 +1528,8 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(centerX, portrait ? py(226) : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}`, {
-        fontFamily: portrait ? FONT_MONO : FONT, fontSize: portrait ? '16px' : '18px', color: UI.gold,
+      .text(centerX, portrait ? py(226) : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}\n${this.wagerResultText()}`, {
+        fontFamily: portrait ? FONT_MONO : FONT, fontSize: portrait ? '14px' : '16px', color: UI.gold, align: 'center', lineSpacing: 5,
       })
       .setOrigin(0.5)
       .setDepth(21);
@@ -1422,6 +1564,8 @@ export class PlayScene extends Phaser.Scene {
       tutorialDone: this.profile.tutorialDone,
       locale: getLocale(),
       layout: isPortraitLayout() ? 'portrait' : 'landscape',
+      wagerId: this.wagerState.selectedId,
+      wagerSuccess: this.wagerState.selectedId ? (this.wagerState.succeeded || this.wagerState.progress >= ROYAL_WAGERS[this.wagerState.selectedId].target) : false,
       masteryRanks: masteryRanks.map((entry) => entry.rank),
       masteryLevels: masteryRanks.map((entry) => entry.level),
       damageRanks: damageLeaders.map((entry) => entry.rank),

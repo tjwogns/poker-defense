@@ -109,6 +109,81 @@ WHERE name = 'relic_selected'
 GROUP BY relic
 ORDER BY selections DESC;
 
+-- Royal Wager adoption: share of recent runs that accepted any wager.
+WITH recent_runs AS (
+  SELECT COUNT(DISTINCT run_id) AS runs_started
+  FROM analytics_events
+  WHERE name = 'run_started'
+    AND received_at >= datetime('now', '-7 days')
+), selected_runs AS (
+  SELECT COUNT(DISTINCT run_id) AS runs_selected
+  FROM analytics_events
+  WHERE name = 'wager_selected'
+    AND received_at >= datetime('now', '-7 days')
+)
+SELECT
+  recent_runs.runs_started,
+  selected_runs.runs_selected,
+  ROUND(100.0 * selected_runs.runs_selected / NULLIF(recent_runs.runs_started, 0), 1) AS wager_selection_percent
+FROM recent_runs
+CROSS JOIN selected_runs;
+
+-- Choice rate by contract using every displayed candidate set, including runs
+-- that skipped the wager or left before choosing.
+WITH recent_runs AS (
+  SELECT COUNT(DISTINCT run_id) AS runs_started
+  FROM analytics_events
+  WHERE name = 'run_started'
+    AND received_at >= datetime('now', '-7 days')
+), offers AS (
+  SELECT
+    offered.value AS wager_id,
+    COUNT(DISTINCT events.run_id) AS offered_runs
+  FROM analytics_events AS events,
+    json_each(events.properties_json, '$.offeredIds') AS offered
+  WHERE events.name = 'wager_offered'
+    AND events.received_at >= datetime('now', '-7 days')
+  GROUP BY offered.value
+), selections AS (
+  SELECT
+    json_extract(properties_json, '$.wagerId') AS wager_id,
+    COUNT(DISTINCT run_id) AS selected_runs
+  FROM analytics_events
+  WHERE name = 'wager_selected'
+    AND received_at >= datetime('now', '-7 days')
+  GROUP BY wager_id
+)
+SELECT
+  offers.wager_id,
+  offers.offered_runs,
+  COALESCE(selections.selected_runs, 0) AS selected_runs,
+  recent_runs.runs_started,
+  ROUND(100.0 * COALESCE(selections.selected_runs, 0) / NULLIF(offers.offered_runs, 0), 1) AS selection_percent,
+  ROUND(100.0 * COALESCE(selections.selected_runs, 0) / NULLIF(recent_runs.runs_started, 0), 1) AS selected_run_percent
+FROM offers
+LEFT JOIN selections USING (wager_id)
+CROSS JOIN recent_runs
+ORDER BY selected_runs DESC, offers.wager_id;
+
+-- Royal Wager completion and success rates by wager.
+SELECT
+  json_extract(properties_json, '$.wagerId') AS wager_id,
+  COUNT(DISTINCT run_id) AS resolved_runs,
+  COUNT(DISTINCT CASE
+    WHEN json_extract(properties_json, '$.success') = 1 THEN run_id
+  END) AS successful_runs,
+  ROUND(100.0 * AVG(CASE
+    WHEN json_extract(properties_json, '$.success') = 1 THEN 1.0 ELSE 0.0
+  END), 1) AS success_percent,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.progress') AS REAL)), 1) AS avg_progress,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.target') AS REAL)), 1) AS avg_target,
+  ROUND(AVG(CAST(json_extract(properties_json, '$.rewardAmount') AS REAL)), 1) AS avg_reward_amount
+FROM analytics_events
+WHERE name = 'wager_resolved'
+  AND received_at >= datetime('now', '-7 days')
+GROUP BY wager_id
+ORDER BY resolved_runs DESC, wager_id;
+
 SELECT
   CAST(json_extract(properties_json, '$.handRank') AS INTEGER) AS hand_rank,
   COUNT(*) AS purchases,

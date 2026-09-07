@@ -291,6 +291,7 @@ interface GameStats {
   incomeClear: number;
   incomeInterest: number;
   incomeRelic: number;
+  incomeWager: number;
   incomeSales: number;
   defeatReason: DefeatReason | null;
   escapedBossRound: number | null;
@@ -316,7 +317,7 @@ function playGame(
     deckSize: 52, goldEnd: 0,
     finalBossHpPct: 1,
     livesEnd: g.lives, escapedEnemies: 0, lifeDamageTaken: 0,
-    incomeBounty: 0, incomeDiamond: 0, incomeClear: 0, incomeInterest: 0, incomeRelic: 0, incomeSales: 0,
+    incomeBounty: 0, incomeDiamond: 0, incomeClear: 0, incomeInterest: 0, incomeRelic: 0, incomeWager: 0, incomeSales: 0,
     defeatReason: null, escapedBossRound: null, escapedBossHpPct: null,
   };
   const dt = 1 / 30;
@@ -343,6 +344,7 @@ function playGame(
   stats.incomeClear = g.goldIncome.clear;
   stats.incomeInterest = g.goldIncome.interest;
   stats.incomeRelic = g.goldIncome.relic;
+  stats.incomeWager = g.goldIncome.wager;
   stats.incomeSales = g.goldIncome.sales;
   stats.defeatReason = g.defeatReason;
   const escapedBoss = [...g.lifeRoundHistory].reverse()
@@ -456,6 +458,7 @@ function printLifeComparison(count: number): void {
       + ` · 이자 ${average((game) => game.incomeInterest).toFixed(0)}`
       + ` · 문양 ${average((game) => game.incomeDiamond).toFixed(0)}`
       + ` · 유물 ${average((game) => game.incomeRelic).toFixed(0)}`
+      + ` · 내기 ${average((game) => game.incomeWager).toFixed(0)}`
       + ` · 판매 ${average((game) => game.incomeSales).toFixed(0)}`,
     );
   };

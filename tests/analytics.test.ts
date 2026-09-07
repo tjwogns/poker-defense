@@ -70,6 +70,37 @@ describe('anonymous play analytics', () => {
     });
   });
 
+  test('로열 웨이저 선택과 정산을 동일한 익명 런에 기록한다', () => {
+    const analytics = new Analytics(new MemoryStorage(), { idFactory: () => 'wager-event-id' });
+    analytics.setConsent('granted');
+
+    const offered = analytics.track('wager_offered', {
+      offeredIds: ['pristine_three', 'pair_three', 'straight_one'],
+      round: 1, locale: 'en', layout: 'landscape',
+    }, 'run-wager-1234');
+    const selected = analytics.track('wager_selected', {
+      wagerId: 'pristine_three', offeredIds: ['pristine_three', 'pair_three', 'straight_one'],
+      round: 1, locale: 'en', layout: 'landscape',
+    }, 'run-wager-1234');
+    const resolved = analytics.track('wager_resolved', {
+      wagerId: 'pristine_three', success: true, progress: 3, target: 3,
+      rewardType: 'gold', rewardAmount: 35, round: 10,
+    }, 'run-wager-1234');
+
+    expect(offered).toMatchObject({
+      name: 'wager_offered', runId: 'run-wager-1234',
+      properties: { offeredIds: ['pristine_three', 'pair_three', 'straight_one'], round: 1 },
+    });
+    expect(selected).toMatchObject({
+      name: 'wager_selected', runId: 'run-wager-1234',
+      properties: { wagerId: 'pristine_three', offeredIds: ['pristine_three', 'pair_three', 'straight_one'], round: 1 },
+    });
+    expect(resolved).toMatchObject({
+      name: 'wager_resolved', runId: 'run-wager-1234',
+      properties: { wagerId: 'pristine_three', success: true, progress: 3, target: 3, rewardAmount: 35, round: 10 },
+    });
+  });
+
   test('같은 브라우저 저장소에서는 새 페이지 세션에도 익명 방문 ID를 유지한다', () => {
     const storage = new MemoryStorage();
     let id = 0;

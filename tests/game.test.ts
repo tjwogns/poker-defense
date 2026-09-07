@@ -158,6 +158,24 @@ describe('Game state machine', () => {
     expect(g.field.units.length).toBe(0);
   });
 
+  test('왕실 내기 골드는 별도 수입 원장에만 기록한다', () => {
+    const g = new Game(500);
+    const before = g.gold;
+    g.grantWagerGold(35);
+    expect(g.gold).toBe(before + 35);
+    expect(g.goldIncome.wager).toBe(35);
+    expect(g.goldIncome.relic).toBe(0);
+    g.confirmHand();
+    g.pendingUnits[0] = HandRank.FourKind;
+    g.placeUnit(8, 5);
+    g.startCombat();
+    runCombat(g);
+    expect(g.lastRoundSettlement!.income.wager).toBe(35);
+    expect(g.lastRoundSettlement!.incomeTotal).toBe(
+      Object.values(g.lastRoundSettlement!.income).reduce((sum, value) => sum + value, 0),
+    );
+  });
+
   test('준비 단계에서 동일 등급 유닛 3기를 한 단계 위 유닛으로 합성한다', () => {
     const g = new Game(51);
     for (const [x, y] of [[4, 4], [5, 4], [6, 4]]) {

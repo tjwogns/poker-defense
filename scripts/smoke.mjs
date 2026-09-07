@@ -47,6 +47,9 @@ await page.screenshot({ path: `${TMP}/shot1-menu.png` });
 await page.mouse.click(202, 500);
 await page.waitForFunction(() => Boolean(window.__game));
 await new Promise((r) => setTimeout(r, 300));
+// 왕실 내기는 선택하지 않아도 기존 런과 동일하게 시작할 수 있다.
+await page.mouse.click(640, 560);
+await new Promise((r) => setTimeout(r, 150));
 await page.mouse.click(520, 500);
 await new Promise((r) => setTimeout(r, 300));
 await page.screenshot({ path: `${TMP}/shot2-prep.png` });
