@@ -21,6 +21,7 @@ import { isPortraitLayout } from './device';
 import {
   ENEMY_KINDS, FORMATION_COPY, type EnemyFormation, type EnemyKindId, type WaveGroup,
 } from '../core/enemies';
+import { FORMATION_MASTERY_COPY } from '../core/formationMastery';
 import { getLocale, handName, relicName, tr, unitName, waveName } from '../i18n';
 
 const SPEEDS = [1, 2, 4] as const;
@@ -167,6 +168,10 @@ export class SidePanel {
   private combatText!: Phaser.GameObjects.Text;
   private tacticText!: Phaser.GameObjects.Text;
   private wagerText!: Phaser.GameObjects.Text;
+  private formationPreviewLabel!: Phaser.GameObjects.Text;
+  private formationMasteryText!: Phaser.GameObjects.Text;
+  private formationPreviewIcons: Phaser.GameObjects.Container[] = [];
+  private formationPreviewSignature = '';
   private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
   private inspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
   private inspectorName!: Phaser.GameObjects.Text;
@@ -234,6 +239,8 @@ export class SidePanel {
     });
     this.waveHint = makeText(scene, 816, 144, '', 12, UI.textDim).setWordWrapWidth(410, true);
     this.settlementText = makeText(scene, 816, 162, '', 10, UI.gold, true).setWordWrapWidth(420, true);
+    this.formationPreviewLabel = makeText(scene, 816, 157, '', 8, UI.textFaint, true);
+    this.formationMasteryText = makeText(scene, 1238, 157, '', 9, '#8fd8ff', true).setOrigin(1, 0);
 
     scene.add.circle(832, 228, 18, UI.goldNum, 0.15).setStrokeStyle(1, UI.goldNum, 0.35);
     makeText(scene, 832, 228, '◆', 12, UI.gold, true).setOrigin(0.5);
@@ -336,6 +343,8 @@ export class SidePanel {
     this.waveHint = makeText(scene, 368, py(414), '', 12, UI.textDim).setOrigin(1, 0);
     this.settlementText = makeText(scene, 368, py(391), '', 10, UI.gold, true).setOrigin(1, 0);
     this.bossCountdown = makeText(scene, 368, py(392), '', 12, UI.dangerText, true).setOrigin(1, 0);
+    this.formationPreviewLabel = makeText(scene, 22, py(439), '', 8, UI.textFaint, true);
+    this.formationMasteryText = makeText(scene, 368, py(439), '', 8, '#8fd8ff', true).setOrigin(1, 0);
 
     this.placementBg = scene.add.rectangle(195, py(702), 374, 56, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.goldNum, 0.45).setDepth(4).setVisible(false);
@@ -419,6 +428,44 @@ export class SidePanel {
     this.tacticText.setText(text).setVisible(visible);
   }
 
+  private refreshFormationMastery(formation: boolean): void {
+    const copy = FORMATION_MASTERY_COPY;
+    const locale = getLocale();
+    const compact = this.portrait;
+    const breached = this.game.currentFormationBreached;
+    this.formationPreviewLabel
+      .setText(formation ? copy.nextEnemies[locale] : '')
+      .setVisible(formation);
+    this.formationMasteryText
+      .setText(!formation ? '' : breached
+        ? `${copy.lost[locale]} · ${compact ? '×0' : `${copy.streak[locale]} ×0`}`
+        : `${copy.perfect[locale]} · ${compact ? `×${this.game.formationMastery.streak}` : `${copy.streak[locale]} ×${this.game.formationMastery.streak}`}`)
+      .setColor(breached ? '#ffaaa3' : '#8fd8ff')
+      .setVisible(formation);
+
+    const preview = formation ? this.game.nextEnemyPreview(compact ? 5 : 8) : [];
+    const signature = `${compact ? 'p' : 'd'}:${preview.join(',')}`;
+    if (signature === this.formationPreviewSignature) return;
+    this.formationPreviewIcons.forEach((icon) => icon.destroy(true));
+    this.formationPreviewIcons = [];
+    this.formationPreviewSignature = signature;
+    const startX = compact ? 66 : 865;
+    const y = compact ? portraitY(portraitSceneHeight(this.scene), 446) : 164;
+    const gap = compact ? 20 : 24;
+    const radius = compact ? 6 : 7;
+    const glyph: Record<EnemyKindId, string> = {
+      normal: 'N', fast: 'F', tank: 'T', regen: 'R', splitter: 'S', boss: 'B',
+    };
+    this.formationPreviewIcons = preview.map((kind, index) => {
+      const circle = this.scene.add.circle(0, 0, radius, ENEMY_KINDS[kind].color, 0.95)
+        .setStrokeStyle(1, 0xf2ede3, 0.42);
+      const text = this.scene.add.text(0, 0, glyph[kind], {
+        fontFamily: FONT_MONO, fontSize: compact ? '7px' : '8px', fontStyle: 'bold', color: '#ffffff',
+      }).setOrigin(0.5);
+      return this.scene.add.container(startX + index * gap, y, [circle, text]).setDepth(4);
+    });
+  }
+
   refresh(
     selectedUnit: Unit | null,
     speed: number,
@@ -497,7 +544,10 @@ export class SidePanel {
         `R${settlement.round} 결산  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · 잔액 ${settlement.goldEnd}G · 다음 강화 ${settlement.nextUpgradeCost}G`,
         `R${settlement.round} RESULT  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · BALANCE ${settlement.goldEnd}G · NEXT UPGRADE ${settlement.nextUpgradeCost}G`,
       )
-      : '');
+      : '')
+      .setY(wave.formation ? 171 : 162)
+      .setFontSize(wave.formation ? 8 : 10);
+    this.refreshFormationMastery(wave.formation !== null);
     const nextBoss = Math.ceil(g.round / 10) * 10;
     const bossDistance = nextBoss - g.round;
     this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : tr(`R${nextBoss} 보스까지 ${bossDistance}`, `${bossDistance} TO R${nextBoss} BOSS`));
@@ -612,6 +662,7 @@ export class SidePanel {
       ? `R${settlement.round} +${settlement.incomeTotal} / −${settlement.spendTotal}G`
       : '');
     this.bossCountdown.setVisible(!(inPrep && settlement));
+    this.refreshFormationMastery(wave.formation !== null);
 
     const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
     const placing = inPrep && g.handConfirmed && g.pendingUnits.length > 0;

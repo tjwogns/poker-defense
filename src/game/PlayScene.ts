@@ -230,6 +230,23 @@ export class PlayScene extends Phaser.Scene {
     } else if (localVisualTest === 'formation-13' || localVisualTest === 'formation-24') {
       this.profile.tutorialDone = true;
       this.core.round = localVisualTest === 'formation-13' ? 13 : 24;
+      this.core.formationMastery = { streak: 2, bestStreak: 3, perfectCount: 4, score: 700 };
+    } else if (localVisualTest === 'formation-mastery-combat') {
+      this.profile.tutorialDone = true;
+      this.core.round = 24;
+      this.core.formationMastery = { streak: 2, bestStreak: 3, perfectCount: 4, score: 700 };
+      this.core.handConfirmed = true;
+      this.core.startCombat();
+      this.core.tickCombat(1.4);
+      this.paused = true;
+    } else if (localVisualTest === 'formation-mastery-success') {
+      this.profile.tutorialDone = true;
+      this.core.round = 24;
+      this.core.formationMastery = { streak: 2, bestStreak: 2, perfectCount: 2, score: 300 };
+      this.core.handConfirmed = true;
+      this.core.startCombat();
+      // localhost visualTest 전용: 다음 update가 실제 endRound/피드백 경로를 한 번 통과한다.
+      (this.core as unknown as { spawnQueue: string[] }).spawnQueue = [];
     } else if (localVisualTest === 'pixel-motion') {
       this.profile.tutorialDone = true;
       this.core.round = 28;
@@ -275,6 +292,7 @@ export class PlayScene extends Phaser.Scene {
       this.core.handMastery[HandRank.Trips] = 1;
       this.core.handDamage[HandRank.Pair] = 70000;
       this.core.handDamage[HandRank.Trips] = 30000;
+      this.core.formationMastery = { streak: 15, bestStreak: 15, perfectCount: 15, score: 12000 };
       addUnit(this.core.field, HandRank.Pair, 3, 2);
       addUnit(this.core.field, HandRank.Trips, 5, 2);
       if (localVisualTest === 'mastery-victory') {
@@ -540,6 +558,18 @@ export class PlayScene extends Phaser.Scene {
     if (phaseNow === 'prep') {
       this.acc = 0;
       this.trackRoundProgress();
+      const formation = this.core.lastFormationResult;
+      if (formation?.perfect) {
+        this.flashCenter(
+          tr(
+            `완벽 방어 · 연속 ×${formation.streak} · +${formation.scoreBonus}점`,
+            `PERFECT DEFENSE · STREAK ×${formation.streak} · +${formation.scoreBonus}`,
+          ),
+          UI.accent,
+          60,
+          { fontSize: isPortraitLayout() ? 17 : 25, wrapWidth: isPortraitLayout() ? 350 : undefined },
+        );
+      }
     }
     if ((phaseNow === 'victory' || phaseNow === 'defeat') && !this.ended) {
       this.showEnd();
@@ -1169,14 +1199,19 @@ export class PlayScene extends Phaser.Scene {
   ): void {
     const portrait = isPortraitLayout();
     const portraitHeight = portraitSceneHeight(this);
+    const startY = position?.y ?? (portrait ? portraitY(portraitHeight, 330) : 270);
     const label = makeText(
-      this, position?.x ?? (portrait ? 195 : 390), position?.y ?? (portrait ? portraitY(portraitHeight, 330) : 270), labelText, position?.fontSize ?? (portrait ? 20 : 30),
+      this, position?.x ?? (portrait ? 195 : 390), startY, labelText, position?.fontSize ?? (portrait ? 20 : 30),
       `#${color.toString(16).padStart(6, '0')}`, true,
     )
       .setOrigin(0.5).setDepth(depth).setShadow(0, 3, '#000000', 8);
     if (position?.wrapWidth) label.setWordWrapWidth(position.wrapWidth, true).setAlign('center');
     this.tweens.add({
-      targets: label, y: position?.targetY ?? (portrait ? portraitY(portraitHeight, 300) : 230), alpha: 0, duration: 1200, ease: 'Cubic.Out',
+      targets: label,
+      y: this.reducedMotion() ? startY : position?.targetY ?? (portrait ? portraitY(portraitHeight, 300) : 230),
+      alpha: 0,
+      duration: this.reducedMotion() ? 700 : 1200,
+      ease: 'Cubic.Out',
       onComplete: () => label.destroy(),
     });
   }
@@ -1564,6 +1599,18 @@ export class PlayScene extends Phaser.Scene {
     );
   }
 
+  private formationMasteryResultText(): string {
+    const mastery = this.core.formationMastery;
+    if (isPortraitLayout()) return tr(
+      `완벽 진형 ${mastery.perfectCount} · 최고 ×${mastery.bestStreak}\n진형 보너스 ${mastery.score.toLocaleString()}점`,
+      `PERFECT FORMATIONS ${mastery.perfectCount} · BEST ×${mastery.bestStreak}\nFORMATION BONUS ${mastery.score.toLocaleString()}`,
+    );
+    return tr(
+      `완벽 진형 ${mastery.perfectCount}회 · 최고 연속 ×${mastery.bestStreak} · 보너스 ${mastery.score.toLocaleString()}점`,
+      `PERFECT FORMATIONS ${mastery.perfectCount} · BEST STREAK ×${mastery.bestStreak} · BONUS ${mastery.score.toLocaleString()}`,
+    );
+  }
+
   private resolveWagerIfNeeded(): void {
     const wagerId = this.wagerState.selectedId;
     if (this.core.round < 10 || !wagerId || this.wagerState.resolved) return;
@@ -1674,13 +1721,13 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(centerX, portrait ? py(226) : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}\n${this.wagerResultText()}`, {
-        fontFamily: portrait ? FONT_MONO : FONT, fontSize: portrait ? '14px' : '16px', color: UI.gold, align: 'center', lineSpacing: 5,
+      .text(centerX, portrait ? py(226) : won ? 392 : 194, `SCORE  ${this.core.score.toLocaleString()}   ·   KILLS  ${this.core.kills.toLocaleString()}\n${this.formationMasteryResultText()}\n${this.wagerResultText()}`, {
+        fontFamily: portrait ? FONT_MONO : FONT, fontSize: portrait ? '12px' : '14px', color: UI.gold, align: 'center', lineSpacing: 3,
       })
       .setOrigin(0.5)
       .setDepth(21);
     if (won) {
-      this.add.text(centerX, portrait ? py(278) : 424, `${tr('연마 효율', 'MASTERY IMPACT')}  ${this.masteryOutcomeLabel()}`, {
+      this.add.text(centerX, portrait ? py(290) : 438, `${tr('연마 효율', 'MASTERY IMPACT')}  ${this.masteryOutcomeLabel()}`, {
         fontFamily: FONT, fontSize: '14px', color: '#f0c879',
       }).setOrigin(0.5).setDepth(21);
     }

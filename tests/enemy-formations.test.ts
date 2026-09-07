@@ -148,7 +148,8 @@ describe('R11~R29 enemy formations', () => {
     for (let guard = 0; guard < 5000 && game.phase === 'combat'; guard++) game.tickCombat(1 / 30);
     expect(game.kills).toBe(30);
     expect(game.goldIncome.bounty).toBe(30 * killGold(13));
-    expect(game.score - scoreBefore).toBe(scoreForKills(13, 30) + scoreForRoundClear(13));
+    expect(game.score - scoreBefore).toBe(scoreForKills(13, 30) + scoreForRoundClear(13) + 100);
+    expect(game.formationMastery.score).toBe(100);
   });
 
   test('ruleset·왕관과 무관하게 같은 seed+round 진형이다', () => {

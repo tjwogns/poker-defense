@@ -9,14 +9,38 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.7.0';
+export const CURRENT_VERSION = 'v2.8.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.8.0',
+    title: 'FORMATION MASTERY',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '읽고 대응하는 진형',
+        items: [
+          '진형 라운드 준비 중에는 실제 스폰 큐의 다음 적 8기, 세로 모바일에서는 5기를 역할 색 아이콘으로 표시',
+          '전투가 시작되면 적이 등장할 때마다 미리보기 아이콘도 같은 순서로 소모',
+          '한국어·영어 데스크톱·가로·세로 화면에서 진형 이름·수량·힌트와 함께 확인',
+        ],
+      },
+      {
+        heading: '완벽 방어 연속 기록',
+        items: [
+          '진형 라운드 출신 적의 침투 없이 전멸시키면 완벽 방어를 달성하고 연속 기록 증가',
+          '첫 성공 +100점, 연속 두 번째 +200점처럼 현재 연속 횟수만큼 점수 보너스 지급',
+          '골드·전투력은 바꾸지 않으며 비진형·보스·학습 라운드와 이전 라운드 이월 적은 기록에 중립',
+          '성공 배너와 HUD, 최종 결과에서 완벽 진형 수·최고 연속·누적 보너스 확인',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.7.0',
     title: 'ENEMY FORMATIONS',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '중반 전장을 바꾸는 진형',

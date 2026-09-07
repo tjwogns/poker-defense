@@ -60,6 +60,9 @@ import {
   handTacticOverkillRatio,
   lockHandTacticForCombat,
 } from './handTactics';
+import {
+  createFormationMasteryState, FormationMasteryState, FormationRoundResult, resolveFormationRound,
+} from './formationMastery';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 export type DefeatReason = 'field-cap' | 'life-depleted' | 'boss-escaped' | 'final-boss-timeout';
@@ -103,6 +106,7 @@ export interface RoundSettlement {
   lifeDamage: number;
   goldEnd: number;
   nextUpgradeCost: number;
+  formation: FormationRoundResult | null;
 }
 
 export interface LifeRoundRecord {
@@ -147,6 +151,8 @@ export class Game {
   readonly goldSpend: GoldSpendLedger = emptySpendLedger();
   lastRoundSettlement: RoundSettlement | null = null;
   readonly lifeRoundHistory: LifeRoundRecord[] = [];
+  formationMastery: FormationMasteryState = createFormationMasteryState();
+  lastFormationResult: FormationRoundResult | null = null;
 
   hand: Card[];
   holds: boolean[] = [false, false, false, false, false];
@@ -202,6 +208,7 @@ export class Game {
   private roundSpendStart: GoldSpendLedger = emptySpendLedger();
   private roundEscapedStart = 0;
   private roundLifeDamageStart = 0;
+  private formationRoundEscaped = 0;
 
   constructor(seed: number, ruleset: GameRuleset = 'classic', crownLevel: CrownLevel = 0) {
     this.seed = seed;
@@ -746,6 +753,19 @@ export class Game {
     return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count, composition, formation };
   }
 
+  /** prep은 결정론적 원본, combat은 실제 남은 큐를 그대로 보여준다. */
+  nextEnemyPreview(limit = 8): EnemyKindId[] {
+    if (limit <= 0 || !waveFormation(this.seed, this.round)) return [];
+    const queue = this.phase === 'combat'
+      ? this.spawnQueue
+      : this.phase === 'prep' ? waveSpawnOrder(this.seed, this.round) : [];
+    return queue.slice(0, limit);
+  }
+
+  get currentFormationBreached(): boolean {
+    return this.formationRoundEscaped > 0;
+  }
+
   /** HUD와 텔레그래프가 실제 보스 발동 시계와 같은 값을 표시한다. */
   bossAbilityCountdown(bossRound: number): number | null {
     if (this.phase !== 'combat') return null;
@@ -825,6 +845,14 @@ export class Game {
         hitFeedback: (unit, enemy, primary) => handTacticHitFeedback(this.handTactic, unit, enemy, primary),
       },
     );
+    if (waveFormation(this.seed, this.round)) {
+      const currentFormationEscapes = result.escaped.filter((enemy) => enemy.round === this.round).length;
+      this.formationRoundEscaped += currentFormationEscapes;
+      // 치명적 침투로 endRound에 도달하지 못해도 연속 기록은 즉시 끊긴다.
+      if (currentFormationEscapes > 0 && this.formationMastery.streak > 0) {
+        this.formationMastery = { ...this.formationMastery, streak: 0 };
+      }
+    }
     result.relicTriggers = [...triggeredRelics];
     let diamondBonusGold = 0;
     for (const attack of result.attacks) {
@@ -977,6 +1005,15 @@ export class Game {
     // 생명 모드에서는 탈출 자체가 이미 라이프 손실이므로, 웨이브가 모두
     // 해결됐다면 성장 골드까지 중복으로 박탈하지 않는다.
     const roundCleared = !this.field.enemies.some((enemy) => enemy.round === completedRound && enemy.alive);
+    const formationResolution = resolveFormationRound(
+      this.formationMastery,
+      waveFormation(this.seed, completedRound) !== null,
+      roundCleared,
+      this.formationRoundEscaped,
+    );
+    this.formationMastery = formationResolution.state;
+    this.lastFormationResult = formationResolution.result;
+    if (formationResolution.result?.scoreBonus) this.score += formationResolution.result.scoreBonus;
     if (roundCleared) {
       const bonus = Math.floor(
         clearBonus(completedRound) * (this.lifeMode ? LIFE_MODE_CLEAR_BONUS_MULTIPLIER : 1),
@@ -1016,6 +1053,7 @@ export class Game {
     this.lastHandVariant = null;
     this.handTactic = null;
     this.handTacticBountyRemainder = 0;
+    this.formationRoundEscaped = 0;
     this.diamondGoldThisRound = 0;
     this.handConfirmed = false;
     this.phase = 'prep';
@@ -1041,6 +1079,7 @@ export class Game {
       lifeDamage: this.lifeDamageTaken - this.roundLifeDamageStart,
       goldEnd: this.gold,
       nextUpgradeCost: this.upgradeCostNow,
+      formation: this.lastFormationResult,
     };
     this.roundIncomeStart = { ...this.goldIncome };
     this.roundSpendStart = { ...this.goldSpend };
