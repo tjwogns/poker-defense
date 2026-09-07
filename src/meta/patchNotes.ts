@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.5.0';
+export const CURRENT_VERSION = 'v2.6.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.6.0',
+    title: 'HAND TACTICS',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '좋은 패가 바꾸는 이번 전투',
+        items: [
+          '투페어 이상을 확정하면 유닛 생성과 함께 해당 라운드에만 유지되는 족보 전술 발동',
+          '연사·집중 사격·봉쇄선·문양 지휘·거점·네 번째 일격·마력 전이·왕명 8종 추가',
+          '늦게 스폰되는 현재 라운드 적에는 적용하고 이전 라운드에서 남은 적은 제외',
+        ],
+      },
+      {
+        heading: '순차 웨이브에 맞춘 공정한 판정',
+        items: [
+          '전투 시작 순간 기절·무작위·체력 상위 대상 대신 라운드 전체의 예측 가능한 규칙 사용',
+          '포카드는 적마다 4번째 피격, 스트레이트 플러시는 방어 후 초과 피해 50%를 다음 적에게 한 번 전달',
+          '로열 플러시와 히든 족보는 전체 피해 +20%·해당 적 처치 골드 +10%, 기존 경제 반올림은 유지',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.5.0',
     title: 'MIXED FRONT',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '첫 보스 전의 혼합 공세',

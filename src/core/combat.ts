@@ -56,6 +56,20 @@ export interface TickResult {
   relicTriggers: RelicId[];
 }
 
+export interface CombatTacticHooks {
+  damageMultiplier(unit: Unit, enemy: Enemy, primary: boolean): number;
+  attackSpeedMultiplier(unit: Unit, enemy: Enemy): number;
+  enemySpeedMultiplier(enemy: Enemy): number;
+  overkillTransferRatio(unit: Unit, enemy: Enemy): number;
+}
+
+const NO_TACTIC_HOOKS: CombatTacticHooks = {
+  damageMultiplier: () => 1,
+  attackSpeedMultiplier: () => 1,
+  enemySpeedMultiplier: () => 1,
+  overkillTransferRatio: () => 0,
+};
+
 export type BossEvent =
   | { type: 'tax'; bossRound: 40; amount: number }
   | { type: 'summon'; bossRound: 50; count: number };
@@ -169,16 +183,22 @@ function die(field: Field, enemy: Enemy, result: TickResult): void {
   }
 }
 
-function applyDamage(field: Field, enemy: Enemy, amount: number, ignoreDefense: boolean, result: TickResult): number {
-  if (!enemy.alive) return 0;
+interface DamageApplication { dealt: number; overkill: number; killed: boolean }
+
+function applyDamage(field: Field, enemy: Enemy, amount: number, ignoreDefense: boolean, result: TickResult): DamageApplication {
+  if (!enemy.alive) return { dealt: 0, overkill: 0, killed: false };
   let mult = ignoreDefense ? 1 : ENEMY_KINDS[enemy.kind].damageTakenMult;
   if (enemy.kind === 'boss' && !ignoreDefense) {
     mult *= bossModifiers(enemy.round, enemy.hp / enemy.maxHp).damageTakenMultiplier;
   }
-  const dealt = Math.min(Math.max(0, enemy.hp), amount * mult);
-  enemy.hp -= amount * mult;
-  if (enemy.hp <= 0) die(field, enemy, result);
-  return dealt;
+  const hpBefore = Math.max(0, enemy.hp);
+  const effectiveDamage = Math.max(0, amount * mult);
+  const dealt = Math.min(hpBefore, effectiveDamage);
+  const overkill = Math.max(0, effectiveDamage - hpBefore);
+  enemy.hp -= effectiveDamage;
+  const killed = enemy.hp <= 0;
+  if (killed) die(field, enemy, result);
+  return { dealt, overkill, killed };
 }
 
 /** 오라 보정: 반경 내 다른 성기사 유무 (비중첩 — 최대 1회) */
@@ -200,6 +220,7 @@ function performAttack(
   def: UnitDef,
   globalMult: number,
   relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number,
+  tacticHooks: CombatTacticHooks,
   result: TickResult,
 ): boolean {
   const origin = unitPos(unit);
@@ -216,26 +237,46 @@ function performAttack(
 
   const targetPos = enemyPos(target);
   const deathsBefore = result.deaths.length;
-  const damageAgainst = (enemy: Enemy, amount: number) => amount
+  const damageAgainst = (enemy: Enemy, amount: number, primary: boolean) => amount
     * relicDamageMultiplier(unit, enemy, field)
     * suitDamageMultiplier(unit.suit, enemy.kind === 'boss')
-    * variantDamageMultiplier(unit.variant);
-  const targetDamage = damageAgainst(target, base);
+    * variantDamageMultiplier(unit.variant)
+    * tacticHooks.damageMultiplier(unit, enemy, primary);
+  const targetDamage = damageAgainst(target, base, true);
+
+  const applyHit = (enemy: Enemy, amount: number, primary: boolean): { direct: number; total: number } => {
+    const application = applyDamage(field, enemy, amount, ignoreDefense, result);
+    let total = application.dealt;
+    const ratio = tacticHooks.overkillTransferRatio(unit, enemy);
+    if (application.killed && application.overkill > 0 && ratio > 0) {
+      // 배열 삽입 순서에 기대지 않고 계약대로 가장 낮은 ID의 유효 적에게 1회 전달한다.
+      const next = field.enemies.reduce<Enemy | null>((best, candidate) => (
+        candidate.alive
+          && candidate.round === enemy.round
+          && (!best || candidate.id < best.id)
+          ? candidate
+          : best
+      ), null);
+      if (next) total += applyDamage(field, next, application.overkill * ratio, true, result).dealt;
+    }
+    return { direct: primary ? application.dealt : 0, total };
+  };
 
   if (slow && target.alive) {
     target.slowUntil = field.time + slow.dur;
     target.slowPct = slow.pct;
   }
 
-  const primaryDamage = applyDamage(field, target, targetDamage, ignoreDefense, result);
-  let totalDamage = primaryDamage;
+  const primary = applyHit(target, targetDamage, true);
+  const primaryDamage = primary.direct;
+  let totalDamage = primary.total;
 
   if (splash) {
     const r2 = splash * TILE * (splash * TILE);
     for (const e of field.enemies) {
       if (!e.alive || e.id === target.id) continue;
       if (dist2(targetPos, enemyPos(e)) <= r2) {
-        totalDamage += applyDamage(field, e, damageAgainst(e, base), ignoreDefense, result);
+        totalDamage += applyHit(e, damageAgainst(e, base, false), false).total;
       }
     }
   }
@@ -259,7 +300,7 @@ function performAttack(
       }
       if (!next) break;
       dmg *= chain.decay;
-      totalDamage += applyDamage(field, next, damageAgainst(next, dmg), ignoreDefense, result);
+      totalDamage += applyHit(next, damageAgainst(next, dmg, false), false).total;
       hit.add(next.id);
       cur = next;
     }
@@ -287,6 +328,7 @@ export function tick(
   relicDamageMultiplier: (unit: Unit, enemy: Enemy, field: Field) => number = () => 1,
   escapeDistance = Infinity,
   unitAttackSpeedMultiplier: (unit: Unit) => number = () => 1,
+  tacticHooks: CombatTacticHooks = NO_TACTIC_HOOKS,
 ): TickResult {
   const result = emptyResult();
   field.time += dt;
@@ -299,7 +341,8 @@ export function tick(
       : { damageTakenMultiplier: 1, speedMultiplier: 1, regenPctPerSec: 0 };
     const slowed = field.time < e.slowUntil;
     const stunned = field.time < e.stunUntil;
-    const speed = stunned ? 0 : ENEMY_BASE_SPEED * def.speedMult * (e.speedMultiplier ?? 1) * boss.speedMultiplier * (slowed ? 1 - e.slowPct : 1);
+    const speed = stunned ? 0 : ENEMY_BASE_SPEED * def.speedMult * (e.speedMultiplier ?? 1) * boss.speedMultiplier
+      * tacticHooks.enemySpeedMultiplier(e) * (slowed ? 1 - e.slowPct : 1);
     e.dist += speed * dt;
     if (e.dist >= escapeDistance) {
       e.alive = false;
@@ -317,14 +360,15 @@ export function tick(
     const def = UNIT_DEFS[unit.tier];
     unit.cooldown -= dt;
     while (unit.cooldown <= 0) {
-      if (!performAttack(field, unit, def, globalDmgMult, relicDamageMultiplier, result)) {
+      const target = acquireTarget(field, unitPos(unit), def.range * TILE);
+      if (!target || !performAttack(field, unit, def, globalDmgMult, relicDamageMultiplier, tacticHooks, result)) {
         unit.cooldown = 0;
         break;
       }
       unit.cooldown += def.period
         * suitPeriodMultiplier(unit.suit)
         * variantPeriodMultiplier(unit.variant)
-        / Math.max(0.01, unitAttackSpeedMultiplier(unit));
+        / Math.max(0.01, unitAttackSpeedMultiplier(unit) * tacticHooks.attackSpeedMultiplier(unit, target));
     }
   }
 

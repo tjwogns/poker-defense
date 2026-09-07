@@ -46,6 +46,7 @@ import {
   createRoyalWagerState, recordRoyalWagerConfirmation, resolveRoyalWager,
   royalWagerOutcome, ROYAL_WAGERS, royalWagerOffers, RoyalWagerId, RoyalWagerState,
 } from '../core/wagers';
+import { HAND_TACTIC_COMPACT_COPY, HAND_TACTIC_COPY } from '../core/handTactics';
 
 const DT = 1 / TICK_RATE;
 
@@ -658,6 +659,8 @@ export class PlayScene extends Phaser.Scene {
       this.fusionSelectedIds.length,
     );
     this.panel.setWagerStatus(this.wagerHudText(), this.wagerChoiceMade && this.core.round <= 9);
+    const tacticText = this.tacticHudText();
+    this.panel.setTacticStatus(tacticText, tacticText.length > 0);
     this.bossHud.refresh(this.core);
     this.firstRunCoach.refresh(this.core, this.firstRunCoachActive);
     this.syncRelicPicker();
@@ -1395,6 +1398,20 @@ export class PlayScene extends Phaser.Scene {
     const suit = this.wagerState.lockedSuit ? ` ${SUIT_GLYPHS[this.wagerState.lockedSuit]}` : '';
     const complete = this.wagerState.progress >= definition.target;
     return `${complete ? '✓ ' : '♛ '}${copy.name}${suit}  ${this.wagerState.progress}/${definition.target}`;
+  }
+
+  private tacticHudText(): string {
+    const tactic = this.core.handTactic;
+    if (!tactic || tactic.round !== this.core.round) return '';
+    const label = (isPortraitLayout() ? HAND_TACTIC_COMPACT_COPY : HAND_TACTIC_COPY)[tactic.id][getLocale()];
+    const suit = tactic.id === 'suit-command' && tactic.suit
+      ? ` · ${SUIT_GLYPHS[tactic.suit]}`
+      : '';
+    const zoneNames = ['TL', 'TR', 'BL', 'BR'];
+    const zone = tactic.id === 'stronghold' && tactic.lockedZone !== null
+      ? tr(` · 구역 ${zoneNames[tactic.lockedZone]}`, ` · ZONE ${zoneNames[tactic.lockedZone]}`)
+      : '';
+    return `♜ ${label}${suit}${zone}`;
   }
 
   private wagerResultText(): string {

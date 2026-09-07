@@ -131,6 +131,7 @@ export class SidePanel {
   private relicIconIds = '';
   private relicTriggerText!: Phaser.GameObjects.Text;
   private combatText!: Phaser.GameObjects.Text;
+  private tacticText!: Phaser.GameObjects.Text;
   private wagerText!: Phaser.GameObjects.Text;
   private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
   private inspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
@@ -237,6 +238,7 @@ export class SidePanel {
       cb.onSpeed(SPEEDS[(current + 1) % SPEEDS.length]);
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 12, radius: 0, strokeAlpha: 0.14 });
     this.combatText = makeText(scene, 816, 638, '', 11, UI.textDim).setWordWrapWidth(420, true);
+    this.tacticText = makeText(scene, 816, 654, '', 10, '#b7e5ff', true).setWordWrapWidth(420, true);
     this.wagerText = makeText(scene, 816, 670, '', 10, UI.gold, true).setWordWrapWidth(420, true);
 
     const inspectorBg = scene.add.rectangle(646, 382, 240, 172, UI.panelDeep, 0.98)
@@ -320,6 +322,10 @@ export class SidePanel {
       fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold,
       backgroundColor: '#0d0d13', padding: { x: 7, y: 3 }, align: 'center',
     }).setOrigin(0.5, 0).setDepth(6);
+    this.tacticText = scene.add.text(195, py(130), '', {
+      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#b7e5ff',
+      backgroundColor: '#0d0d13', padding: { x: 7, y: 3 }, align: 'center',
+    }).setOrigin(0.5, 0).setDepth(6);
 
     this.deckBtn = makeButton(scene, 53, py(769), 82, 50, tr('덱', 'DECK'), cb.onDeck, {
       fill: UI.panelDeep, textColor: '#a8a5b2', fontSize: 13, radius: 4, strokeAlpha: 0.14,
@@ -373,6 +379,10 @@ export class SidePanel {
 
   setWagerStatus(text: string, visible: boolean): void {
     this.wagerText.setText(text).setVisible(visible);
+  }
+
+  setTacticStatus(text: string, visible: boolean): void {
+    this.tacticText.setText(text).setVisible(visible);
   }
 
   refresh(

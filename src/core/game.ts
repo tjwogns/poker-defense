@@ -47,6 +47,16 @@ import {
   dominantSuitChoices, HandVariant, handVariant, suitDamageMultiplier, suitPeriodMultiplier,
   variantDamageMultiplier, variantPeriodMultiplier,
 } from './cards/handIdentity';
+import {
+  HandTacticState,
+  createHandTactic,
+  handTacticAttackSpeedMultiplier,
+  handTacticBountyMultiplier,
+  handTacticDamageMultiplier,
+  handTacticEnemySpeedMultiplier,
+  handTacticOverkillRatio,
+  lockHandTacticForCombat,
+} from './handTactics';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
 export type DefeatReason = 'field-cap' | 'life-depleted' | 'boss-escaped' | 'final-boss-timeout';
@@ -162,6 +172,7 @@ export class Game {
   lastPairBrokerBonus = false;
   lastRelicTriggers: RelicId[] = [];
   lastExchangeWasAllIn = false;
+  handTactic: HandTacticState | null = null;
   field: Field;
 
   readonly seed: number;
@@ -174,6 +185,7 @@ export class Game {
   private spawnTimer = 0;
   private combatTimer = 0;
   private diamondGoldThisRound = 0;
+  private handTacticBountyRemainder = 0;
   private nextBossTaxAt = Infinity;
   private nextBossSummonAt = Infinity;
   private pendingBossRewardRounds: number[] = [];
@@ -484,6 +496,8 @@ export class Game {
     this.lastHandRank = rank;
     this.lastHandSuit = suit;
     this.lastHandVariant = variant;
+    this.handTactic = createHandTactic(rank, this.round, suit);
+    this.handTacticBountyRemainder = 0;
     this.bestHand = Math.max(this.bestHand, rank) as HandRank;
     this.score += scoreForHand(rank);
     const pristine = this.exchangesUsed === 0;
@@ -745,6 +759,7 @@ export class Game {
       || this.relicChoices.length > 0
       || this.maintenancePending
     ) return false;
+    this.handTactic = lockHandTacticForCombat(this.handTactic, this.field.units);
     this.spawnQueue = waveSpawnOrder(this.seed, this.round);
     this.spawnTimer = 0;
     this.combatTimer = 0;
@@ -790,6 +805,14 @@ export class Game {
         if (multiplier > 1) triggeredRelics.add('last_stand');
         return multiplier;
       },
+      {
+        damageMultiplier: (unit, enemy, primary) => handTacticDamageMultiplier(
+          this.handTactic, unit, enemy, primary,
+        ),
+        attackSpeedMultiplier: (_unit, enemy) => handTacticAttackSpeedMultiplier(this.handTactic, enemy),
+        enemySpeedMultiplier: (enemy) => handTacticEnemySpeedMultiplier(this.handTactic, enemy),
+        overkillTransferRatio: (_unit, enemy) => handTacticOverkillRatio(this.handTactic, enemy),
+      },
     );
     result.relicTriggers = [...triggeredRelics];
     let diamondBonusGold = 0;
@@ -804,9 +827,22 @@ export class Game {
       }
     }
     const mods = relicModifiers(this.relics);
-    const bountyGold = Math.floor(
-      result.goldEarned * mods.bountyMultiplier * (this.lifeMode ? LIFE_MODE_BOUNTY_MULTIPLIER : 1),
+    const tacticBountyBonus = result.deaths.reduce(
+      (total, enemy) => total + enemy.bounty * (handTacticBountyMultiplier(this.handTactic, enemy) - 1),
+      0,
     );
+    const economyBountyMultiplier = mods.bountyMultiplier
+      * (this.lifeMode ? LIFE_MODE_BOUNTY_MULTIPLIER : 1);
+    // 기존 bounty는 기존처럼 매 tick floor한다. Royal 추가분만 별도로 누적해야
+    // 이월 적이나 LIFE/유물의 소수가 새 골드로 바뀌지 않는다.
+    const baseBountyGold = Math.floor(result.goldEarned * economyBountyMultiplier);
+    const rawTacticBonus = tacticBountyBonus * economyBountyMultiplier
+      + this.handTacticBountyRemainder;
+    const tacticBountyGold = Math.floor(rawTacticBonus + 1e-9);
+    const bountyGold = baseBountyGold + tacticBountyGold;
+    this.handTacticBountyRemainder = this.handTactic?.id === 'royal-decree'
+      ? rawTacticBonus - tacticBountyGold
+      : 0;
     result.goldEarned = bountyGold + diamondBonusGold;
     this.gold += result.goldEarned;
     this.goldIncome.bounty += bountyGold;
@@ -966,6 +1002,8 @@ export class Game {
     this.lastHandRank = null;
     this.lastHandSuit = null;
     this.lastHandVariant = null;
+    this.handTactic = null;
+    this.handTacticBountyRemainder = 0;
     this.diamondGoldThisRound = 0;
     this.handConfirmed = false;
     this.phase = 'prep';
