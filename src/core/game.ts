@@ -4,7 +4,7 @@ import { MAX_RUN_DECK_SIZE, MIN_RUN_DECK_SIZE, RunDeck } from './cards/deck';
 import { evaluateHand } from './cards/evaluator';
 import { Rng, mulberry32 } from './rng';
 import {
-  START_GOLD, ROUNDS, WAVE_SIZE, BOSS_MINIONS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
+  START_GOLD, ROUNDS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
   FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
   LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BREACH_THRESHOLD,
@@ -13,7 +13,7 @@ import {
   CrownLevel, crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
-import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveKind } from './enemies';
+import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveComposition, waveKind, waveSpawnOrder } from './enemies';
 import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
@@ -715,10 +715,11 @@ export class Game {
 
   // ── 웨이브 정보 (UI용) ─────────────────────────────
 
-  nextWave(): { kind: EnemyKindId; name: string; count: number } {
+  nextWave(): { kind: EnemyKindId; name: string; count: number; composition: ReturnType<typeof waveComposition> } {
     const kind = waveKind(this.round);
-    const count = kind === 'boss' ? 1 + BOSS_MINIONS : WAVE_SIZE;
-    return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count };
+    const composition = waveComposition(this.round);
+    const count = composition.reduce((total, group) => total + group.count, 0);
+    return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count, composition };
   }
 
   /** HUD와 텔레그래프가 실제 보스 발동 시계와 같은 값을 표시한다. */
@@ -744,11 +745,7 @@ export class Game {
       || this.relicChoices.length > 0
       || this.maintenancePending
     ) return false;
-    const { kind } = this.nextWave();
-    this.spawnQueue =
-      kind === 'boss'
-        ? ['boss', ...Array<EnemyKindId>(BOSS_MINIONS).fill('normal')]
-        : Array<EnemyKindId>(WAVE_SIZE).fill(kind);
+    this.spawnQueue = waveSpawnOrder(this.seed, this.round);
     this.spawnTimer = 0;
     this.combatTimer = 0;
     const hasTaxBoss = this.round === 40

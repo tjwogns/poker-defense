@@ -25,4 +25,12 @@ describe('full expedition localization', () => {
       expect(source, module).not.toMatch(/^(?:export\s+)?const\s+\w+\s*=\s*tr\(/m);
     }
   });
+
+  test('초반 혼합 웨이브 HUD는 KO/EN 역할과 실제 수량 슬롯을 제공한다', () => {
+    const source = readFileSync(new URL('../src/game/SidePanel.ts', import.meta.url), 'utf8');
+    expect(source).toContain("tr('혼합 부대', 'MIXED WAVE')");
+    expect(source).toContain("tr('혼합', 'MIXED')");
+    expect(source).toContain("'NORMAL + FAST · COVER ENTRY + CORNERS'");
+    expect(source).toContain('mixedWaveHint(wave.composition, true)');
+  });
 });

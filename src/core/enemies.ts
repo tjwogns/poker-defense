@@ -1,4 +1,5 @@
-import { BOSS_EVERY, BOSS_HP_MULT } from './balance';
+import { BOSS_EVERY, BOSS_HP_MULT, BOSS_MINIONS, WAVE_SIZE } from './balance';
+import { mulberry32 } from './rng';
 
 export type EnemyKindId = 'normal' | 'fast' | 'tank' | 'regen' | 'splitter' | 'boss';
 
@@ -26,8 +27,25 @@ export const ENEMY_KINDS: Record<EnemyKindId, EnemyKindDef> = {
 
 const ROTATION: EnemyKindId[] = ['normal', 'fast', 'tank', 'regen', 'splitter'];
 
+export interface WaveGroup {
+  kind: EnemyKindId;
+  count: number;
+}
+
 /**
- * 라운드별 웨이브 타입 (단일 타입 웨이브).
+ * R5~R9는 기존 단일 웨이브의 주 역할을 유지하면서 반대 역할을 소량 섞는다.
+ * fast 중심 라운드는 기존 대비 총 HP +5.7~11.4%, normal 중심 라운드는 −4~6%다.
+ */
+const EARLY_MIXED_WAVES: Readonly<Record<number, readonly [number, number]>> = {
+  5: [4, 26],
+  6: [26, 4],
+  7: [6, 24],
+  8: [24, 6],
+  9: [8, 22],
+};
+
+/**
+ * 라운드별 대표 웨이브 타입. 혼합 편성에서도 기존 라운드의 주 역할을 보존한다.
  * 10의 배수 = 보스. 신규 타입은 해금 라운드에 반드시 데뷔, 이외에는 해금된 타입 순환.
  */
 export function waveKind(round: number): EnemyKindId {
@@ -36,6 +54,38 @@ export function waveKind(round: number): EnemyKindId {
   if (debut) return debut;
   const unlocked = ROTATION.filter((id) => ENEMY_KINDS[id].unlockRound <= round);
   return unlocked[round % unlocked.length];
+}
+
+export function waveComposition(round: number): WaveGroup[] {
+  if (round % BOSS_EVERY === 0) return [
+    { kind: 'boss', count: 1 },
+    { kind: 'normal', count: BOSS_MINIONS },
+  ];
+  const early = EARLY_MIXED_WAVES[round];
+  if (early) return [
+    { kind: 'normal', count: early[0] },
+    { kind: 'fast', count: early[1] },
+  ];
+  return [{ kind: waveKind(round), count: WAVE_SIZE }];
+}
+
+/** 카드 RNG를 소비하지 않는 seed+round 전용 순서. 소수 역할을 균등 간격으로 배치한다. */
+export function waveSpawnOrder(seed: number, round: number): EnemyKindId[] {
+  const groups = waveComposition(round);
+  if (groups.length === 1 || groups[0].kind === 'boss') {
+    return groups.flatMap(({ kind, count }) => Array<EnemyKindId>(count).fill(kind));
+  }
+  const [first, second] = groups;
+  const dominant = first.count >= second.count ? first : second;
+  const minority = dominant === first ? second : first;
+  const queue = Array<EnemyKindId>(WAVE_SIZE).fill(dominant.kind);
+  const rng = mulberry32((seed ^ Math.imul(round, 0x9e3779b1) ^ 0x4d495845) >>> 0);
+  const offset = Math.floor(rng() * WAVE_SIZE);
+  for (let index = 0; index < minority.count; index++) {
+    const slot = (offset + Math.floor((index + 0.5) * WAVE_SIZE / minority.count)) % WAVE_SIZE;
+    queue[slot] = minority.kind;
+  }
+  return queue;
 }
 
 /** 한 바퀴를 완주한 일반 적이 누적시키는 침투 게이지. */

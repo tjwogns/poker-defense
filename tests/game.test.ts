@@ -2,11 +2,13 @@ import { describe, expect, test } from 'vitest';
 import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
+import { ENEMY_KINDS } from '../src/core/enemies';
 import {
   START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
   CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, BOSS_HP_MULT, enemyHp,
-  crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
+  crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier, killGold,
 } from '../src/core/balance';
+import { scoreForKills, scoreForRoundClear } from '../src/core/scoring';
 import { PATH_LENGTH, pathLength } from '../src/core/map';
 import { h } from './helpers';
 
@@ -24,6 +26,68 @@ describe('Game state machine', () => {
     expect(g.round).toBe(1);
     expect(g.gold).toBe(START_GOLD);
     expect(g.hand.length).toBe(5);
+  });
+
+  test.each([
+    [5, 'fast', 4, 26], [6, 'normal', 26, 4], [7, 'fast', 6, 24],
+    [8, 'normal', 24, 6], [9, 'fast', 8, 22],
+  ] as const)('R%i 혼합 웨이브 HUD 구성과 실제 스폰 수량이 일치한다', (round, primary, normal, fast) => {
+    const g = new Game(250);
+    g.round = round;
+    expect(g.nextWave()).toMatchObject({
+      kind: primary, count: 30,
+      composition: [{ kind: 'normal', count: normal }, { kind: 'fast', count: fast }],
+    });
+    g.confirmHand();
+    g.discardPendingUnit();
+    expect(g.startCombat()).toBe(true);
+    for (let i = 0; i < 30; i++) g.tickCombat(0.45);
+    expect(g.field.enemies.filter((enemy) => enemy.kind === 'normal')).toHaveLength(normal);
+    expect(g.field.enemies.filter((enemy) => enemy.kind === 'fast')).toHaveLength(fast);
+  });
+
+  test('혼합 웨이브는 적별 왕관 배율을 한 번만 적용한다', () => {
+    const g = new Game(251, 'classic', 1);
+    g.round = 6;
+    g.confirmHand();
+    g.discardPendingUnit();
+    g.startCombat();
+    for (let i = 0; i < 30; i++) g.tickCombat(0.45);
+    for (const enemy of g.field.enemies) {
+      expect(enemy.maxHp).toBeCloseTo(
+        enemyHp(6) * ENEMY_KINDS[enemy.kind].hpMult * CROWN_I_ENEMY_HP_MULTIPLIER,
+      );
+    }
+  });
+
+  test('혼합 웨이브 중복 시작을 거부하고 큰 프레임에도 30기만 스폰한다', () => {
+    const g = new Game(253);
+    g.round = 9;
+    g.confirmHand();
+    g.discardPendingUnit();
+    expect(g.startCombat()).toBe(true);
+    expect(g.startCombat()).toBe(false);
+    g.tickCombat(30 * 0.45);
+    expect(g.field.enemies).toHaveLength(30);
+    expect(g.field.enemies.filter((enemy) => enemy.kind === 'normal')).toHaveLength(8);
+    expect(g.field.enemies.filter((enemy) => enemy.kind === 'fast')).toHaveLength(22);
+  });
+
+  test('혼합 여부와 무관하게 30기 처치 보상·점수를 보존한다', () => {
+    const g = new Game(252);
+    g.round = 6;
+    g.confirmHand();
+    g.pendingUnits = [];
+    for (let x = 4; x <= 8; x++) {
+      g.pendingUnits.push(HandRank.RoyalFlush);
+      expect(g.placeUnit(x, 4)).toBe(true);
+    }
+    const scoreBeforeCombat = g.score;
+    g.startCombat();
+    runCombat(g);
+    expect(g.kills).toBe(30);
+    expect(g.goldIncome.bounty).toBe(30 * killGold(6));
+    expect(g.score - scoreBeforeCombat).toBe(scoreForKills(6, 30) + scoreForRoundClear(6));
   });
 
   test('왕관 I은 일반 적·보스 체력과 이동 속도만 공개 배율로 강화한다', () => {

@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.4.0';
+export const CURRENT_VERSION = 'v2.5.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.5.0',
+    title: 'MIXED FRONT',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '첫 보스 전의 혼합 공세',
+        items: [
+          'R1~R4의 기본 학습 웨이브를 유지하고 R5~R9에 기본 카드병과 칩 도둑 혼합 편성 추가',
+          '라운드마다 30기와 기존 처치 보상을 유지하면서 입구와 코너를 함께 방어하는 배치 판단 강화',
+          '런 시드와 라운드로 스폰 순서를 재현해 일일 도전은 동일하게 유지하고 카드 뽑기 운에는 영향 없음',
+        ],
+      },
+      {
+        heading: '읽기 쉬운 사전 정보와 안전한 밸런스',
+        items: [
+          '데스크톱과 모바일 HUD에 혼합 웨이브의 실제 종류별 수량과 방어 지점 안내 표시',
+          '개별 적 체력·속도와 골드·점수 상수는 유지하고 기존 단일 웨이브 대비 총 체력 변화는 ±12% 이내',
+          'R10 보스 1기와 수행원 10기, 왕관 배율, 일일 시드와 기존 보스 진행은 변경 없음',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.4.0',
     title: 'ROYAL WAGER',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '첫 10라운드의 새로운 선택',

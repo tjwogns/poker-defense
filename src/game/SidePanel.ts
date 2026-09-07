@@ -18,7 +18,7 @@ import {
   HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
 } from '../core/cards/handIdentity';
 import { isPortraitLayout } from './device';
-import type { EnemyKindId } from '../core/enemies';
+import { ENEMY_KINDS, type EnemyKindId, type WaveGroup } from '../core/enemies';
 import { getLocale, handName, relicName, tr, unitName, waveName } from '../i18n';
 
 const SPEEDS = [1, 2, 4] as const;
@@ -86,6 +86,18 @@ function waveHint(kind: EnemyKindId): string {
     boss: ['강력한 우두머리 · 기믹과 제한시간 확인', 'Powerful boss · watch its mechanic and timer'],
   } as const;
   return tr(hints[kind][0], hints[kind][1]);
+}
+
+function isMixedWave(kind: EnemyKindId, composition: readonly WaveGroup[]): boolean {
+  return kind !== 'boss' && composition.length > 1;
+}
+
+function mixedWaveHint(composition: readonly WaveGroup[], compact = false): string {
+  if (compact) return composition.map(({ kind, count }) => tr(
+    `${kind === 'normal' ? '카드병' : kind === 'fast' ? '도둑' : ENEMY_KINDS[kind].name} ${count}`,
+    `${kind.toUpperCase()} ${count}`,
+  )).join(' + ');
+  return tr('기본 + 고속 · 입구와 코너를 함께 방어', 'NORMAL + FAST · COVER ENTRY + CORNERS');
 }
 
 export class SidePanel {
@@ -410,8 +422,12 @@ export class SidePanel {
     this.goldText.setText(`G  ${g.gold.toLocaleString()}`);
 
     const wave = g.nextWave();
-    this.waveName.setText(waveName(wave.kind, wave.name));
-    this.waveCount.setText(`×${wave.count}`);
+    const mixed = isMixedWave(wave.kind, wave.composition);
+    this.waveName.setText(mixed ? tr('혼합 부대', 'MIXED WAVE') : waveName(wave.kind, wave.name));
+    this.waveCount
+      .setText(mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
+      .setFontSize(mixed ? 12 : 19)
+      .setX(mixed ? 1080 : getLocale() === 'en' ? 1110 : 930);
     const settlement = g.lastRoundSettlement;
     const otherIncome = settlement
       ? settlement.income.diamond + settlement.income.relic + settlement.income.sales
@@ -427,7 +443,7 @@ export class SidePanel {
           + `${settlement.income.wager > 0 ? ` · WAGER +${settlement.income.wager}` : ''}`
           + `${settlement.escaped > 0 ? ` · ESCAPED ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`,
       )
-      : waveHint(wave.kind));
+      : mixed ? mixedWaveHint(wave.composition) : waveHint(wave.kind));
     this.settlementText.setText(inPrep && settlement
       ? tr(
         `R${settlement.round} 결산  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · 잔액 ${settlement.goldEnd}G · 다음 강화 ${settlement.nextUpgradeCost}G`,
@@ -527,11 +543,16 @@ export class SidePanel {
     this.goldText.setText(`G ${g.gold.toLocaleString()}`);
 
     const wave = g.nextWave();
-    this.waveName.setText(waveName(wave.kind, wave.name));
-    this.waveCount.setText(`×${wave.count}`);
+    const mixed = isMixedWave(wave.kind, wave.composition);
+    this.waveName.setText(mixed ? tr('혼합', 'MIXED') : waveName(wave.kind, wave.name));
+    this.waveCount.setText(mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
+      .setFontSize(mixed ? 10 : 16)
+      .setX(mixed ? 90 : 130);
     const nextBoss = Math.ceil(g.round / 10) * 10;
     this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : tr(`R${nextBoss} 보스까지 ${nextBoss - g.round}`, `${nextBoss - g.round} TO R${nextBoss} BOSS`));
-    this.waveHint.setText(wave.kind === 'tank' || wave.kind === 'splitter'
+    this.waveHint.setText(mixed
+      ? tr('입구 + 코너', 'ENTRY + CORNERS')
+      : wave.kind === 'tank' || wave.kind === 'splitter'
       ? tr('광역이 유리', 'AREA DAMAGE WORKS WELL')
       : waveHint(wave.kind).split(' · ')[1] ?? tr('화력 집중', 'FOCUS FIRE'));
     const settlement = g.lastRoundSettlement;
