@@ -4,7 +4,7 @@ import { Enemy, TacticCombatEvent, TickResult, addUnit, enemyPos, spawnEnemy, un
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
-import { CROWN_MAX_LEVEL, CrownLevel, LIFE_MODE_BREACH_THRESHOLD, TICK_RATE } from '../core/balance';
+import { CROWN_MAX_LEVEL, CrownLevel, TICK_RATE } from '../core/balance';
 import { FieldRenderer, Fx, fieldScreenPoint, tileAtScreen } from './FieldRenderer';
 import { HandBar } from './HandBar';
 import { SidePanel } from './SidePanel';
@@ -322,20 +322,20 @@ export class PlayScene extends Phaser.Scene {
       this.core.kills = 438;
       this.core.lives = 0;
       this.core.escapedEnemies = 17;
-      this.core.lifeDamageTaken = 20;
+      this.core.lifeDamageTaken = 8;
       this.core.lifeRoundHistory.push(
         {
-          round: 26, escaped: 3, lifeDamage: 1,
+          round: 26, escaped: 3, lifeDamage: 3,
           escapedByKind: { normal: 0, fast: 3, tank: 0, regen: 0, splitter: 0, boss: 0 },
           escapedBossHpPercent: null,
         },
         {
-          round: 30, escaped: 1, lifeDamage: 3,
+          round: 30, escaped: 1, lifeDamage: 0,
           escapedByKind: { normal: 0, fast: 0, tank: 0, regen: 0, splitter: 0, boss: 1 },
           escapedBossHpPercent: 22,
         },
         {
-          round: 31, escaped: 5, lifeDamage: 2,
+          round: 31, escaped: 5, lifeDamage: 5,
           escapedByKind: { normal: 0, fast: 4, tank: 1, regen: 0, splitter: 0, boss: 0 },
           escapedBossHpPercent: null,
         },
@@ -1329,14 +1329,9 @@ export class PlayScene extends Phaser.Scene {
       this.flashCenter(
         this.core.defeatReason === 'boss-escaped'
           ? tr('보스 출구 돌파 · 즉시 패배', 'BOSS ESCAPED · DEFEAT')
-          : this.core.lastLifeDamage > 0
-          ? tr(
-            `라이프 −${this.core.lastLifeDamage} · 남은 ${this.core.lives}`,
-            `LIVES −${this.core.lastLifeDamage} · ${this.core.lives} LEFT`,
-          )
           : tr(
-            `적 ${result.escaped.length}기 침투 · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
-            `${result.escaped.length} ENEMY BREACHED · ${this.core.breach}/${LIFE_MODE_BREACH_THRESHOLD}`,
+            `적 ${result.escaped.length}기 탈출 · 라이프 −${this.core.lastLifeDamage} · 남은 ${this.core.lives}`,
+            `${result.escaped.length} ESCAPED · LIVES −${this.core.lastLifeDamage} · ${this.core.lives} LEFT`,
           ),
         UI.danger,
       );

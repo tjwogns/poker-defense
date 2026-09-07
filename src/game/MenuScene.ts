@@ -99,7 +99,7 @@ export class MenuScene extends Phaser.Scene {
     makeText(
       this, 92, 382,
       lifeLab
-        ? tr('라이프 20과 침투 게이지를 지키며 교차로에서 60라운드를 방어합니다.', 'Protect 20 lives and the breach gauge through 60 rounds at the crossroads.')
+        ? tr('적 탈출 1기당 라이프 1을 잃습니다. 교차로에서 60라운드를 방어하세요.', 'Each escaped enemy costs 1 life. Defend the crossroads through 60 rounds.')
         : tr('다섯 장의 패로 군단을 뽑고, 순환하는 전장에서 60라운드를 버텨냅니다.', 'Turn five-card poker hands into an army and survive 60 rounds.'),
       17, '#a8a5b2',
     ).setWordWrapWidth(470, true).setLineSpacing(10);
@@ -273,7 +273,7 @@ export class MenuScene extends Phaser.Scene {
     makeText(
       this, 32, py(292),
       lifeLab
-        ? tr('라이프 20과 침투 게이지를 지키며\n교차로에서 60라운드를 방어합니다.', 'Protect 20 lives and the breach gauge\nthrough 60 rounds at the crossroads.')
+        ? tr('적 탈출 1기당 라이프 1을 잃습니다.\n교차로에서 60라운드를 방어하세요.', 'Each escaped enemy costs 1 life.\nDefend the crossroads through 60 rounds.')
         : tr('다섯 장의 패로 군단을 뽑고\n60라운드를 버텨냅니다.', 'Turn five-card poker hands into an army\nand survive 60 rounds.'),
       15, '#a8a5b2',
     ).setLineSpacing(8);

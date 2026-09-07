@@ -26,7 +26,7 @@ export function createFormationMasteryState(): FormationMasteryState {
   return { streak: 0, bestStreak: 0, perfectCount: 0, score: 0 };
 }
 
-/** 비진형은 완전 중립이며, 진형은 클리어와 현재 라운드 출신 침투 0을 모두 요구한다. */
+/** 비진형은 완전 중립이며, 진형은 클리어와 현재 라운드 출신 탈출 0을 모두 요구한다. */
 export function resolveFormationRound(
   state: Readonly<FormationMasteryState>,
   formation: boolean,

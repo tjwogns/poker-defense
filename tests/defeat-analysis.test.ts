@@ -60,17 +60,17 @@ describe('defeat analysis', () => {
     input.lives = 0;
     input.lifeRoundHistory = [
       {
-        round: 21, escaped: 2, lifeDamage: 0,
+        round: 21, escaped: 2, lifeDamage: 2,
         escapedByKind: { normal: 0, fast: 2, tank: 0, regen: 0, splitter: 0, boss: 0 },
         escapedBossHpPercent: null,
       },
       {
-        round: 24, escaped: 4, lifeDamage: 1,
+        round: 24, escaped: 4, lifeDamage: 4,
         escapedByKind: { normal: 0, fast: 4, tank: 0, regen: 0, splitter: 0, boss: 0 },
         escapedBossHpPercent: null,
       },
       {
-        round: 30, escaped: 14, lifeDamage: 3,
+        round: 30, escaped: 14, lifeDamage: 14,
         escapedByKind: { normal: 0, fast: 14, tank: 0, regen: 0, splitter: 0, boss: 0 },
         escapedBossHpPercent: null,
       },
@@ -81,11 +81,11 @@ describe('defeat analysis', () => {
     expect(analysis.cause).toContain('적 탈출');
     expect(analysis.tips[0]).toContain('고속형 탈출');
     expect(analysis.lifeDetails).toContain('최다 탈출 칩 도둑 20기');
-    expect(analysis.lifeDetails).toContain('최대 피해 R30 · 14기 / ♥−3');
-    expect(analysis.lifeDetails.at(-1)).toContain('R21 −0 · R24 −1 · R30 −3');
+    expect(analysis.lifeDetails).toContain('최대 피해 R30 · 14기 / ♥−14');
+    expect(analysis.lifeDetails.at(-1)).toContain('R21 −2 · R24 −4 · R30 −14');
     expect(analysis.topEscapedKind).toBe('fast');
     expect(analysis.worstLifeRound).toBe(30);
-    expect(analysis.worstLifeDamage).toBe(3);
+    expect(analysis.worstLifeDamage).toBe(14);
   });
 
   test('보스 탈출 패배는 라이프와 구분해 즉시 패배 원인을 알려준다', () => {
@@ -153,7 +153,7 @@ describe('defeat analysis', () => {
     input.bestHand = HandRank.Pair;
     input.handDamage[HandRank.Pair] = 100;
     input.lifeRoundHistory = [{
-      round: 24, escaped: 4, lifeDamage: 2,
+      round: 24, escaped: 4, lifeDamage: 4,
       escapedByKind: { normal: 0, fast: 4, tank: 0, regen: 0, splitter: 0, boss: 0 },
       escapedBossHpPercent: null,
     }];

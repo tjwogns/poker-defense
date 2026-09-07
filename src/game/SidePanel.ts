@@ -4,7 +4,7 @@ import { Unit, aliveEnemies } from '../core/combat';
 import { UNIT_DEFS, UnitDef } from '../core/units';
 import { HAND_NAMES_KO, SUIT_GLYPHS, HandRank } from '../core/cards/types';
 import {
-  FINAL_BOSS_MAX_TIME, LIFE_MODE_BREACH_THRESHOLD, LIFE_MODE_STARTING_LIVES,
+  FINAL_BOSS_MAX_TIME, LIFE_MODE_STARTING_LIVES,
   ROUNDS, SELL_REFUND, upgradeMultiplier,
 } from '../core/balance';
 import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
@@ -443,15 +443,15 @@ export class SidePanel {
     const copy = FORMATION_MASTERY_COPY;
     const locale = getLocale();
     const compact = this.portrait;
-    const breached = this.game.currentFormationBreached;
+    const escaped = this.game.currentFormationEscaped;
     this.formationPreviewLabel
       .setText(formation ? copy.nextEnemies[locale] : '')
       .setVisible(formation);
     this.formationMasteryText
-      .setText(!formation ? '' : breached
+      .setText(!formation ? '' : escaped
         ? `${copy.lost[locale]} · ${compact ? '×0' : `${copy.streak[locale]} ×0`}`
         : `${copy.perfect[locale]} · ${compact ? `×${this.game.formationMastery.streak}` : `${copy.streak[locale]} ×${this.game.formationMastery.streak}`}`)
-      .setColor(breached ? '#ffaaa3' : '#8fd8ff')
+      .setColor(escaped ? '#ffaaa3' : '#8fd8ff')
       .setVisible(formation);
 
     const preview = formation ? this.game.nextEnemyPreview(compact ? 5 : 8) : [];
@@ -512,7 +512,7 @@ export class SidePanel {
       ? tr('왕국 라이프 · 적 한 바퀴 완주 시 감소', 'KINGDOM LIVES')
       : tr(threatTitle(g.fieldCap), 'FIELD THREAT'));
     this.gaugeText.setText(
-      g.lifeMode ? tr(`♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · 침투 ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}`, `♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · BREACH ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}`) : tr(threatLabel(alive, g.fieldCap), `${alive} / ${g.fieldCap}`),
+      g.lifeMode ? tr(`♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · 탈출 ${g.escapedEnemies}`, `♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · ESCAPED ${g.escapedEnemies}`) : tr(threatLabel(alive, g.fieldCap), `${alive} / ${g.fieldCap}`),
     );
     if (band !== this.lastThreatBand && band !== 'safe') {
       this.scene.tweens.killTweensOf(this.gaugeText);
@@ -648,7 +648,7 @@ export class SidePanel {
       .setText(g.crownLevel > 0 ? `CROWN ${g.crownLevel}` : g.lifeMode ? 'LIFE' : 'THREAT')
       .setColor(g.crownLevel > 0 ? UI.gold : '#74727e');
     this.gaugeText.setText(
-      g.lifeMode ? tr(`♥ ${g.lives} · 침투 ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}`, `♥ ${g.lives} · BREACH ${g.breach}/${LIFE_MODE_BREACH_THRESHOLD}`) : tr(threatLabel(alive, g.fieldCap), `${alive}/${g.fieldCap}`),
+      g.lifeMode ? tr(`♥ ${g.lives} · 탈출 ${g.escapedEnemies}`, `♥ ${g.lives} · ESCAPED ${g.escapedEnemies}`) : tr(threatLabel(alive, g.fieldCap), `${alive}/${g.fieldCap}`),
     );
     this.goldText.setText(`G ${g.gold.toLocaleString()}`);
 

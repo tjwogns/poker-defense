@@ -355,7 +355,7 @@ describe('Game state machine', () => {
     expect(g.phase).toBe('defeat');
   });
 
-  test('생명 모드에서 적이 한 바퀴를 완주하면 제거되고 침투가 누적된다', () => {
+  test('생명 모드에서 일반 적 1기가 탈출하면 즉시 라이프 1을 잃는다', () => {
     const g = new Game(204, 'life-economy');
     g.handConfirmed = true;
     expect(g.startCombat()).toBe(true);
@@ -368,51 +368,77 @@ describe('Game state machine', () => {
     expect(result.escaped).toHaveLength(1);
     expect(result.escaped[0].alive).toBe(false);
     expect(result.escaped[0].escaped).toBe(true);
-    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES);
-    expect(g.breach).toBe(1);
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES - 1);
     expect(g.escapedEnemies).toBe(1);
+    expect(g.lifeDamageTaken).toBe(1);
+    expect(g.lastLifeDamage).toBe(1);
     expect(g.gold).toBe(START_GOLD);
   });
 
-  test('침투 5 이상이 쌓이면 라이프를 깎고 0이면 패배한다', () => {
+  test('일반 적 5종은 종류와 무관하게 같은 tick에 각각 라이프 1 피해를 준다', () => {
     const g = new Game(205, 'life-economy');
-    g.lives = 1;
-    g.round = 12;
+    g.round = 35;
     g.handConfirmed = true;
     g.startCombat();
-    for (let i = 0; i < 3; i++) spawnEnemy(g.field, 'tank', 12, { dist: pathLength(g.mapId) - 1 });
+    for (const kind of ['normal', 'fast', 'tank', 'regen', 'splitter'] as const) {
+      spawnEnemy(g.field, kind, 35, { dist: pathLength(g.mapId) - 1 });
+    }
 
     g.tickCombat(1 / 30);
 
-    expect(g.lives).toBe(0);
-    expect(g.breach).toBe(1);
-    expect(g.phase).toBe('defeat');
-    expect(g.defeatReason).toBe('life-depleted');
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES - 5);
+    expect(g.lifeDamageTaken).toBe(5);
     expect(g.lifeRoundHistory).toHaveLength(1);
     expect(g.lifeRoundHistory[0]).toMatchObject({
-      round: 12,
-      escaped: 3,
-      lifeDamage: 1,
-      escapedByKind: { tank: 3 },
+      round: 35,
+      escaped: 5,
+      lifeDamage: 5,
+      escapedByKind: { normal: 1, fast: 1, tank: 1, regen: 1, splitter: 1 },
     });
   });
 
-  test('보스가 탈출하면 남은 라이프와 관계없이 즉시 패배한다', () => {
+  test('남은 라이프보다 많은 동시 탈출도 실제 피해 합계를 기록하고 라이프는 0으로 고정한다', () => {
+    const g = new Game(208, 'life-economy');
+    g.lives = 3;
+    g.handConfirmed = true;
+    g.startCombat();
+    for (let i = 0; i < 5; i++) spawnEnemy(g.field, 'normal', 1, { dist: pathLength(g.mapId) - 1 });
+    g.tickCombat(1 / 30);
+    expect(g.lives).toBe(0);
+    expect(g.lifeDamageTaken).toBe(5);
+    expect(g.lastLifeDamage).toBe(5);
+    expect(g.phase).toBe('defeat');
+    expect(g.defeatReason).toBe('life-depleted');
+  });
+
+  test('일반 적과 보스가 함께 탈출하면 일반 적 피해를 기록하고 보스는 즉시 패배시킨다', () => {
     const g = new Game(206, 'life-economy');
     g.lives = LIFE_MODE_STARTING_LIVES;
     g.round = 10;
     g.handConfirmed = true;
     g.startCombat();
+    spawnEnemy(g.field, 'normal', 10, { dist: pathLength(g.mapId) - 1 });
     spawnEnemy(g.field, 'boss', 10, { dist: pathLength(g.mapId) - 1 });
 
     g.tickCombat(1 / 30);
 
-    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES);
-    expect(g.breach).toBe(0);
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES - 1);
     expect(g.phase).toBe('defeat');
     expect(g.defeatReason).toBe('boss-escaped');
-    expect(g.lifeRoundHistory[0].lifeDamage).toBe(0);
+    expect(g.lifeRoundHistory[0].escaped).toBe(2);
+    expect(g.lifeRoundHistory[0].lifeDamage).toBe(1);
     expect(g.lifeRoundHistory[0].escapedBossHpPercent).toBe(100);
+  });
+
+  test('classic 규칙은 적 탈출과 라이프 피해가 없는 기존 동작을 유지한다', () => {
+    const g = new Game(209, 'classic');
+    g.handConfirmed = true;
+    g.startCombat();
+    const enemy = spawnEnemy(g.field, 'tank', 1, { dist: pathLength('cross-road') + 1000 });
+    g.tickCombat(1 / 30);
+    expect(enemy.alive).toBe(true);
+    expect(g.escapedEnemies).toBe(0);
+    expect(g.lifeDamageTaken).toBe(0);
   });
 
   test('생명 모드는 일반 제한시간이 지나도 적이 처치되거나 탈출할 때까지 계속된다', () => {

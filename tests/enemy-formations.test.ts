@@ -4,7 +4,7 @@ import { Game } from '../src/core/game';
 import { addUnit } from '../src/core/combat';
 import {
   ENEMY_KINDS, FORMATION_COPY, waveComposition, waveEffectiveHpUnits, waveFormation, waveKind,
-  waveSpawnOrder, enemyBreachPoints,
+  waveSpawnOrder,
 } from '../src/core/enemies';
 import { spawnEnemy } from '../src/core/combat';
 import { HandRank } from '../src/core/cards/types';
@@ -165,13 +165,6 @@ describe('R11~R29 enemy formations', () => {
       formation: standard.nextWave().formation,
       composition: standard.nextWave().composition,
     });
-  });
-
-  test('tank/regen의 기존 침투 게이지 계약을 유지한다', () => {
-    expect(enemyBreachPoints('normal')).toBe(1);
-    expect(enemyBreachPoints('fast')).toBe(1);
-    expect(enemyBreachPoints('tank')).toBe(2);
-    expect(enemyBreachPoints('regen')).toBe(2);
   });
 
   test('carry-over가 있어도 current 진형 30기를 소진하고 R20 정비 경계로 한 번만 넘어간다', () => {

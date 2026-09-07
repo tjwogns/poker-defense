@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.8.1';
+export const CURRENT_VERSION = 'v2.9.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.0',
+    title: 'LIFE ON THE LINE',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '즉시 이해되는 라이프 피해',
+        items: [
+          '침투 게이지를 제거하고 보스를 제외한 적은 종류와 관계없이 탈출 1기당 라이프 1 즉시 감소',
+          '여러 적이 함께 탈출하면 같은 수만큼 피해를 합산하고 HUD·알림·라운드 결산에 바로 표시',
+          '보스가 출구에 도달하면 라이프 피해 없이 기존처럼 즉시 패배',
+        ],
+      },
+      {
+        heading: '명확한 방어 목표',
+        items: [
+          '메뉴와 한국어·영어 전투 UI의 침투 표현을 탈출·라이프 피해로 통일',
+          '진형 라운드는 현재 진형 적의 탈출 없이 전멸해야 완벽 방어를 달성하는 기존 원칙 유지',
+          '골드·공격력·적 체력·저장·분석 서버 규칙은 변경하지 않음',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.8.1',
     title: 'CLEAR BATTLEFIELD',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '전장을 가리지 않는 모바일 HUD',

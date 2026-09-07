@@ -103,7 +103,7 @@ describe('formation mastery Game integration', () => {
     ready(failed, 13);
     spawnEnemy(failed.field, 'normal', 13, { dist: pathLength(failed.mapId) + 1 });
     failed.tickCombat(0);
-    expect(failed.currentFormationBreached).toBe(true);
+    expect(failed.currentFormationEscaped).toBe(true);
     finishCurrentRound(failed);
     expect(failed.lastRoundSettlement?.formation).toEqual({ perfect: false, streak: 0, scoreBonus: 0 });
     expect(failed.formationMastery.streak).toBe(0);
@@ -113,7 +113,7 @@ describe('formation mastery Game integration', () => {
     ready(isolated, 13);
     spawnEnemy(isolated.field, 'normal', 12, { dist: pathLength(isolated.mapId) + 1 });
     isolated.tickCombat(0);
-    expect(isolated.currentFormationBreached).toBe(false);
+    expect(isolated.currentFormationEscaped).toBe(false);
     finishCurrentRound(isolated);
     expect(isolated.lastRoundSettlement?.formation).toEqual({ perfect: true, streak: 3, scoreBonus: 300 });
   });
@@ -122,12 +122,11 @@ describe('formation mastery Game integration', () => {
     const game = new Game(2808, 'life-economy');
     game.formationMastery = { streak: 3, bestStreak: 3, perfectCount: 3, score: 600 };
     game.lives = 1;
-    game.breach = 4;
     ready(game, 13);
     spawnEnemy(game.field, 'normal', 13, { dist: pathLength(game.mapId) + 1 });
     game.tickCombat(0);
     expect(game.phase).toBe('defeat');
-    expect(game.currentFormationBreached).toBe(true);
+    expect(game.currentFormationEscaped).toBe(true);
     expect(game.formationMastery).toEqual({ streak: 0, bestStreak: 3, perfectCount: 3, score: 600 });
   });
 
@@ -193,7 +192,7 @@ describe('formation mastery Game integration', () => {
     const panel = readFileSync(new URL('../src/game/SidePanel.ts', import.meta.url), 'utf8');
     expect(panel).toContain('this.game.nextEnemyPreview(compact ? 5 : 8)');
     expect(panel).toContain('ENEMY_KINDS[kind].color');
-    expect(panel).toContain('this.game.currentFormationBreached');
+    expect(panel).toContain('this.game.currentFormationEscaped');
     const play = readFileSync(new URL('../src/game/PlayScene.ts', import.meta.url), 'utf8');
     expect(play).toContain('PERFECT DEFENSE · STREAK ×${formation.streak} · +${formation.scoreBonus}');
     expect(play).toContain('PERFECT FORMATIONS ${mastery.perfectCount} · BEST ×${mastery.bestStreak}\\nFORMATION BONUS');

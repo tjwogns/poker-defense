@@ -7,14 +7,14 @@ import {
   START_GOLD, ROUNDS, BOSS_EVERY, SPAWN_INTERVAL, COMBAT_MAX_TIME,
   FINAL_BOSS_MAX_TIME, DECK_SEAL_COSTS,
   FIELD_CAP, SELL_REFUND, INTEREST_RATE, INTEREST_CAP,
-  LIFE_MODE_BASE_EXCHANGES, LIFE_MODE_BREACH_THRESHOLD,
+  LIFE_MODE_BASE_EXCHANGES,
   LIFE_MODE_BOUNTY_MULTIPLIER, LIFE_MODE_CLEAR_BONUS_MULTIPLIER, LIFE_MODE_FIELD_CAP,
   LIFE_MODE_INTEREST_CAP_MULTIPLIER, LIFE_MODE_INTEREST_RATE_MULTIPLIER, LIFE_MODE_STARTING_LIVES,
   CrownLevel, crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
 import {
-  EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveComposition, waveFormation, waveKind, waveSpawnOrder,
+  EnemyKindId, ENEMY_KINDS, waveComposition, waveFormation, waveKind, waveSpawnOrder,
 } from './enemies';
 import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
@@ -143,7 +143,6 @@ export class Game {
   bestHand: HandRank = HandRank.HighCard;
   defeatReason: DefeatReason | null = null;
   lives: number;
-  breach = 0;
   escapedEnemies = 0;
   lifeDamageTaken = 0;
   lastLifeDamage = 0;
@@ -762,7 +761,7 @@ export class Game {
     return queue.slice(0, limit);
   }
 
-  get currentFormationBreached(): boolean {
+  get currentFormationEscaped(): boolean {
     return this.formationRoundEscaped > 0;
   }
 
@@ -848,7 +847,7 @@ export class Game {
     if (waveFormation(this.seed, this.round)) {
       const currentFormationEscapes = result.escaped.filter((enemy) => enemy.round === this.round).length;
       this.formationRoundEscaped += currentFormationEscapes;
-      // 치명적 침투로 endRound에 도달하지 못해도 연속 기록은 즉시 끊긴다.
+      // 치명적 탈출로 endRound에 도달하지 못해도 연속 기록은 즉시 끊긴다.
       if (currentFormationEscapes > 0 && this.formationMastery.streak > 0) {
         this.formationMastery = { ...this.formationMastery, streak: 0 };
       }
@@ -895,14 +894,7 @@ export class Game {
 
     if (this.lifeMode && result.escaped.length > 0) {
       const bossEscaped = result.escaped.some((enemy) => enemy.kind === 'boss');
-      const breachAdded = result.escaped.reduce(
-        (total, enemy) => total + enemyBreachPoints(enemy.kind),
-        0,
-      );
-      const accumulatedBreach = this.breach + breachAdded;
-      const breachDamage = Math.floor(accumulatedBreach / LIFE_MODE_BREACH_THRESHOLD);
-      this.breach = accumulatedBreach % LIFE_MODE_BREACH_THRESHOLD;
-      const damage = breachDamage;
+      const damage = result.escaped.filter((enemy) => enemy.kind !== 'boss').length;
       let lifeRecord = this.lifeRoundHistory.find((record) => record.round === this.round);
       if (!lifeRecord) {
         lifeRecord = {

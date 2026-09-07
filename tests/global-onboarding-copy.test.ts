@@ -34,7 +34,7 @@ describe('English onboarding copy regression', () => {
     for (const copy of [
       'THE PATH IS OUT OF RANGE', 'RED TILES CANNOT REACH THE PATH',
       'FUSION SELECTION CANCELED', 'FUSION MATERIALS', 'SELECT 2 MATCHING UNITS',
-      'FUSED!', 'BOSS ESCAPED · DEFEAT', 'ENEMY BREACHED', 'RELIC BONUS',
+      'FUSED!', 'BOSS ESCAPED · DEFEAT', 'ESCAPED · LIVES', 'RELIC BONUS',
       'handVariantName', 'suitIdentityName',
     ]) expect(play).toContain(copy);
 
