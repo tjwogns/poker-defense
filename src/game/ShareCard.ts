@@ -2,12 +2,13 @@ import { HAND_NAMES_KO } from '../core/cards/types';
 import { RunSummary } from '../core/scoring';
 import { RunMode } from '../meta/profile';
 import { runShareUrl, shareText } from '../meta/share';
+import { handName, tr } from '../i18n';
 
 export async function shareRun(summary: RunSummary, mode: RunMode, date: string): Promise<'shared' | 'copied'> {
   const text = shareText(summary, mode, date);
   const url = runShareUrl(window.location.href, mode, date);
   if (navigator.share) {
-    await navigator.share({ title: '포커 디펜스: Royal Siege', text, url });
+    await navigator.share({ title: tr('포커 디펜스: Royal Siege', 'Poker Defense: Royal Siege'), text, url });
     return 'shared';
   }
   await copyText(`${text}\n${url}`);
@@ -53,13 +54,13 @@ export function downloadShareCard(summary: RunSummary, mode: RunMode, date: stri
   ctx.fillText(`${summary.score.toLocaleString()} POINTS`, 80, 295);
   ctx.fillStyle = '#94a698';
   ctx.font = '500 28px sans-serif';
-  ctx.fillText(`최고 족보  ${HAND_NAMES_KO[summary.bestHand]}    ·    KILLS  ${summary.kills}`, 80, 370);
+  ctx.fillText(tr(`최고 족보  ${HAND_NAMES_KO[summary.bestHand]}    ·    KILLS  ${summary.kills}`, `BEST HAND  ${handName(summary.bestHand, HAND_NAMES_KO[summary.bestHand])}    ·    KILLS  ${summary.kills}`), 80, 370);
   ctx.fillText(`${mode === 'daily' ? `${date} DAILY` : 'STANDARD'}    ·    SEED ${summary.seed}`, 80, 420);
   ctx.fillStyle = '#5cb187';
   ctx.fillRect(80, 500, 1040, 2);
   ctx.fillStyle = '#94a698';
   ctx.font = '600 22px sans-serif';
-  ctx.fillText('패를 만들고 · 군단을 합성하고 · 왕좌를 지켜라', 80, 555);
+  ctx.fillText(tr('패를 만들고 · 군단을 합성하고 · 왕좌를 지켜라', 'BUILD HANDS · FUSE YOUR ARMY · DEFEND THE THRONE'), 80, 555);
   const anchor = document.createElement('a');
   anchor.download = `poker-defense-${date}-${summary.score}.png`;
   anchor.href = canvas.toDataURL('image/png');

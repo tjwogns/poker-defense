@@ -36,7 +36,10 @@ import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
 import { isLifeLabLocation } from './experiment';
 import { portraitSceneHeight, portraitY } from './layout';
-import { getLocale, handName, handVariantName, suitIdentityName, tr, unitName } from '../i18n';
+import {
+  getLocale, handName, handVariantName, relicDescription, relicName, relicRarityName,
+  suitIdentityName, tr, unitName,
+} from '../i18n';
 
 const DT = 1 / TICK_RATE;
 
@@ -834,7 +837,7 @@ export class PlayScene extends Phaser.Scene {
     }, this.runId);
     this.audio.play('confirm');
     this.flashCenter(
-      `${SUIT_GLYPHS[card.suit]} ${RANK_LABELS[card.rank]} ${id === 'banish' ? '추방' : '복제'}`,
+      `${SUIT_GLYPHS[card.suit]} ${RANK_LABELS[card.rank]} ${id === 'banish' ? tr('추방', 'BANISHED') : tr('복제', 'DUPLICATED')}`,
       id === 'banish' ? 0xd06258 : 0x9f74cf,
     );
     this.refreshUI();
@@ -983,7 +986,7 @@ export class PlayScene extends Phaser.Scene {
       this,
       portrait ? 195 : 390,
       portrait ? py(102) : 102,
-      full ? '보상 유물 선택 · 교체하거나 건너뛰세요' : '보스 격파 · 유물을 선택하세요',
+      full ? tr('보상 유물 선택 · 교체하거나 건너뛰세요', 'CHOOSE A RELIC · REPLACE OR SKIP') : tr('보스 격파 · 유물을 선택하세요', 'BOSS DEFEATED · CHOOSE A RELIC'),
       portrait ? 18 : full ? 23 : 28,
       UI.gold,
       true,
@@ -1003,7 +1006,7 @@ export class PlayScene extends Phaser.Scene {
       this.audio.play('relic');
       this.relicOverlay?.destroy(true);
       this.relicOverlay = null;
-      this.flashCenter(`${RELIC_DEFS[id].name} 획득${refund ? ` · +${refund}G` : ''}`, RELIC_DEFS[id].color);
+      this.flashCenter(tr(`${RELIC_DEFS[id].name} 획득${refund ? ` · +${refund}G` : ''}`, `${relicName(id, RELIC_DEFS[id].name)} ACQUIRED${refund ? ` · +${refund}G` : ''}`), RELIC_DEFS[id].color);
       this.refreshUI();
     };
     this.core.relicChoices.forEach((id, index) => {
@@ -1014,11 +1017,11 @@ export class PlayScene extends Phaser.Scene {
         .setStrokeStyle(def.rarity === 'legendary' ? 3 : 2, rarityColor, 0.95)
         .setInteractive({ useHandCursor: true });
       const icon = createRelicIcon(this, id, x, portrait ? py(210) : 210, portrait ? 50 : 68);
-      const name = makeText(this, x, portrait ? py(278) : 278, def.name, portrait ? 13 : 17, UI.text, true).setOrigin(0.5);
-      const desc = makeText(this, x, portrait ? py(314) : 318, def.description, portrait ? 10 : 13, UI.textDim).setOrigin(0.5).setAlign('center');
+      const name = makeText(this, x, portrait ? py(278) : 278, relicName(id, def.name), portrait ? 13 : 17, UI.text, true).setOrigin(0.5);
+      const desc = makeText(this, x, portrait ? py(314) : 318, relicDescription(id, def.description), portrait ? 10 : 13, UI.textDim).setOrigin(0.5).setAlign('center');
       desc.setWordWrapWidth(portrait ? 100 : 154, true);
       const rarity = makeText(
-        this, x, portrait ? py(367) : 367, RELIC_RARITY_LABELS[def.rarity], portrait ? 9 : 11,
+        this, x, portrait ? py(367) : 367, relicRarityName(def.rarity, RELIC_RARITY_LABELS[def.rarity]), portrait ? 9 : 11,
         `#${rarityColor.toString(16).padStart(6, '0')}`, true,
       ).setOrigin(0.5);
       card.on('pointerdown', () => {
@@ -1027,7 +1030,7 @@ export class PlayScene extends Phaser.Scene {
           return;
         }
         selectedNew = id;
-        title.setText(`${def.name} 선택 · 교체할 기존 유물을 누르세요`);
+        title.setText(tr(`${def.name} 선택 · 교체할 기존 유물을 누르세요`, `${relicName(id, def.name)} SELECTED · CHOOSE A RELIC TO REPLACE`));
         replacementButtons.forEach((button) => button.setEnabled(true));
       });
       children.push(card, icon, name, desc, rarity);
@@ -1042,7 +1045,7 @@ export class PlayScene extends Phaser.Scene {
           portrait ? py(466) : 466,
           portrait ? 70 : 126,
           54,
-          `${def.name}\n교체 +${value}G`,
+          tr(`${def.name}\n교체 +${value}G`, `${relicName(id, def.name)}\nREPLACE +${value}G`),
           () => {
             if (selectedNew) finishSelection(selectedNew, id);
           },
@@ -1059,13 +1062,13 @@ export class PlayScene extends Phaser.Scene {
       portrait ? py(798) : 528,
       portrait ? 250 : 190,
       portrait ? 46 : 36,
-      '이번 유물 보상 건너뛰기',
+      tr('이번 유물 보상 건너뛰기', 'SKIP THIS RELIC REWARD'),
       () => {
         if (!this.core.skipRelicChoice()) return;
         this.audio.play('click');
         this.relicOverlay?.destroy(true);
         this.relicOverlay = null;
-        this.flashCenter('유물 보상을 건너뛰었습니다', UI.goldNum);
+        this.flashCenter(tr('유물 보상을 건너뛰었습니다', 'RELIC REWARD SKIPPED'), UI.goldNum);
         this.refreshUI();
       },
       { fill: UI.panelDeep, textColor: UI.textDim, fontSize: portrait ? 14 : 12, strokeAlpha: 0.2 },
@@ -1144,9 +1147,9 @@ export class PlayScene extends Phaser.Scene {
     }
     for (const event of result.bossEvents) {
       if (event.type === 'tax') {
-        this.flashCenter(`황금 폭군  −${event.amount}G`, UI.danger);
+        this.flashCenter(tr(`황금 폭군  −${event.amount}G`, `GOLD TYRANT  −${event.amount}G`), UI.danger);
       } else {
-        this.flashCenter(`군단왕  부하 +${event.count}`, 0x8a58b5);
+        this.flashCenter(tr(`군단왕  부하 +${event.count}`, `LEGION KING  MINIONS +${event.count}`), 0x8a58b5);
       }
       const boss = this.core.field.enemies.find(
         (enemy) => enemy.alive && enemy.kind === 'boss' && enemy.round === event.bossRound,
@@ -1327,16 +1330,16 @@ export class PlayScene extends Phaser.Scene {
     const endMessage = won
       ? this.core.crownLevel > 0
         ? this.core.crownLevel < CROWN_MAX_LEVEL
-          ? `왕관 ${this.core.crownLevel}개의 최종 보스를 격파하고 다음 왕관을 해금했습니다`
-          : `최고 왕관 ${CROWN_MAX_LEVEL}개의 원정을 정복했습니다`
-        : '최종 보스를 격파하고 왕좌를 지켰습니다'
+          ? tr(`왕관 ${this.core.crownLevel}개의 최종 보스를 격파하고 다음 왕관을 해금했습니다`, `CROWN ${this.core.crownLevel} CLEARED · NEXT CROWN UNLOCKED`)
+          : tr(`최고 왕관 ${CROWN_MAX_LEVEL}개의 원정을 정복했습니다`, `MAX CROWN ${CROWN_MAX_LEVEL} CONQUERED`)
+        : tr('최종 보스를 격파하고 왕좌를 지켰습니다', 'THE FINAL BOSS IS DEFEATED · THE THRONE IS SAFE')
       : this.core.defeatReason === 'final-boss-timeout'
-        ? '제한시간 안에 최종 보스를 격파하지 못했습니다'
+        ? tr('제한시간 안에 최종 보스를 격파하지 못했습니다', 'THE FINAL BOSS SURVIVED THE TIME LIMIT')
         : this.core.defeatReason === 'boss-escaped'
-          ? `라운드 ${this.core.round}의 보스가 출구를 돌파했습니다`
+          ? tr(`라운드 ${this.core.round}의 보스가 출구를 돌파했습니다`, `THE ROUND ${this.core.round} BOSS REACHED THE EXIT`)
         : this.core.defeatReason === 'life-depleted'
-          ? `라운드 ${this.core.round}에서 왕국의 라이프를 모두 잃었습니다`
-        : `라운드 ${this.core.round}에서 필드가 뚫렸습니다`;
+          ? tr(`라운드 ${this.core.round}에서 왕국의 라이프를 모두 잃었습니다`, `ALL KINGDOM LIVES WERE LOST IN ROUND ${this.core.round}`)
+        : tr(`라운드 ${this.core.round}에서 필드가 뚫렸습니다`, `THE FIELD FELL IN ROUND ${this.core.round}`);
     this.audio.play(won ? 'win' : 'lose');
     this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
     saveProfile(localStorage, this.profile);
@@ -1369,14 +1372,14 @@ export class PlayScene extends Phaser.Scene {
       }).setDepth(21);
     }
     this.add
-      .text(centerX, portrait ? py(102) : won ? 280 : 96, portrait ? won ? 'VICTORY' : `ROUND ${this.core.round}` : won ? '승리!' : '패배 분석', {
+      .text(centerX, portrait ? py(102) : won ? 280 : 96, portrait ? won ? 'VICTORY' : `ROUND ${this.core.round}` : won ? tr('승리!', 'VICTORY!') : tr('패배 분석', 'DEFEAT ANALYSIS'), {
         fontFamily: portrait ? FONT_DISPLAY : FONT, fontSize: portrait ? won ? '62px' : '54px' : won ? '56px' : '42px', fontStyle: 'bold',
         color: won ? UI.gold : UI.dangerText,
       })
       .setOrigin(0.5)
       .setDepth(21);
     this.add
-      .text(centerX, portrait ? py(174) : won ? 350 : 154, portrait && !won ? `${endMessage} · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다` : endMessage, {
+      .text(centerX, portrait ? py(174) : won ? 350 : 154, portrait && !won ? tr(`${endMessage} · ${Math.max(0, 60 - this.core.round)}라운드 남았습니다`, `${endMessage} · ${Math.max(0, 60 - this.core.round)} ROUNDS REMAIN`) : endMessage, {
         fontFamily: FONT, fontSize: portrait ? '12px' : '20px', color: portrait ? '#a8a5b2' : UI.text,
         align: 'center', wordWrap: portrait ? { width: 350, useAdvancedWrap: true } : undefined,
       })
@@ -1389,7 +1392,7 @@ export class PlayScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(21);
     if (won) {
-      this.add.text(centerX, portrait ? py(278) : 424, `연마 효율  ${this.masteryOutcomeLabel()}`, {
+      this.add.text(centerX, portrait ? py(278) : 424, `${tr('연마 효율', 'MASTERY IMPACT')}  ${this.masteryOutcomeLabel()}`, {
         fontFamily: FONT, fontSize: '14px', color: '#f0c879',
       }).setOrigin(0.5).setDepth(21);
     }
@@ -1437,7 +1440,7 @@ export class PlayScene extends Phaser.Scene {
     }, this.runId);
     this.renderEndFeedback(centerX, portrait, py, won ? 'victory' : 'defeat', summary.round);
     const date = this.runDate;
-    const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? '같은 조건으로 다시 도전' : '다시 시작', () => {
+    const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? tr('같은 조건으로 다시 도전', 'RETRY SAME RUN') : tr('다시 시작', 'PLAY AGAIN'), () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true, crownLevel: this.core.crownLevel });
@@ -1453,9 +1456,9 @@ export class PlayScene extends Phaser.Scene {
     // 정식 LIFE 규칙과 클래식 보존판의 점수가 한 랭킹에 섞이지 않도록
     // 온라인 일일 랭킹 등록은 현재 정식 규칙에서만 허용한다.
     if (this.mode === 'daily' && this.core.lifeMode) {
-      const ranking = makeButton(this, portrait ? centerX : 384, portrait ? py(632) : actionY, portrait ? 330 : 220, portrait ? 44 : 42, '일일 랭킹 등록', async () => {
+      const ranking = makeButton(this, portrait ? centerX : 384, portrait ? py(632) : actionY, portrait ? 330 : 220, portrait ? 44 : 42, tr('일일 랭킹 등록', 'SUBMIT DAILY SCORE'), async () => {
         ranking.setEnabled(false);
-        ranking.setLabel('등록 중…');
+        ranking.setLabel(tr('등록 중…', 'SUBMITTING…'));
         try {
           const result = await submitDailyScore({
             date,
@@ -1463,43 +1466,43 @@ export class PlayScene extends Phaser.Scene {
             name: this.profile.leaderboardName,
             summary,
           });
-          ranking.setLabel(`등록 완료 · #${result.rank}`);
+          ranking.setLabel(tr(`등록 완료 · #${result.rank}`, `SUBMITTED · #${result.rank}`));
           this.analytics.track('leaderboard_submitted', {
             date,
             rank: result.rank,
             score: result.bestScore,
             accepted: result.accepted,
           }, this.runId);
-          this.flashCenter(`#${result.rank} · 일일 랭킹 등록 완료`, 0xe6c84f, 24);
+          this.flashCenter(tr(`#${result.rank} · 일일 랭킹 등록 완료`, `#${result.rank} · DAILY SCORE SUBMITTED`), 0xe6c84f, 24);
         } catch {
-          ranking.setLabel('등록 실패 · 다시 시도');
+          ranking.setLabel(tr('등록 실패 · 다시 시도', 'FAILED · TRY AGAIN'));
           ranking.setEnabled(true);
         }
       }, { fill: 0x9f74cf, fontSize: 14 });
       ranking.container.setDepth(22);
       if (!leaderboardConfigured()) {
-        ranking.setLabel('랭킹 서버 준비 중');
+        ranking.setLabel(tr('랭킹 서버 준비 중', 'RANKING SERVER COMING SOON'));
         ranking.setEnabled(false);
       }
     }
     const shareX = portrait ? 75 : this.mode === 'daily' ? 640 : 512;
     const cardX = portrait ? 195 : this.mode === 'daily' ? 896 : 768;
-    const share = makeButton(this, shareX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? '공유' : '결과 공유', async () => {
+    const share = makeButton(this, shareX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? tr('공유', 'SHARE') : tr('결과 공유', 'SHARE RESULT'), async () => {
       try {
         const result = await shareRun(summary, this.mode, date);
         this.analytics.track('result_shared', { method: result, mode: this.mode }, this.runId);
-        this.flashCenter(result === 'shared' ? '결과를 공유했습니다' : '링크를 복사했습니다', UI.accent, 24);
+        this.flashCenter(result === 'shared' ? tr('결과를 공유했습니다', 'RESULT SHARED') : tr('링크를 복사했습니다', 'LINK COPIED'), UI.accent, 24);
       } catch {
         // 사용자가 공유 창을 닫은 경우 게임 흐름은 그대로 유지한다.
       }
     }, { fill: 0xe6c84f, fontSize: 14 });
     share.container.setDepth(22);
-    const card = makeButton(this, cardX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? 'PNG' : 'PNG 카드 저장', () => {
+    const card = makeButton(this, cardX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? 'PNG' : tr('PNG 카드 저장', 'SAVE PNG CARD'), () => {
       downloadShareCard(summary, this.mode, date);
-      this.flashCenter('PNG 카드를 저장했습니다', 0x6ca4d9, 24);
+      this.flashCenter(tr('PNG 카드를 저장했습니다', 'PNG CARD SAVED'), 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
     card.container.setDepth(22);
-    const home = makeButton(this, portrait ? 315 : 640, portrait ? actionY : won ? 594 : 626, portrait ? 102 : 180, portrait ? 50 : 40, portrait ? '메인' : '메인으로', () => this.scene.start('menu'), { fill: 0x42544a });
+    const home = makeButton(this, portrait ? 315 : 640, portrait ? actionY : won ? 594 : 626, portrait ? 102 : 180, portrait ? 50 : 40, portrait ? tr('메인', 'MENU') : tr('메인으로', 'MAIN MENU'), () => this.scene.start('menu'), { fill: 0x42544a });
     home.container.setDepth(22);
   }
 
@@ -1510,7 +1513,7 @@ export class PlayScene extends Phaser.Scene {
       this.add.rectangle(195, py(384), 330, 174, UI.panelDeep, 0.98)
         .setStrokeStyle(1, UI.panelLine, 1).setDepth(21);
       this.add.rectangle(31, py(316), 2, 136, UI.danger, 1).setOrigin(0, 0).setDepth(22);
-      this.add.text(46, py(330), '사망 원인', {
+      this.add.text(46, py(330), tr('사망 원인', 'DEFEAT CAUSE'), {
         fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: UI.dangerText,
       }).setDepth(22);
       this.add.text(46, py(355), analysis.cause, {
@@ -1540,7 +1543,7 @@ export class PlayScene extends Phaser.Scene {
     this.add.rectangle(640, 342, 900, 250, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.panelLine, 1)
       .setDepth(21);
-    this.add.text(226, 232, '전투 리포트', {
+    this.add.text(226, 232, tr('전투 리포트', 'BATTLE REPORT'), {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
     }).setDepth(22);
     this.add.text(226, 264, analysis.cause, {
@@ -1551,10 +1554,10 @@ export class PlayScene extends Phaser.Scene {
     }).setDepth(22);
     this.add.text(226, 328, analysis.lifeDetails.length > 0
       ? analysis.lifeDetails.join('   ·   ')
-      : `연마 효율  ${analysis.mastery}`, {
+      : `${tr('연마 효율', 'MASTERY IMPACT')}  ${analysis.mastery}`, {
       fontFamily: FONT, fontSize: '13px', color: analysis.lifeDetails.length > 0 ? '#ffaaa3' : '#f0c879',
     }).setDepth(22);
-    this.add.text(226, 356, '다음 시도', {
+    this.add.text(226, 356, tr('다음 시도', 'NEXT RUN'), {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: UI.gold,
     }).setDepth(22);
     this.add.text(226, 387, analysis.tips.map((tip) => `• ${tip}`).join('\n'), {
@@ -1577,10 +1580,10 @@ export class PlayScene extends Phaser.Scene {
       this.add.rectangle(x, 140, 316, 146, UI.panelDeep, 0.96)
         .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(21);
     }
-    const prompt = this.add.text(x, promptY, '이번 판 난이도는 어땠나요?', {
+    const prompt = this.add.text(x, promptY, tr('이번 판 난이도는 어땠나요?', 'HOW WAS THE DIFFICULTY?'), {
       fontFamily: FONT, fontSize: portrait ? '12px' : '14px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(0.5).setDepth(23);
-    const note = this.add.text(x, portrait ? py(670) : 194, this.analytics.remoteEnabled ? '익명으로 기록됩니다' : 'DATA ON에서만 익명 전송됩니다', {
+    const note = this.add.text(x, portrait ? py(670) : 194, this.analytics.remoteEnabled ? tr('익명으로 기록됩니다', 'RECORDED ANONYMOUSLY') : tr('DATA ON에서만 익명 전송됩니다', 'ANONYMOUSLY SENT ONLY WITH DATA ON'), {
       fontFamily: FONT, fontSize: portrait ? '9px' : '10px', color: UI.textDim,
     }).setOrigin(0.5).setDepth(23).setVisible(!portrait);
     const track = (question: 'difficulty' | 'replay_intent', answer: string): void => {
@@ -1595,9 +1598,9 @@ export class PlayScene extends Phaser.Scene {
       }, this.runId);
     };
     const difficultyButtons = [
-      { label: '쉬움', value: 'easy' },
-      { label: '적당함', value: 'balanced' },
-      { label: '어려움', value: 'hard' },
+      { label: tr('쉬움', 'EASY'), value: 'easy' },
+      { label: tr('적당함', 'BALANCED'), value: 'balanced' },
+      { label: tr('어려움', 'HARD'), value: 'hard' },
     ].map((option, index) => {
       const button = makeButton(
         this,
@@ -1609,7 +1612,7 @@ export class PlayScene extends Phaser.Scene {
         () => {
           track('difficulty', option.value);
           difficultyButtons.forEach((item) => item.container.setVisible(false));
-          prompt.setText('다시 플레이하고 싶나요?');
+          prompt.setText(tr('다시 플레이하고 싶나요?', 'WOULD YOU PLAY AGAIN?'));
           replayButtons.forEach((item) => item.container.setVisible(true));
         },
         { fill: UI.panelRaised, textColor: UI.text, fontSize: portrait ? 11 : 12, strokeAlpha: 0.2 },
@@ -1618,8 +1621,8 @@ export class PlayScene extends Phaser.Scene {
       return button;
     });
     const replayButtons = [
-      { label: '다시 할래요', value: 'yes' },
-      { label: '지금은 아니요', value: 'no' },
+      { label: tr('다시 할래요', 'YES'), value: 'yes' },
+      { label: tr('지금은 아니요', 'NOT NOW'), value: 'no' },
     ].map((option, index) => {
       const button = makeButton(
         this,
@@ -1631,8 +1634,8 @@ export class PlayScene extends Phaser.Scene {
         () => {
           track('replay_intent', option.value);
           replayButtons.forEach((item) => item.container.setVisible(false));
-          prompt.setText('피드백 고마워요!');
-          note.setText(this.analytics.remoteEnabled ? '다음 밸런스 조정에 반영할게요' : 'DATA ON 시 다음부터 익명 기록됩니다');
+          prompt.setText(tr('피드백 고마워요!', 'THANKS FOR THE FEEDBACK!'));
+          note.setText(this.analytics.remoteEnabled ? tr('다음 밸런스 조정에 반영할게요', 'WE WILL USE IT FOR THE NEXT BALANCE PASS') : tr('DATA ON 시 다음부터 익명 기록됩니다', 'ENABLE DATA TO RECORD FUTURE FEEDBACK'));
         },
         { fill: option.value === 'yes' ? UI.goldNum : UI.panelRaised, textColor: option.value === 'yes' ? UI.goldInk : UI.textDim, fontSize: portrait ? 11 : 12 },
       );
@@ -1648,9 +1651,9 @@ export class PlayScene extends Phaser.Scene {
       .sort((a, b) => b.damage - a.damage);
     const total = entries.reduce((sum, entry) => sum + entry.damage, 0);
     const main = entries[0];
-    if (!main || total <= 0) return '피해 기록 없음';
+    if (!main || total <= 0) return tr('피해 기록 없음', 'NO DAMAGE DATA');
     const share = Math.round((main.damage / total) * 100);
-    return `주력 ${HAND_NAMES_KO[main.rank]} ${share}% · Lv${this.core.handMastery[main.rank] ?? 0}`;
+    return tr(`주력 ${HAND_NAMES_KO[main.rank]} ${share}% · Lv${this.core.handMastery[main.rank] ?? 0}`, `MAIN ${handName(main.rank, HAND_NAMES_KO[main.rank])} ${share}% · Lv${this.core.handMastery[main.rank] ?? 0}`);
   }
 
   private reducedMotion(): boolean {

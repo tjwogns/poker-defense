@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.3.0';
+export const CURRENT_VERSION = 'v2.3.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.3.1',
+    title: 'FULL EXPEDITION',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '끝까지 이어지는 영어 원정',
+        items: [
+          '정비소·인장·덱 개조·전체 확률·도감과 나가기 확인창을 한국어/영어로 지원',
+          '유물 구매·판매·교체와 보스 보상, 6종 보스 이름·기믹·발동 상태를 영어로 표시',
+          '승리·패배 분석·종료 설문·공유 이미지·일일 랭킹까지 전체 원정 흐름 영어화',
+        ],
+      },
+      {
+        heading: '규칙을 보존한 표시 확장',
+        items: [
+          '유물·보스·적·족보 ID를 유지하고 표시 경계에서만 언어별 이름과 설명 선택',
+          '기존 한국어 세이브·지휘관 이름·온라인 기록은 변경 없이 유지',
+          '영어와 한국어 전체 플레이 및 6종 보스 브라우저 검증으로 규칙·화면 회귀 확인',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.3.0',
     title: 'GLOBAL ASCENT',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '영어 첫 경험',

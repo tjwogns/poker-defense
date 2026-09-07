@@ -166,6 +166,7 @@ await page.evaluate(() => {
 await page.mouse.click(512, 568);
 await new Promise((r) => setTimeout(r, 150));
 const copiedText = await page.evaluate(() => window.__copiedText);
+const documentLocale = await page.evaluate(() => document.documentElement.lang);
 await page.mouse.click(768, 568);
 await new Promise((r) => setTimeout(r, 150));
 
@@ -200,7 +201,10 @@ if (!ended || ended.phase !== 'defeat') {
   console.log('스모크 실패: 종료/공유 화면 상태 불일치');
   process.exit(1);
 }
-if (!copiedText.includes('포커 디펜스') || !copiedText.includes('STANDARD RUN')) {
+const shareCopyMatchesLocale = documentLocale === 'en'
+  ? copiedText.includes('POKER DEFENSE') && copiedText.includes('STANDARD RUN') && !/[가-힣]/.test(copiedText)
+  : copiedText.includes('포커 디펜스') && copiedText.includes('STANDARD RUN');
+if (!shareCopyMatchesLocale) {
   console.log('스모크 실패: 결과 공유 클립보드 폴백 불일치');
   process.exit(1);
 }

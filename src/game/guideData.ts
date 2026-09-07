@@ -1,5 +1,6 @@
 import { HandRank, HAND_NAMES_KO } from '../core/cards/types';
 import { UNIT_DEFS, UnitDef } from '../core/units';
+import { guideRule, handName, tr, unitName } from '../i18n';
 
 const HAND_RULES: Record<HandRank, string> = {
   [HandRank.HighCard]: '어떤 조합도 완성되지 않은 패',
@@ -19,13 +20,13 @@ const HAND_RULES: Record<HandRank, string> = {
 
 export function traitLabel(def: UnitDef): string {
   const trait = def.traits;
-  if (trait.splash) return `범위 피해 · 반경 ${trait.splash}칸`;
-  if (trait.chain) return `연쇄 공격 · 최대 ${trait.chain.count}기`;
-  if (trait.slow) return `감속 ${trait.slow.pct * 100}% · ${trait.slow.dur}초`;
-  if (trait.aura) return `주변 아군 공격력 +${trait.aura.dmgPct * 100}%`;
-  if (trait.execute) return '현재 HP 비례 추가 피해';
-  if (trait.ignoreDefense) return '방어력 무시';
-  return '단일 대상 공격';
+  if (trait.splash) return tr(`범위 피해 · 반경 ${trait.splash}칸`, `Area damage · ${trait.splash}-tile radius`);
+  if (trait.chain) return tr(`연쇄 공격 · 최대 ${trait.chain.count}기`, `Chain attack · up to ${trait.chain.count} targets`);
+  if (trait.slow) return tr(`감속 ${trait.slow.pct * 100}% · ${trait.slow.dur}초`, `Slow ${trait.slow.pct * 100}% · ${trait.slow.dur}s`);
+  if (trait.aura) return tr(`주변 아군 공격력 +${trait.aura.dmgPct * 100}%`, `Nearby allies damage +${trait.aura.dmgPct * 100}%`);
+  if (trait.execute) return tr('현재 HP 비례 추가 피해', 'Bonus damage based on current HP');
+  if (trait.ignoreDefense) return tr('방어력 무시', 'Ignores defense');
+  return tr('단일 대상 공격', 'Single-target attack');
 }
 
 export interface HandbookRow {
@@ -36,12 +37,24 @@ export interface HandbookRow {
   trait: string;
 }
 
-export const HANDBOOK_ROWS: HandbookRow[] = Object.values(HandRank)
-  .filter((value): value is HandRank => typeof value === 'number')
-  .map((rank) => ({
+const HANDBOOK_RANKS = Object.values(HandRank)
+  .filter((value): value is HandRank => typeof value === 'number');
+
+export function handbookRows(): HandbookRow[] {
+  return HANDBOOK_RANKS.map((rank) => ({
     rank,
-    hand: HAND_NAMES_KO[rank],
-    rule: HAND_RULES[rank],
-    unit: UNIT_DEFS[rank].name,
+    hand: handName(rank, HAND_NAMES_KO[rank]),
+    rule: guideRule(rank, HAND_RULES[rank]),
+    unit: unitName(rank, UNIT_DEFS[rank].name),
     trait: traitLabel(UNIT_DEFS[rank]),
   }));
+}
+
+/** @deprecated Prefer handbookRows() so locale is resolved at render time. */
+export const HANDBOOK_ROWS: HandbookRow[] = HANDBOOK_RANKS.map((rank) => ({
+  rank,
+  get hand() { return handName(rank, HAND_NAMES_KO[rank]); },
+  get rule() { return guideRule(rank, HAND_RULES[rank]); },
+  get unit() { return unitName(rank, UNIT_DEFS[rank].name); },
+  get trait() { return traitLabel(UNIT_DEFS[rank]); },
+}));

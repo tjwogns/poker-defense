@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import { challengeUrl, dailyDateFromSearch, runShareUrl, shareText } from '../src/meta/share';
+import { setLocale } from '../src/i18n';
 
 const summary = {
   seed: 1234,
@@ -39,5 +40,15 @@ describe('share helpers', () => {
     expect(runShareUrl('https://game.example/?daily=2026-08-26&ref=friend', 'standard', '2026-08-26')).toBe(
       'https://game.example/?ref=friend',
     );
+  });
+
+  test('영어 공유 결과에는 한국어 표시 이름이 노출되지 않는다', () => {
+    setLocale('en');
+    const text = shareText(summary, 'daily', '2026-08-26');
+    expect(text).toContain('POKER DEFENSE');
+    expect(text).toContain('BEST HAND Four of a Kind');
+    expect(text).toContain('RELICS Royal Seal · War Chest');
+    expect(text).not.toMatch(/[가-힣]/);
+    setLocale('ko');
   });
 });

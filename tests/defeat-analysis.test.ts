@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import { analyzeDefeat, DefeatAnalysisInput } from '../src/meta/defeatAnalysis';
 import { createHandMasteryLevels } from '../src/core/mastery';
+import { setLocale } from '../src/i18n';
 
 function baseInput(): DefeatAnalysisInput {
   return {
@@ -142,5 +143,25 @@ describe('defeat analysis', () => {
 
     expect(analysis.tips[0]).toContain('피해 1위 플러시');
     expect(analysis.tips[0]).toContain('연마');
+  });
+
+  test('영어 패배 분석은 코어 ID와 수치를 유지하며 영어 표시값만 반환한다', () => {
+    setLocale('en');
+    const input = baseInput();
+    input.reason = 'life-depleted';
+    input.lives = 0;
+    input.bestHand = HandRank.Pair;
+    input.handDamage[HandRank.Pair] = 100;
+    input.lifeRoundHistory = [{
+      round: 24, escaped: 4, lifeDamage: 2,
+      escapedByKind: { normal: 0, fast: 4, tank: 0, regen: 0, splitter: 0, boss: 0 },
+      escapedBossHpPercent: null,
+    }];
+    const analysis = analyzeDefeat(input);
+    expect(analysis.cause).toContain('KINGDOM LIVES 0');
+    expect(analysis.mastery).toContain('One Pair');
+    expect(analysis.lifeDetails.join(' ')).toContain('Chip Thief');
+    expect(JSON.stringify(analysis)).not.toMatch(/[가-힣]/);
+    setLocale('ko');
   });
 });

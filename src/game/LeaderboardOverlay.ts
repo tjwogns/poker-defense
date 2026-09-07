@@ -3,6 +3,7 @@ import { fetchDailyLeaderboard, leaderboardConfigured, LeaderboardEntry } from '
 import { UI, makeButton, makeText } from './ui';
 import { isPortraitLayout } from './device';
 import { portraitSceneHeight, portraitY } from './layout';
+import { tr } from '../i18n';
 
 /** 오늘의 도전 TOP 10을 표시하는 온라인 랭킹 모달. */
 export class LeaderboardOverlay {
@@ -33,20 +34,20 @@ export class LeaderboardOverlay {
 
     children.push(
       makeText(scene, 300, 75, 'DAILY RANKING', 11, UI.accentText, true),
-      makeText(scene, 300, 96, '오늘의 도전 TOP 10', 30, UI.text, true),
-      makeText(scene, 300, 134, `${date} · 내 지휘관: ${playerName}`, 13, UI.textDim),
+      makeText(scene, 300, 96, tr('오늘의 도전 TOP 10', 'DAILY CHALLENGE TOP 10'), 30, UI.text, true),
+      makeText(scene, 300, 134, tr(`${date} · 내 지휘관: ${playerName}`, `${date} · COMMANDER: ${playerName}`), 13, UI.textDim),
     );
-    const close = makeButton(scene, 930, 96, 110, 36, '닫기  ESC', onClose, {
+    const close = makeButton(scene, 930, 96, 110, 36, tr('닫기  ESC', 'CLOSE  ESC'), onClose, {
       fill: 0x42544a,
       fontSize: 11,
     });
     children.push(close.container);
 
     children.push(
-      makeText(scene, 315, 177, '순위', 11, UI.gold, true),
-      makeText(scene, 390, 177, '지휘관', 11, UI.gold, true),
-      makeText(scene, 690, 177, '라운드', 11, UI.gold, true),
-      makeText(scene, 860, 177, '점수', 11, UI.gold, true),
+      makeText(scene, 315, 177, tr('순위', 'RANK'), 11, UI.gold, true),
+      makeText(scene, 390, 177, tr('지휘관', 'COMMANDER'), 11, UI.gold, true),
+      makeText(scene, 690, 177, tr('라운드', 'ROUND'), 11, UI.gold, true),
+      makeText(scene, 860, 177, tr('점수', 'SCORE'), 11, UI.gold, true),
       scene.add.rectangle(640, 198, 690, 1, UI.panelLine, 1),
     );
 
@@ -61,8 +62,8 @@ export class LeaderboardOverlay {
       children.push(rank, name, round, score);
     }
 
-    this.statusText = makeText(scene, 640, 584, '랭킹을 불러오는 중…', 12, UI.textDim).setOrigin(0.5);
-    this.refreshButton = makeButton(scene, 640, 625, 180, 38, '새로고침', () => void this.load(), {
+    this.statusText = makeText(scene, 640, 584, tr('랭킹을 불러오는 중…', 'Loading rankings…'), 12, UI.textDim).setOrigin(0.5);
+    this.refreshButton = makeButton(scene, 640, 625, 180, 38, tr('새로고침', 'REFRESH'), () => void this.load(), {
       fill: 0x42544a,
       fontSize: 12,
     });
@@ -73,7 +74,7 @@ export class LeaderboardOverlay {
         scene,
         640,
         648,
-        '시크릿 창을 닫으면 이 기기의 개인 기록·지휘관 ID는 초기화됩니다. 이미 등록한 온라인 점수는 유지됩니다.',
+        tr('시크릿 창을 닫으면 이 기기의 개인 기록·지휘관 ID는 초기화됩니다. 이미 등록한 온라인 점수는 유지됩니다.', 'Closing a private window resets local records and commander ID. Submitted online scores remain.'),
         10,
         UI.textDim,
       ).setOrigin(0.5),
@@ -90,14 +91,14 @@ export class LeaderboardOverlay {
       scene.add.rectangle(195, height / 2, 390, height, 0x020705, 0.9).setInteractive(),
       scene.add.rectangle(195, height / 2, 370, height - 24, UI.panel, 1).setStrokeStyle(1, UI.panelGlow, 0.95),
       makeText(scene, 20, py(28), 'DAILY RANKING', 9, UI.accentText, true),
-      makeText(scene, 20, py(49), '오늘의 도전 TOP 10', 21, UI.text, true),
+      makeText(scene, 20, py(49), tr('오늘의 도전 TOP 10', 'DAILY CHALLENGE TOP 10'), 21, UI.text, true),
       makeText(scene, 20, py(82), `${this.date} · ${playerName}`, 10, UI.textDim),
-      makeText(scene, 28, py(116), '순위', 9, UI.gold, true),
-      makeText(scene, 78, py(116), '지휘관', 9, UI.gold, true),
+      makeText(scene, 28, py(116), tr('순위', 'RANK'), 9, UI.gold, true),
+      makeText(scene, 78, py(116), tr('지휘관', 'COMMANDER'), 9, UI.gold, true),
       makeText(scene, 274, py(116), 'R', 9, UI.gold, true),
-      makeText(scene, 358, py(116), '점수', 9, UI.gold, true).setOrigin(1, 0),
+      makeText(scene, 358, py(116), tr('점수', 'SCORE'), 9, UI.gold, true).setOrigin(1, 0),
     ];
-    children.push(makeButton(scene, 338, py(49), 76, 38, '닫기', onClose, { fill: 0x42544a, fontSize: 11 }).container);
+    children.push(makeButton(scene, 338, py(49), 76, 38, tr('닫기', 'CLOSE'), onClose, { fill: 0x42544a, fontSize: 11 }).container);
     const top = py(145);
     const bottom = height - 128;
     const gap = (bottom - top) / 10;
@@ -111,29 +112,31 @@ export class LeaderboardOverlay {
       this.rowTexts.push(rank, name, round, score);
       children.push(rank, name, round, score);
     }
-    this.statusText = makeText(scene, 195, height - 100, '랭킹을 불러오는 중…', 10, UI.textDim).setOrigin(0.5);
-    this.refreshButton = makeButton(scene, 195, height - 66, 150, 38, '새로고침', () => void this.load(), { fill: 0x42544a, fontSize: 11 });
-    children.push(this.statusText, this.refreshButton.container, makeText(scene, 195, height - 30, '시크릿 창을 닫아도 이미 등록한 온라인 점수는 유지됩니다.', 8, UI.textDim).setOrigin(0.5));
+    this.statusText = makeText(scene, 195, height - 100, tr('랭킹을 불러오는 중…', 'Loading rankings…'), 10, UI.textDim).setOrigin(0.5);
+    this.refreshButton = makeButton(scene, 195, height - 66, 150, 38, tr('새로고침', 'REFRESH'), () => void this.load(), { fill: 0x42544a, fontSize: 11 });
+    children.push(this.statusText, this.refreshButton.container, makeText(scene, 195, height - 30, tr('시크릿 창을 닫아도 이미 등록한 온라인 점수는 유지됩니다.', 'Submitted online scores remain after closing a private window.'), 8, UI.textDim).setOrigin(0.5));
     this.root = scene.add.container(0, 0, children).setDepth(50);
   }
 
   private async load(): Promise<void> {
     if (this.loading) return;
     if (!leaderboardConfigured()) {
-      this.statusText.setText('온라인 랭킹 서버를 연결하면 순위가 표시됩니다.');
+      this.statusText.setText(tr('온라인 랭킹 서버를 연결하면 순위가 표시됩니다.', 'Connect an online ranking server to view the leaderboard.'));
       this.statusText.setColor(UI.gold);
       this.refreshButton.setEnabled(false);
       return;
     }
     this.loading = true;
     this.refreshButton.setEnabled(false);
-    this.statusText.setText('랭킹을 불러오는 중…').setColor(UI.textDim);
+    this.statusText.setText(tr('랭킹을 불러오는 중…', 'Loading rankings…')).setColor(UI.textDim);
     try {
       const entries = await fetchDailyLeaderboard(this.date, this.playerId);
       this.renderEntries(entries);
-      this.statusText.setText(entries.length > 0 ? '한 지휘관당 오늘의 최고 점수만 집계됩니다.' : '아직 등록된 기록이 없습니다. 첫 기록을 세워보세요!');
+      this.statusText.setText(entries.length > 0
+        ? tr('한 지휘관당 오늘의 최고 점수만 집계됩니다.', 'Only each commander\'s best score today is ranked.')
+        : tr('아직 등록된 기록이 없습니다. 첫 기록을 세워보세요!', 'No records yet. Set the first score!'));
     } catch {
-      this.statusText.setText('랭킹을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.').setColor(UI.dangerText);
+      this.statusText.setText(tr('랭킹을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not load rankings. Please try again shortly.')).setColor(UI.dangerText);
     } finally {
       this.loading = false;
       this.refreshButton.setEnabled(true);

@@ -18,7 +18,8 @@ import {
   HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
 } from '../core/cards/handIdentity';
 import { isPortraitLayout } from './device';
-import { getLocale, handName, tr, unitName, waveName } from '../i18n';
+import type { EnemyKindId } from '../core/enemies';
+import { getLocale, handName, relicName, tr, unitName, waveName } from '../i18n';
 
 const SPEEDS = [1, 2, 4] as const;
 
@@ -75,14 +76,17 @@ function railCard(scene: Phaser.Scene, rect: UiRect, dashed = false): Phaser.Gam
   return g;
 }
 
-const WAVE_HINTS = {
-  normal: tr('표준 병력 · 균형 잡힌 기본 웨이브', 'Standard troops · balanced wave'),
-  fast: tr('이동이 빠름 · 입구와 코너 화력 집중', 'Fast movement · cover entrances and corners'),
-  tank: tr('받는 피해 −25% · 이동 느림 · 광역이 유리', '−25% damage taken · slow · area damage works well'),
-  regen: tr('체력을 회복함 · 한 지점에 화력 집중', 'Regenerates · focus fire at one point'),
-  splitter: tr('처치 시 분열 · 광역과 연쇄 공격이 유리', 'Splits on death · use area and chain attacks'),
-  boss: tr('강력한 우두머리 · 기믹과 제한시간 확인', 'Powerful boss · watch its mechanic and timer'),
-} as const;
+function waveHint(kind: EnemyKindId): string {
+  const hints = {
+    normal: ['표준 병력 · 균형 잡힌 기본 웨이브', 'Standard troops · balanced wave'],
+    fast: ['이동이 빠름 · 입구와 코너 화력 집중', 'Fast movement · cover entrances and corners'],
+    tank: ['받는 피해 −25% · 이동 느림 · 광역이 유리', '−25% damage taken · slow · area damage works well'],
+    regen: ['체력을 회복함 · 한 지점에 화력 집중', 'Regenerates · focus fire at one point'],
+    splitter: ['처치 시 분열 · 광역과 연쇄 공격이 유리', 'Splits on death · use area and chain attacks'],
+    boss: ['강력한 우두머리 · 기믹과 제한시간 확인', 'Powerful boss · watch its mechanic and timer'],
+  } as const;
+  return tr(hints[kind][0], hints[kind][1]);
+}
 
 export class SidePanel {
   private scene: Phaser.Scene;
@@ -340,10 +344,10 @@ export class SidePanel {
 
   pulseRelics(ids: readonly RelicId[]): void {
     if (ids.length === 0) return;
-    const names = ids.slice(0, 2).map((id) => RELIC_DEFS[id].name);
-    const extra = ids.length > 2 ? ` 외 ${ids.length - 2}` : '';
+    const names = ids.slice(0, 2).map((id) => relicName(id, RELIC_DEFS[id].name));
+    const extra = ids.length > 2 ? tr(` 외 ${ids.length - 2}`, ` +${ids.length - 2} MORE`) : '';
     this.scene.tweens.killTweensOf(this.relicTriggerText);
-    this.relicTriggerText.setText(`⚡ ${names.join(' · ')}${extra} 발동`).setAlpha(1).setScale(1.04);
+    this.relicTriggerText.setText(tr(`⚡ ${names.join(' · ')}${extra} 발동`, `⚡ ${names.join(' · ')}${extra} TRIGGERED`)).setAlpha(1).setScale(1.04);
     this.scene.tweens.add({
       targets: this.relicTriggerText, alpha: 0, scale: 1, delay: 650, duration: 450, ease: 'Cubic.Out',
     });
@@ -411,7 +415,7 @@ export class SidePanel {
           + `${otherIncome > 0 ? ` · OTHER +${otherIncome}` : ''}`
           + `${settlement.escaped > 0 ? ` · ESCAPED ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`,
       )
-      : WAVE_HINTS[wave.kind]);
+      : waveHint(wave.kind));
     this.settlementText.setText(inPrep && settlement
       ? tr(
         `R${settlement.round} 결산  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · 잔액 ${settlement.goldEnd}G · 다음 강화 ${settlement.nextUpgradeCost}G`,
@@ -517,7 +521,7 @@ export class SidePanel {
     this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : tr(`R${nextBoss} 보스까지 ${nextBoss - g.round}`, `${nextBoss - g.round} TO R${nextBoss} BOSS`));
     this.waveHint.setText(wave.kind === 'tank' || wave.kind === 'splitter'
       ? tr('광역이 유리', 'AREA DAMAGE WORKS WELL')
-      : WAVE_HINTS[wave.kind].split(' · ')[1] ?? tr('화력 집중', 'FOCUS FIRE'));
+      : waveHint(wave.kind).split(' · ')[1] ?? tr('화력 집중', 'FOCUS FIRE'));
     const settlement = g.lastRoundSettlement;
     this.settlementText.setText(inPrep && settlement
       ? `R${settlement.round} +${settlement.incomeTotal} / −${settlement.spendTotal}G`

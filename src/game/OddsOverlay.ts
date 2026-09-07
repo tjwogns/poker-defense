@@ -4,6 +4,7 @@ import { RerollOdds } from '../core/cards/odds';
 import { UI, makeButton, makeText } from './ui';
 import { isPortraitLayout } from './device';
 import { portraitSceneHeight, portraitY } from './layout';
+import { handName, tr } from '../i18n';
 
 export class OddsOverlay {
   private root: Phaser.GameObjects.Container;
@@ -22,17 +23,17 @@ export class OddsOverlay {
 
     children.push(
       makeText(scene, 300, 67, 'REROLL ODDS', 11, UI.accentText, true),
-      makeText(scene, 300, 89, '전체 족보 확률', 29, UI.text, true),
+      makeText(scene, 300, 89, tr('전체 족보 확률', 'All Hand Odds'), 29, UI.text, true),
       makeText(
         scene,
         300,
         128,
-        `${odds.drawCount}장 교체 · 상승 ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()}개 조합`,
+        tr(`${odds.drawCount}장 교체 · 상승 ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()}개 조합`, `Exchange ${odds.drawCount} · Improve ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()} combinations`),
         13,
         UI.textDim,
       ),
     );
-    const close = makeButton(scene, 930, 90, 110, 36, '닫기  ESC', onClose, {
+    const close = makeButton(scene, 930, 90, 110, 36, tr('닫기  ESC', 'Close  ESC'), onClose, {
       fill: 0x42544a,
       fontSize: 11,
     });
@@ -48,7 +49,7 @@ export class OddsOverlay {
       if (rank % 2 === 0) children.push(scene.add.rectangle(640, y, 660, 27, UI.panelRaised, 0.65));
       const barWidth = probability > 0 ? Math.max(2, 300 * probability / maxProbability) : 0;
       children.push(
-        makeText(scene, 320, y, HAND_NAMES_KO[rank as HandRank], 12, color, improved || current).setOrigin(0, 0.5),
+        makeText(scene, 320, y, handName(rank as HandRank, HAND_NAMES_KO[rank as HandRank]), 12, color, improved || current).setOrigin(0, 0.5),
         scene.add.rectangle(520, y, 300, 8, UI.panelDeep, 1).setOrigin(0, 0.5),
         scene.add.rectangle(520, y, barWidth, 8, improved ? 0xe6c84f : current ? UI.accent : 0x60746a, 0.9).setOrigin(0, 0.5),
         makeText(scene, 960, y, formatOddsPercent(probability), 12, color, improved).setOrigin(1, 0.5),
@@ -56,8 +57,8 @@ export class OddsOverlay {
     }
 
     children.push(
-      makeText(scene, 300, 590, '금색은 현재 족보보다 높은 결과입니다. 실제 교환은 현재 패 5장을 제외한 47장에서 뽑습니다.', 11, UI.textDim),
-      makeText(scene, 300, 614, '확률은 판단 정보이며 필요한 유닛·교환 비용·현재 빌드에 따라 최선의 선택은 달라집니다.', 11, UI.textDim),
+      makeText(scene, 300, 590, tr('금색은 현재 족보보다 높은 결과입니다. 실제 교환은 현재 패 5장을 제외한 47장에서 뽑습니다.', 'Gold marks results above your current hand. Exchanges draw from the 47 cards outside your hand.'), 11, UI.textDim),
+      makeText(scene, 300, 614, tr('확률은 판단 정보이며 필요한 유닛·교환 비용·현재 빌드에 따라 최선의 선택은 달라집니다.', 'Odds are guidance; the best choice depends on units, exchange cost, and your build.'), 11, UI.textDim),
     );
     this.root = scene.add.container(0, 0, children).setDepth(45);
   }
@@ -69,10 +70,10 @@ export class OddsOverlay {
       scene.add.rectangle(195, height / 2, 390, height, 0x020705, 0.9).setInteractive(),
       scene.add.rectangle(195, height / 2, 370, height - 24, UI.panel, 1).setStrokeStyle(1, UI.panelGlow, 0.95),
       makeText(scene, 20, py(28), 'REROLL ODDS', 9, UI.accentText, true),
-      makeText(scene, 20, py(49), '전체 족보 확률', 22, UI.text, true),
-      makeText(scene, 20, py(82), `${odds.drawCount}장 교체 · 상승 ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()}개`, 10, UI.textDim),
+      makeText(scene, 20, py(49), tr('전체 족보 확률', 'All Hand Odds'), 22, UI.text, true),
+      makeText(scene, 20, py(82), tr(`${odds.drawCount}장 교체 · 상승 ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()}개`, `Exchange ${odds.drawCount} · Improve ${formatOddsPercent(odds.improveProbability)} · ${odds.totalCombinations.toLocaleString()}`), 10, UI.textDim),
     ];
-    children.push(makeButton(scene, 338, py(49), 76, 38, '닫기', onClose, { fill: 0x42544a, fontSize: 11 }).container);
+    children.push(makeButton(scene, 338, py(49), 76, 38, tr('닫기', 'Close'), onClose, { fill: 0x42544a, fontSize: 11 }).container);
     const maxProbability = Math.max(...odds.probabilities);
     const top = py(122);
     const bottom = height - 68;
@@ -86,13 +87,13 @@ export class OddsOverlay {
       if (rank % 2 === 0) children.push(scene.add.rectangle(195, y + gap / 2, 350, gap - 2, UI.panelRaised, 0.65));
       const barWidth = probability > 0 ? Math.max(2, 120 * probability / maxProbability) : 0;
       children.push(
-        makeText(scene, 28, y + gap / 2, HAND_NAMES_KO[rank as HandRank], 10, color, improved || current).setOrigin(0, 0.5),
+        makeText(scene, 28, y + gap / 2, handName(rank as HandRank, HAND_NAMES_KO[rank as HandRank]), 10, color, improved || current).setOrigin(0, 0.5),
         scene.add.rectangle(158, y + gap / 2, 120, 7, UI.panelDeep, 1).setOrigin(0, 0.5),
         scene.add.rectangle(158, y + gap / 2, barWidth, 7, improved ? 0xe6c84f : current ? UI.accent : 0x60746a, 0.9).setOrigin(0, 0.5),
         makeText(scene, 358, y + gap / 2, formatOddsPercent(probability), 10, color, improved).setOrigin(1, 0.5),
       );
     }
-    children.push(makeText(scene, 195, height - 34, '금색은 현재 족보보다 높은 결과입니다.', 9, UI.textDim).setOrigin(0.5));
+    children.push(makeText(scene, 195, height - 34, tr('금색은 현재 족보보다 높은 결과입니다.', 'Gold marks hands above your current result.'), 9, UI.textDim).setOrigin(0.5));
     return scene.add.container(0, 0, children).setDepth(45);
   }
 

@@ -2,25 +2,30 @@ import Phaser from 'phaser';
 import { Card, HAND_NAMES_KO, HandRank, RANK_LABELS, SUIT_GLYPHS, Suit } from '../core/cards/types';
 import { DeckEditOddsPair, DeckOdds, deckEditOddsPair, deckOdds } from '../core/cards/odds';
 import { DeckEditStatus, DeckSealId, Game } from '../core/game';
-import { closestHiddenRecipe, hiddenRecipeLabel, hiddenRecipeProgress } from '../core/cards/hiddenRecipes';
+import { closestHiddenRecipe, hiddenRecipeProgress } from '../core/cards/hiddenRecipes';
 import { Button, UI, makeButton, makeText } from './ui';
 import { isPortraitLayout } from './device';
 import { portraitSceneHeight, portraitY } from './layout';
+import { handName, tr } from '../i18n';
 
 const SUITS: Suit[] = ['S', 'H', 'D', 'C'];
 const RANKS = Array.from({ length: 13 }, (_, index) => index + 2);
 
-const STATUS_LABELS: Record<DeckEditStatus, string> = {
-  ready: '사용 가능',
-  wrong_phase: '준비 단계에서만 개조할 수 있습니다',
-  maintenance_pending: '정비소 이용을 먼저 완료하세요',
-  hand_locked: '족보를 확정하기 전에만 개조할 수 있습니다',
-  exchange_started: '이번 라운드의 첫 교환 전에만 개조할 수 있습니다',
-  no_seal: '정비소에서 해당 인장을 획득하세요',
-  card_missing: '덱에 없는 카드입니다',
-  hand_copy_protected: '현재 패의 마지막 사본은 추방할 수 없습니다',
-  size_limit: '덱 크기 제한에 도달했습니다',
+const STATUS_LABELS: Record<DeckEditStatus, readonly [string, string]> = {
+  ready: ['사용 가능', 'Ready'],
+  wrong_phase: ['준비 단계에서만 개조할 수 있습니다', 'Deck edits are only available during preparation'],
+  maintenance_pending: ['정비소 이용을 먼저 완료하세요', 'Finish maintenance first'],
+  hand_locked: ['족보를 확정하기 전에만 개조할 수 있습니다', 'Edit the deck before confirming your hand'],
+  exchange_started: ['이번 라운드의 첫 교환 전에만 개조할 수 있습니다', 'Edit the deck before your first exchange this round'],
+  no_seal: ['정비소에서 해당 인장을 획득하세요', 'Acquire this seal at maintenance'],
+  card_missing: ['덱에 없는 카드입니다', 'This card is not in the deck'],
+  hand_copy_protected: ['현재 패의 마지막 사본은 추방할 수 없습니다', 'The last copy in your hand cannot be banished'],
+  size_limit: ['덱 크기 제한에 도달했습니다', 'Deck size limit reached'],
 };
+
+function statusLabel(status: DeckEditStatus): string {
+  return tr(...STATUS_LABELS[status]);
+}
 
 interface CardCell {
   card: Card;
@@ -62,10 +67,10 @@ export class DeckOverlay {
 
     children.push(
       makeText(scene, portrait ? 20 : 110, portrait ? py(28) : 52, 'RUN DECK', portrait ? 9 : 11, UI.accentText, true),
-      makeText(scene, portrait ? 20 : 110, portrait ? py(49) : 75, '덱 보기 · 카드 개조', portrait ? 22 : 29, UI.text, true),
-      makeText(scene, portrait ? 20 : 110, portrait ? py(82) : 114, portrait ? '카드를 선택해 추방·복제 결과를 확인하세요.' : '카드를 선택하면 보유 수량과 추방·복제 가능 여부를 확인할 수 있습니다.', portrait ? 10 : 13, UI.textDim),
+      makeText(scene, portrait ? 20 : 110, portrait ? py(49) : 75, tr('덱 보기 · 카드 개조', 'Deck · Card Editing'), portrait ? 22 : 29, UI.text, true),
+      makeText(scene, portrait ? 20 : 110, portrait ? py(82) : 114, portrait ? tr('카드를 선택해 추방·복제 결과를 확인하세요.', 'Select a card to preview banish or duplicate.') : tr('카드를 선택하면 보유 수량과 추방·복제 가능 여부를 확인할 수 있습니다.', 'Select a card to view its copies and whether it can be banished or duplicated.'), portrait ? 10 : 13, UI.textDim),
     );
-    const close = makeButton(scene, portrait ? 338 : 1090, portrait ? py(49) : 78, portrait ? 76 : 110, portrait ? 38 : 36, portrait ? '닫기' : '닫기  ESC', onClose, {
+    const close = makeButton(scene, portrait ? 338 : 1090, portrait ? py(49) : 78, portrait ? 76 : 110, portrait ? 38 : 36, portrait ? tr('닫기', 'Close') : tr('닫기  ESC', 'Close  ESC'), onClose, {
       fill: 0x42544a,
       fontSize: 11,
     });
@@ -103,7 +108,7 @@ export class DeckOverlay {
     this.status = makeText(scene, portrait ? 20 : 112, portrait ? py(580) : 578, '', portrait ? 9 : 11, UI.textDim).setWordWrapWidth(portrait ? 350 : 1000, true);
     children.push(
       this.detail,
-      makeText(scene, portrait ? 20 : 112, portrait ? py(493) : 509, '전체 5장 드로우 기준 · 선택 카드 개조 전후 정확 확률', portrait ? 8 : 10, UI.accentText, true),
+      makeText(scene, portrait ? 20 : 112, portrait ? py(493) : 509, tr('전체 5장 드로우 기준 · 선택 카드 개조 전후 정확 확률', 'Exact 5-card draw odds before and after editing'), portrait ? 8 : 10, UI.accentText, true),
       this.banishPreview,
       this.duplicatePreview,
       this.status,
@@ -120,8 +125,8 @@ export class DeckOverlay {
     children.push(this.banishBtn.container, this.duplicateBtn.container);
 
     children.push(
-      makeText(scene, portrait ? 20 : 112, portrait ? py(610) : 604, '덱 제한 40–60장 · 변화량은 퍼센트포인트(%p)', portrait ? 9 : 11, UI.textDim),
-      makeText(scene, portrait ? 20 : 112, portrait ? py(708) : 626, '추방·복제 인장은 보스전 직전 정비소에서 구매', portrait ? 9 : 11, UI.gold),
+      makeText(scene, portrait ? 20 : 112, portrait ? py(610) : 604, tr('덱 제한 40–60장 · 변화량은 퍼센트포인트(%p)', 'Deck limit 40–60 · Changes shown in percentage points (%p)'), portrait ? 9 : 11, UI.textDim),
+      makeText(scene, portrait ? 20 : 112, portrait ? py(708) : 626, tr('추방·복제 인장은 보스전 직전 정비소에서 구매', 'Buy banish and duplicate seals at maintenance before a boss'), portrait ? 9 : 11, UI.gold),
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(46);
@@ -146,15 +151,15 @@ export class DeckOverlay {
     const recipes = hiddenRecipeProgress(deck);
     const closest = closestHiddenRecipe(deck)!;
     const recommendation = closest.missing === 0
-      ? `${HAND_NAMES_KO[closest.rank]} 재료 완성 · 같은 숫자를 HOLD해 노리세요`
-      : `추천 ${SUIT_GLYPHS[closest.target.suit]}${RANK_LABELS[closest.target.rank]} 복제 → ${HAND_NAMES_KO[closest.rank]}까지 ${closest.missing}장`;
+      ? tr(`${HAND_NAMES_KO[closest.rank]} 재료 완성 · 같은 숫자를 HOLD해 노리세요`, `${handName(closest.rank, HAND_NAMES_KO[closest.rank])} recipe ready · HOLD matching ranks`)
+      : tr(`추천 ${SUIT_GLYPHS[closest.target.suit]}${RANK_LABELS[closest.target.rank]} 복제 → ${HAND_NAMES_KO[closest.rank]}까지 ${closest.missing}장`, `Duplicate ${SUIT_GLYPHS[closest.target.suit]}${RANK_LABELS[closest.target.rank]} → ${closest.missing} to ${handName(closest.rank, HAND_NAMES_KO[closest.rank])}`);
     this.hiddenRecipes.setText(
-      `HIDDEN  ${recipes.map(hiddenRecipeLabel).join(' · ')}  │  ${recommendation}`,
+      `HIDDEN  ${recipes.map((recipe) => `${handName(recipe.rank, HAND_NAMES_KO[recipe.rank])} ${recipe.progress}/5`).join(' · ')}  │  ${recommendation}`,
     );
     for (const cell of this.cells) {
       const count = this.game.deckCardCount(cell.card);
       const selected = cardKey(cell.card) === selectedKey;
-      cell.count.setText(count === 0 ? '없음' : `×${count}`);
+      cell.count.setText(count === 0 ? tr('없음', 'None') : `×${count}`);
       cell.count.setColor(count === 0 ? UI.dangerText : count > 1 ? UI.gold : UI.textDim);
       cell.bg.setFillStyle(selected ? 0x294a38 : count === 0 ? 0x231817 : UI.panelRaised, 1);
       cell.bg.setStrokeStyle(selected ? 2 : 1, selected ? UI.accent : UI.panelLine, selected ? 1 : 0.9);
@@ -163,29 +168,29 @@ export class DeckOverlay {
     const deckCount = this.game.deckCardCount(this.selected);
     const handCount = this.game.hand.filter((card) => cardKey(card) === selectedKey).length;
     this.detail.setText(
-      `${SUIT_GLYPHS[this.selected.suit]} ${RANK_LABELS[this.selected.rank]}  ·  덱 ${deckCount}장  ·  현재 패 ${handCount}장  ·  전체 ${this.game.deckSize}장`,
+      tr(`${SUIT_GLYPHS[this.selected.suit]} ${RANK_LABELS[this.selected.rank]}  ·  덱 ${deckCount}장  ·  현재 패 ${handCount}장  ·  전체 ${this.game.deckSize}장`, `${SUIT_GLYPHS[this.selected.suit]} ${RANK_LABELS[this.selected.rank]}  ·  Deck ${deckCount}  ·  Hand ${handCount}  ·  Total ${this.game.deckSize}`),
     );
 
     const banishStatus = this.game.deckEditStatus('banish', this.selected);
     const duplicateStatus = this.game.deckEditStatus('duplicate', this.selected);
     this.banishPreview.setText(this.previewLabel('banish'));
     this.duplicatePreview.setText(this.previewLabel('duplicate'));
-    this.banishBtn.setLabel(`추방 인장 ×${this.game.deckSeals.banish}`);
-    this.duplicateBtn.setLabel(`복제 인장 ×${this.game.deckSeals.duplicate}`);
+    this.banishBtn.setLabel(tr(`추방 인장 ×${this.game.deckSeals.banish}`, `Banish Seal ×${this.game.deckSeals.banish}`));
+    this.duplicateBtn.setLabel(tr(`복제 인장 ×${this.game.deckSeals.duplicate}`, `Duplicate Seal ×${this.game.deckSeals.duplicate}`));
     this.banishBtn.setEnabled(banishStatus === 'ready');
     this.duplicateBtn.setEnabled(duplicateStatus === 'ready');
-    this.status.setText(`추방: ${STATUS_LABELS[banishStatus]}   ·   복제: ${STATUS_LABELS[duplicateStatus]}`);
+    this.status.setText(tr(`추방: ${statusLabel(banishStatus)}   ·   복제: ${statusLabel(duplicateStatus)}`, `Banish: ${statusLabel(banishStatus)}   ·   Duplicate: ${statusLabel(duplicateStatus)}`));
     this.status.setColor(
       banishStatus === 'ready' || duplicateStatus === 'ready' ? UI.accentText : UI.textDim,
     );
   }
 
   private previewLabel(action: DeckSealId): string {
-    const actionLabel = action === 'banish' ? '추방 예측' : '복제 예측';
+    const actionLabel = action === 'banish' ? tr('추방 예측', 'Banish preview') : tr('복제 예측', 'Duplicate preview');
     const deckCount = this.game.deckCardCount(this.selected);
-    if (deckCount === 0) return `${actionLabel} · 덱에 없는 카드`;
-    if (action === 'banish' && this.game.deckSize <= 40) return `${actionLabel} · 40장 하한`;
-    if (action === 'duplicate' && this.game.deckSize >= 60) return `${actionLabel} · 60장 상한`;
+    if (deckCount === 0) return `${actionLabel} · ${tr('덱에 없는 카드', 'Card not in deck')}`;
+    if (action === 'banish' && this.game.deckSize <= 40) return `${actionLabel} · ${tr('40장 하한', '40-card minimum')}`;
+    if (action === 'duplicate' && this.game.deckSize >= 60) return `${actionLabel} · ${tr('60장 상한', '60-card maximum')}`;
 
     const key = cardKey(this.selected);
     let pair = this.previewCache.get(key);
@@ -198,12 +203,12 @@ export class DeckOverlay {
       .map((delta, rank) => ({ delta, rank: rank as HandRank }))
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
       .slice(0, 2)
-      .map(({ delta, rank }) => `${HAND_NAMES_KO[rank]} ${formatDelta(delta)}`)
+      .map(({ delta, rank }) => `${handName(rank, HAND_NAMES_KO[rank])} ${formatDelta(delta)}`)
       .join(' · ');
     const advancedDelta = preview.deltas
       .slice(HandRank.Trips)
       .reduce((sum, delta) => sum + delta, 0);
-    return `${actionLabel} · ${largest} · 트리플+ ${formatDelta(advancedDelta)}`;
+    return `${actionLabel} · ${largest} · ${tr('트리플+', 'Trips+')} ${formatDelta(advancedDelta)}`;
   }
 }
 

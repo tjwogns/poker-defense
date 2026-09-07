@@ -1,5 +1,8 @@
 import { HandRank, Suit, SUIT_GLYPHS } from '../core/cards/types';
 import type { HandVariant } from '../core/cards/handIdentity';
+import type { RelicId, RelicRarity } from '../core/relics';
+import type { BossId } from '../core/bosses';
+import type { EnemyKindId } from '../core/enemies';
 
 export type Locale = 'ko' | 'en';
 
@@ -49,6 +52,55 @@ const EN_SUIT_NAMES: Record<Suit, string> = {
 const EN_VARIANT_NAMES: Record<HandVariant, string> = {
   mountain: 'Broadway',
   'back-straight': 'Wheel',
+};
+
+const EN_RELIC_NAMES: Record<RelicId, string> = {
+  royal_seal: 'Royal Seal', war_chest: 'War Chest', compound_ledger: 'Compound Ledger',
+  fortified_table: 'Expansion Permit', swift_shuffle: 'Swift Shuffle', ace_up_sleeve: 'Ace up the Sleeve',
+  greedy_ledger: 'Greedy Ledger', glass_crown: 'Glass Crown', frozen_clover: 'Lucky Clover',
+  blood_contract: 'Blood Contract', underdog_banner: 'Underdog Banner', royal_bloodline: 'Royal Bloodline',
+  rear_position: 'Rear Position', pristine_oath: 'Pristine Oath', pair_broker: 'Pair Broker',
+  four_suit_crest: 'Four-Suit Crest', delay_tactics: 'Delay Tactics', compression_enthusiast: 'Compression Enthusiast',
+  last_stand: 'Last Stand', crossroad_mark: 'Crossroad Mark',
+};
+
+const EN_RELIC_DESCRIPTIONS: Record<RelicId, string> = {
+  royal_seal: 'All unit damage +12%', war_chest: 'Kill gold +25%',
+  compound_ledger: 'Interest +50%, cap +20G', fortified_table: 'All damage +30% with 12+ units',
+  swift_shuffle: '2 free exchanges each round', ace_up_sleeve: 'Hand rank +1 on boss rounds',
+  greedy_ledger: 'Interest ×2 · all damage +25% at 150G+', glass_crown: 'All damage +35% · kill gold −15%',
+  frozen_clover: 'All damage +8% · free exchanges +1', blood_contract: 'Boss damage +55% · normal enemy damage −10%',
+  underdog_banner: 'High Card and One Pair unit damage ×1.75', royal_bloodline: 'Full House+ damage +50% · lower ranks −20%',
+  rear_position: 'Units 2+ tiles from the path deal +25% damage', pristine_oath: 'Units made without exchanges deal +60% damage',
+  pair_broker: 'Confirming One Pair grants an extra matching unit', four_suit_crest: 'A four-suit hand grants +15G',
+  delay_tactics: 'Damage +25% against slowed or stunned enemies', compression_enthusiast: 'Free exchanges +2 at 48 cards or fewer',
+  last_stand: 'Final exchange redraws all 5 · that unit attack speed +15%', crossroad_mark: 'Enemies in the central crossroads take +25% damage',
+};
+
+const EN_BOSS_NAMES: Record<BossId, string> = {
+  iron_dealer: 'Iron Dealer', blood_queen: 'Blood Moon Queen', time_thief: 'Time Thief',
+  gold_tyrant: 'Gold Tyrant', legion_king: 'Legion King', royal_joker: 'Royal Joker',
+};
+
+const EN_BOSS_MECHANICS: Record<BossId, string> = {
+  iron_dealer: 'Takes 35% less damage', blood_queen: 'Regenerates 2% max HP per second',
+  time_thief: 'Movement speed +60%', gold_tyrant: 'Steals 5 gold every 5 seconds',
+  legion_king: 'Summons 2 minions every 8 seconds', royal_joker: 'Enrages below 50% HP',
+};
+
+const EN_ENEMY_NAMES: Record<EnemyKindId, string> = {
+  normal: 'Torn Card Soldier', fast: 'Chip Thief', tank: 'Vault Golem', regen: 'Stitched Heart',
+  splitter: 'Card Mimic', boss: 'Boss',
+};
+
+const EN_GUIDE_RULES: Record<HandRank, string> = {
+  [HandRank.HighCard]: 'No completed combination', [HandRank.Pair]: '2 cards of the same rank',
+  [HandRank.TwoPair]: '2 different pairs', [HandRank.Trips]: '3 cards of the same rank',
+  [HandRank.Straight]: '5 consecutive ranks · includes Broadway/Wheel', [HandRank.Flush]: '5 cards of the same suit',
+  [HandRank.FullHouse]: 'Three of a kind + a pair', [HandRank.FourKind]: '4 cards of the same rank',
+  [HandRank.StraightFlush]: '5 consecutive cards of one suit', [HandRank.RoyalFlush]: '10-J-Q-K-A of one suit',
+  [HandRank.FiveKind]: '5 cards of the same rank · requires duplicates', [HandRank.FlushHouse]: 'Suited three of a kind + pair',
+  [HandRank.FlushFive]: '5 identical cards',
 };
 
 export function resolveLocale(
@@ -109,6 +161,34 @@ export function handVariantName(variant: HandVariant, koreanName: string): strin
 export function waveName(kind: string, koreanName: string): string {
   if (getLocale() === 'ko') return koreanName;
   return ({ normal: 'Marching Host', fast: 'Swift Raiders', tank: 'Iron Vanguard', regen: 'Regenerators', splitter: 'Split Legion', boss: 'Boss' } as Record<string, string>)[kind] ?? koreanName;
+}
+
+export function relicName(id: RelicId, koreanName: string): string {
+  return getLocale() === 'ko' ? koreanName : EN_RELIC_NAMES[id];
+}
+
+export function relicDescription(id: RelicId, koreanDescription: string): string {
+  return getLocale() === 'ko' ? koreanDescription : EN_RELIC_DESCRIPTIONS[id];
+}
+
+export function relicRarityName(rarity: RelicRarity, koreanName: string): string {
+  return getLocale() === 'ko' ? koreanName : ({ common: 'Common', rare: 'Rare', legendary: 'Legendary' } as const)[rarity];
+}
+
+export function bossName(id: BossId, koreanName: string): string {
+  return getLocale() === 'ko' ? koreanName : EN_BOSS_NAMES[id];
+}
+
+export function bossMechanic(id: BossId, koreanMechanic: string): string {
+  return getLocale() === 'ko' ? koreanMechanic : EN_BOSS_MECHANICS[id];
+}
+
+export function enemyName(id: EnemyKindId, koreanName: string): string {
+  return getLocale() === 'ko' ? koreanName : EN_ENEMY_NAMES[id];
+}
+
+export function guideRule(rank: HandRank, koreanRule: string): string {
+  return getLocale() === 'ko' ? koreanRule : EN_GUIDE_RULES[rank];
 }
 
 export function applyDocumentLocale(locale = getLocale(), root: Document = document): void {

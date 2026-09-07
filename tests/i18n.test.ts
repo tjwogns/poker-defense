@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { HandRank } from '../src/core/cards/types';
 import {
-  handName, handVariantName, LOCALE_STORAGE_KEY, resolveLocale, setLocale, suitIdentityName, tr, unitName,
+  bossMechanic, bossName, enemyName, guideRule, handName, handVariantName, LOCALE_STORAGE_KEY,
+  relicDescription, relicName, resolveLocale, setLocale, suitIdentityName, tr, unitName,
 } from '../src/i18n';
 
 class MemoryStorage {
@@ -33,5 +34,11 @@ describe('locale foundation', () => {
     expect(handVariantName('back-straight', '백스트레이트')).toBe('Wheel');
     expect(suitIdentityName('S', '♠ 스페이드')).toBe('♠ Spades');
     expect(suitIdentityName(null, '문양 없음')).toBe('No suit');
+    expect(relicName('royal_seal', '왕가의 인장')).toBe('Royal Seal');
+    expect(relicDescription('royal_seal', '모든 유닛 피해 +12%')).toBe('All unit damage +12%');
+    expect(bossName('royal_joker', '로열 조커')).toBe('Royal Joker');
+    expect(bossMechanic('royal_joker', '광폭화')).toContain('50%');
+    expect(enemyName('fast', '칩 도둑')).toBe('Chip Thief');
+    expect(guideRule(HandRank.FullHouse, '트리플 1개 + 페어 1개')).toBe('Three of a kind + a pair');
   });
 });

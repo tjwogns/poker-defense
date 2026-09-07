@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { UI, makeButton, makeText } from './ui';
 import { isPortraitLayout } from './device';
 import { portraitSceneHeight, portraitY } from './layout';
+import { tr } from '../i18n';
 
 /** 진행 중인 판을 실수로 버리지 않도록 막는 확인 모달. */
 export class ExitConfirmOverlay {
@@ -20,22 +21,22 @@ export class ExitConfirmOverlay {
     children.push(dim, shadow, panel);
 
     children.push(
-      makeText(scene, cx, portrait ? py(352) : 292, '진행 중인 게임에서 나갈까요?', portrait ? 20 : 24, UI.text, true).setOrigin(0.5),
-      makeText(scene, cx, portrait ? py(392) : 332, '현재 판의 진행 내용은 저장되지 않습니다.', portrait ? 12 : 14, UI.dangerText).setOrigin(0.5),
+      makeText(scene, cx, portrait ? py(352) : 292, tr('진행 중인 게임에서 나갈까요?', 'Leave the current game?'), portrait ? 20 : 24, UI.text, true).setOrigin(0.5),
+      makeText(scene, cx, portrait ? py(392) : 332, tr('현재 판의 진행 내용은 저장되지 않습니다.', 'Your progress in this run will not be saved.'), portrait ? 12 : 14, UI.dangerText).setOrigin(0.5),
     );
 
-    const cancel = makeButton(scene, portrait ? 104 : 530, portrait ? py(462) : 402, portrait ? 158 : 190, 48, '계속 플레이', onCancel, {
+    const cancel = makeButton(scene, portrait ? 104 : 530, portrait ? py(462) : 402, portrait ? 158 : 190, 48, tr('계속 플레이', 'Keep playing'), onCancel, {
       fill: UI.accent,
       fontSize: 15,
     });
-    const confirm = makeButton(scene, portrait ? 286 : 750, portrait ? py(462) : 402, portrait ? 158 : 190, 48, '나가기', onConfirm, {
+    const confirm = makeButton(scene, portrait ? 286 : 750, portrait ? py(462) : 402, portrait ? 158 : 190, 48, tr('나가기', 'Leave'), onConfirm, {
       fill: UI.danger,
       fontSize: 15,
     });
     children.push(cancel.container, confirm.container);
 
     children.push(
-      makeText(scene, cx, portrait ? py(509) : 449, 'ESC로 돌아가기', 11, UI.textDim).setOrigin(0.5),
+      makeText(scene, cx, portrait ? py(509) : 449, tr('ESC로 돌아가기', 'Press ESC to go back'), 11, UI.textDim).setOrigin(0.5),
     );
 
     this.root = scene.add.container(0, 0, children).setDepth(50);

@@ -2,17 +2,18 @@ import { HAND_NAMES_KO } from '../core/cards/types';
 import { RELIC_DEFS } from '../core/relics';
 import { RunSummary } from '../core/scoring';
 import { RunMode } from './profile';
+import { handName, relicName, tr } from '../i18n';
 
 export function shareText(summary: RunSummary, mode: RunMode, date: string): string {
   const relics = summary.relics.length > 0
-    ? summary.relics.map((id) => RELIC_DEFS[id].name).join(' · ')
-    : '유물 없음';
-  const modeLine = mode === 'daily' ? `${date} 오늘의 도전` : 'STANDARD RUN';
+    ? summary.relics.map((id) => relicName(id, RELIC_DEFS[id].name)).join(' · ')
+    : tr('유물 없음', 'NO RELICS');
+  const modeLine = mode === 'daily' ? tr(`${date} 오늘의 도전`, `${date} DAILY CHALLENGE`) : 'STANDARD RUN';
   return [
-    `🃏 포커 디펜스: Royal Siege`,
-    `${modeLine} · ${summary.score.toLocaleString('en-US')}점 · ROUND ${summary.round}`,
-    `최고 족보 ${HAND_NAMES_KO[summary.bestHand]} · KILLS ${summary.kills}`,
-    `유물 ${relics}`,
+    tr('🃏 포커 디펜스: Royal Siege', '🃏 POKER DEFENSE: Royal Siege'),
+    tr(`${modeLine} · ${summary.score.toLocaleString('en-US')}점 · ROUND ${summary.round}`, `${modeLine} · ${summary.score.toLocaleString('en-US')} POINTS · ROUND ${summary.round}`),
+    tr(`최고 족보 ${HAND_NAMES_KO[summary.bestHand]} · KILLS ${summary.kills}`, `BEST HAND ${handName(summary.bestHand, HAND_NAMES_KO[summary.bestHand])} · KILLS ${summary.kills}`),
+    tr(`유물 ${relics}`, `RELICS ${relics}`),
     `SEED ${summary.seed}`,
   ].join('\n');
 }

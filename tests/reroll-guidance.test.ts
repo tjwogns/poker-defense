@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { rerollOdds } from '../src/core/cards/odds';
 import { Card } from '../src/core/cards/types';
 import { rerollGuidance } from '../src/game/rerollGuidance';
+import { setLocale } from '../src/i18n';
 
 function h(text: string): Card[] {
   return text.split(' ').map((token) => {
@@ -25,5 +26,18 @@ describe('reroll guidance', () => {
     const copy = rerollGuidance(odds, (value) => `${Math.round(value * 100)}%`);
     expect(copy.title).toContain('교환할 카드 없음');
     expect(copy.decision).toContain('HOLD를 풀어');
+  });
+
+  test('uses the active English locale at call time', () => {
+    const odds = rerollOdds(h('8S 8H KC 5D 2S'), [true, true, false, false, false]);
+    setLocale('en');
+    const english = rerollGuidance(odds, (value) => `${Math.round(value * 100)}%`);
+    setLocale('ko');
+    const korean = rerollGuidance(odds, (value) => `${Math.round(value * 100)}%`);
+
+    expect(english.title).toBe('Reroll advice · Exchange 3');
+    expect(english.decision).toContain('Improve');
+    expect(english.targets).toMatch(/^Targets: (Two Pair|Three of a Kind)/);
+    expect(korean.title).toBe('리롤 판단 · 3장 교환');
   });
 });

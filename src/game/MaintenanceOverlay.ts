@@ -10,6 +10,10 @@ import { createRelicIcon } from './relicAssets';
 import { HAND_NAMES_KO, HandRank } from '../core/cards/types';
 import { isPortraitLayout } from './device';
 import { portraitSceneHeight, portraitY } from './layout';
+import {
+  handName, relicDescription as localizedRelicDescription, relicName as localizedRelicName,
+  relicRarityName, tr,
+} from '../i18n';
 
 interface OfferView {
   id: DeckSealId;
@@ -20,22 +24,36 @@ interface OfferView {
 const OFFER_INFO: Record<DeckSealId, {
   glyph: string;
   name: string;
+  nameEn: string;
   description: string;
+  descriptionEn: string;
   color: number;
 }> = {
   banish: {
     glyph: '✂',
     name: '추방 인장',
+    nameEn: 'Banish Seal',
     description: '카드 1장의 사본을 제거합니다.\n덱 압축으로 원하는 족보를 노립니다.',
+    descriptionEn: 'Remove one copy of a card.\nCompress the deck toward your target hand.',
     color: UI.danger,
   },
   duplicate: {
     glyph: '⧉',
     name: '복제 인장',
+    nameEn: 'Duplicate Seal',
     description: '카드 1장의 사본을 추가합니다.\n페어와 중복 족보 확률을 높입니다.',
+    descriptionEn: 'Add one copy of a card.\nRaise the odds of pairs and duplicate hands.',
     color: 0x9f74cf,
   },
 };
+
+function relicName(id: RelicId): string {
+  return localizedRelicName(id, RELIC_DEFS[id].name);
+}
+
+function relicDescription(id: RelicId): string {
+  return localizedRelicDescription(id, RELIC_DEFS[id].description);
+}
 
 export class MaintenanceOverlay {
   private root: Phaser.GameObjects.Container;
@@ -75,12 +93,12 @@ export class MaintenanceOverlay {
 
     children.push(
       makeText(scene, portrait ? 20 : 270, portrait ? py(28) : 82, 'BOSS APPROACHING', portrait ? 9 : 11, UI.dangerText, true),
-      makeText(scene, portrait ? 20 : 270, portrait ? py(49) : 106, '왕실 정비소', portrait ? 22 : 31, UI.text, true),
+      makeText(scene, portrait ? 20 : 270, portrait ? py(49) : 106, tr('왕실 정비소', 'Royal Maintenance'), portrait ? 22 : 31, UI.text, true),
       makeText(
         scene,
         portrait ? 20 : 270,
         portrait ? py(82) : 148,
-        portrait ? `R${game.round} 보스전 전 · 이번 방문 후 다시 열 수 없음` : `ROUND ${game.round} 보스전 전 · 이번 방문이 끝나면 다시 열 수 없습니다.`,
+        portrait ? tr(`R${game.round} 보스전 전 · 이번 방문 후 다시 열 수 없음`, `Before R${game.round} boss · one visit only`) : tr(`ROUND ${game.round} 보스전 전 · 이번 방문이 끝나면 다시 열 수 없습니다.`, `Before the ROUND ${game.round} boss · this shop cannot be reopened after leaving.`),
         portrait ? 9 : 13,
         UI.textDim,
       ),
@@ -102,8 +120,8 @@ export class MaintenanceOverlay {
         `#${info.color.toString(16).padStart(6, '0')}`,
         true,
       ).setOrigin(0.5);
-      const name = makeText(scene, x, portrait ? py(274) : 294, info.name, portrait ? 14 : 22, UI.text, true).setOrigin(0.5);
-      const desc = makeText(scene, x, portrait ? py(318) : 342, info.description, portrait ? 9 : 13, UI.textDim)
+      const name = makeText(scene, x, portrait ? py(274) : 294, tr(info.name, info.nameEn), portrait ? 14 : 22, UI.text, true).setOrigin(0.5);
+      const desc = makeText(scene, x, portrait ? py(318) : 342, tr(info.description, info.descriptionEn), portrait ? 9 : 13, UI.textDim)
         .setOrigin(0.5)
         .setAlign('center')
         .setLineSpacing(5);
@@ -132,18 +150,18 @@ export class MaintenanceOverlay {
     const relicIcon = relicDef
       ? createRelicIcon(scene, relicDef.id, relicX, portrait ? py(220) : 242, portrait ? 48 : 72)
       : makeText(scene, relicX, portrait ? py(220) : 242, '—', portrait ? 34 : 48, UI.textDim, true).setOrigin(0.5);
-    const relicName = makeText(scene, relicX, portrait ? py(274) : 294, relicDef?.name ?? '유물 없음', portrait ? 13 : 20, UI.text, true).setOrigin(0.5);
-    const relicDesc = makeText(scene, relicX, portrait ? py(318) : 338, relicDef?.description ?? '진열 가능한 유물이 없습니다.', portrait ? 9 : 12, UI.textDim)
+    const relicNameText = makeText(scene, relicX, portrait ? py(274) : 294, relicDef ? relicName(relicDef.id) : tr('유물 없음', 'No relic'), portrait ? 13 : 20, UI.text, true).setOrigin(0.5);
+    const relicDesc = makeText(scene, relicX, portrait ? py(318) : 338, relicDef ? relicDescription(relicDef.id) : tr('진열 가능한 유물이 없습니다.', 'No relic is available to display.'), portrait ? 9 : 12, UI.textDim)
       .setOrigin(0.5).setAlign('center').setWordWrapWidth(portrait ? 98 : 205, true);
     const shopRelicRarity = makeText(scene, relicX, portrait ? py(385) : 400, relicDef
-      ? RELIC_RARITY_LABELS[relicDef.rarity] : '', portrait ? 9 : 12,
+      ? relicRarityName(relicDef.rarity, RELIC_RARITY_LABELS[relicDef.rarity]) : '', portrait ? 9 : 12,
       relicDef ? `#${relicColor.toString(16).padStart(6, '0')}` : UI.accentText, true).setOrigin(0.5);
     this.shopRelicButton = makeButton(scene, relicX, portrait ? py(430) : 447, portrait ? 98 : 190, portrait ? 40 : 42, '', () => this.buyRelic(), {
       fill: relicColor, fontSize: portrait ? 9 : 12,
     });
-    children.push(relicCard, relicIcon, relicName, relicDesc, shopRelicRarity, this.shopRelicButton.container);
+    children.push(relicCard, relicIcon, relicNameText, relicDesc, shopRelicRarity, this.shopRelicButton.container);
 
-    children.push(makeText(scene, portrait ? 20 : 230, portrait ? py(468) : 480, portrait ? '인장은 덱 보기에서 사용 · 유물/연마 즉시 적용' : '인장은 덱 보기(D)에서 사용 · 유물과 연마는 기존 군단에도 즉시 적용', portrait ? 9 : 11, UI.textDim));
+    children.push(makeText(scene, portrait ? 20 : 230, portrait ? py(468) : 480, portrait ? tr('인장은 덱 보기에서 사용 · 유물/연마 즉시 적용', 'Use seals in Deck · relics/mastery apply now') : tr('인장은 덱 보기(D)에서 사용 · 유물과 연마는 기존 군단에도 즉시 적용', 'Use seals in Deck (D) · relics and mastery immediately affect existing units'), portrait ? 9 : 11, UI.textDim));
     this.masteryText = makeText(scene, portrait ? 20 : 230, portrait ? py(500) : 503, '', portrait ? 9 : 11, UI.accentText, true).setWordWrapWidth(portrait ? 240 : 680, true);
     this.masteryButton = makeButton(scene, portrait ? 310 : 920, portrait ? py(510) : 510, portrait ? 112 : 190, 38, '', () => this.buyMastery(), {
       fill: 0x6ca4d9,
@@ -242,64 +260,62 @@ export class MaintenanceOverlay {
     this.goldText.setText(`G  ${this.game.gold.toLocaleString()}`);
     for (const offer of this.offers) {
       const state = this.game.maintenanceOffer(offer.id);
-      offer.button.setLabel(state.purchased ? '구매 완료' : `구매  ${state.cost}G`);
+      offer.button.setLabel(state.purchased ? tr('구매 완료', 'Purchased') : tr(`구매  ${state.cost}G`, `Buy  ${state.cost}G`));
       offer.button.setEnabled(!state.purchased && state.affordable);
-      offer.owned.setText(`보유 ×${this.game.deckSeals[offer.id]}`);
+      offer.owned.setText(tr(`보유 ×${this.game.deckSeals[offer.id]}`, `Owned ×${this.game.deckSeals[offer.id]}`));
     }
     const shopRelic = this.game.maintenanceRelicOffer(this.selectedReplacement ?? undefined);
     if (!shopRelic) {
-      this.shopRelicButton.setLabel('진열 없음');
+      this.shopRelicButton.setLabel(tr('진열 없음', 'No offer'));
       this.shopRelicButton.setEnabled(false);
     } else if (shopRelic.purchased) {
-      this.shopRelicButton.setLabel('구매 완료');
+      this.shopRelicButton.setLabel(tr('구매 완료', 'Purchased'));
       this.shopRelicButton.setEnabled(false);
     } else if (shopRelic.requiresReplacement && this.awaitingReplacement) {
       const net = shopRelic.netCost;
       this.shopRelicButton.setLabel(this.selectedReplacement
-        ? `교체 확정  ${net >= 0 ? `${net}G` : `+${-net}G`}`
-        : '교체할 유물 선택');
+        ? tr(`교체 확정  ${net >= 0 ? `${net}G` : `+${-net}G`}`, `Confirm swap  ${net >= 0 ? `${net}G` : `+${-net}G`}`)
+        : tr('교체할 유물 선택', 'Choose relic to replace'));
       this.shopRelicButton.setEnabled(Boolean(this.selectedReplacement) && shopRelic.affordable);
     } else {
       this.shopRelicButton.setLabel(shopRelic.requiresReplacement
-        ? `구매 ${shopRelic.cost}G · 교체 필요`
-        : `구매  ${shopRelic.cost}G`);
+        ? tr(`구매 ${shopRelic.cost}G · 교체 필요`, `Buy ${shopRelic.cost}G · replace relic`)
+        : tr(`구매  ${shopRelic.cost}G`, `Buy  ${shopRelic.cost}G`));
       this.shopRelicButton.setEnabled(shopRelic.affordable);
     }
     const mastery = this.game.maintenanceMasteryOffer();
     if (!mastery) {
-      this.masteryText.setText('HAND MASTERY · 모든 족보가 최대 레벨입니다.');
-      this.masteryButton.setLabel('연마 완료');
+      this.masteryText.setText(tr('HAND MASTERY · 모든 족보가 최대 레벨입니다.', 'HAND MASTERY · All hands are at maximum level.'));
+      this.masteryButton.setLabel(tr('연마 완료', 'Mastery complete'));
       this.masteryButton.setEnabled(false);
     } else {
       this.masteryText.setText(mastery.purchased
-        ? `HAND MASTERY · ${HAND_NAMES_KO[mastery.rank]} Lv${mastery.level}`
-          + ` · 피해 ×${mastery.multiplier.toFixed(2)} · 이번 방문 완료`
-        : `HAND MASTERY · ${HAND_NAMES_KO[mastery.rank]} Lv${mastery.level} → Lv${mastery.nextLevel}`
-          + ` · 피해 ×${mastery.multiplier.toFixed(2)} → ×${mastery.nextMultiplier.toFixed(2)}`);
-      this.masteryButton.setLabel(mastery.purchased ? '연마 완료' : `족보 연마  ${mastery.cost}G`);
+        ? tr(`HAND MASTERY · ${HAND_NAMES_KO[mastery.rank]} Lv${mastery.level} · 피해 ×${mastery.multiplier.toFixed(2)} · 이번 방문 완료`, `HAND MASTERY · ${handName(mastery.rank, HAND_NAMES_KO[mastery.rank])} Lv${mastery.level} · Damage ×${mastery.multiplier.toFixed(2)} · done this visit`)
+        : tr(`HAND MASTERY · ${HAND_NAMES_KO[mastery.rank]} Lv${mastery.level} → Lv${mastery.nextLevel} · 피해 ×${mastery.multiplier.toFixed(2)} → ×${mastery.nextMultiplier.toFixed(2)}`, `HAND MASTERY · ${handName(mastery.rank, HAND_NAMES_KO[mastery.rank])} Lv${mastery.level} → Lv${mastery.nextLevel} · Damage ×${mastery.multiplier.toFixed(2)} → ×${mastery.nextMultiplier.toFixed(2)}`));
+      this.masteryButton.setLabel(mastery.purchased ? tr('연마 완료', 'Mastery complete') : tr(`족보 연마  ${mastery.cost}G`, `Master hand  ${mastery.cost}G`));
       this.masteryButton.setEnabled(!mastery.purchased && mastery.affordable);
     }
     const inspected = this.inspectedRelic ? RELIC_DEFS[this.inspectedRelic] : null;
     this.relicHint.setText(this.awaitingReplacement
-      ? '교체할 기존 유물을 선택한 뒤 위 유물 버튼으로 확정하세요.'
+      ? tr('교체할 기존 유물을 선택한 뒤 위 유물 버튼으로 확정하세요.', 'Choose an owned relic, then confirm with the relic offer above.')
       : inspected
-        ? `${inspected.name} · ${inspected.description} · 같은 버튼을 다시 누르면 판매`
-        : `RELIC SLOTS · 최대 ${RELIC_SLOT_CAP}칸 · 보유 유물을 눌러 효과 확인`);
+        ? tr(`${inspected.name} · ${inspected.description} · 같은 버튼을 다시 누르면 판매`, `${relicName(inspected.id)} · ${relicDescription(inspected.id)} · press again to sell`)
+        : tr(`RELIC SLOTS · 최대 ${RELIC_SLOT_CAP}칸 · 보유 유물을 눌러 효과 확인`, `RELIC SLOTS · maximum ${RELIC_SLOT_CAP} · select an owned relic to inspect`));
     for (let index = 0; index < this.relicButtons.length; index++) {
       const id = this.game.relics[index];
       const button = this.relicButtons[index];
       if (!id) {
-        button.setLabel(`빈 슬롯\n${index + 1} / ${RELIC_SLOT_CAP}`);
+        button.setLabel(tr(`빈 슬롯\n${index + 1} / ${RELIC_SLOT_CAP}`, `Empty slot\n${index + 1} / ${RELIC_SLOT_CAP}`));
         button.setEnabled(false);
         continue;
       }
       const def = RELIC_DEFS[id];
       const value = relicSellPrice(id);
       button.setLabel(this.awaitingReplacement
-        ? `${this.selectedReplacement === id ? '✓ ' : ''}${def.name}\n교체 환급 ${value}G`
+        ? tr(`${this.selectedReplacement === id ? '✓ ' : ''}${def.name}\n교체 환급 ${value}G`, `${this.selectedReplacement === id ? '✓ ' : ''}${relicName(id)}\nSwap refund ${value}G`)
         : this.inspectedRelic === id
-          ? `✓ ${def.name}\n다시 눌러 판매 ${value}G`
-          : `${def.name}\n효과 보기`);
+          ? tr(`✓ ${def.name}\n다시 눌러 판매 ${value}G`, `✓ ${relicName(id)}\nPress again to sell ${value}G`)
+          : tr(`${def.name}\n효과 보기`, `${relicName(id)}\nView effect`));
       button.setEnabled(true);
       const portrait = isPortraitLayout();
       const icon = createRelicIcon(
@@ -312,6 +328,6 @@ export class MaintenanceOverlay {
       this.relicSlotIcons.push(icon);
       this.root.add(icon);
     }
-    this.finishBtn.setLabel(this.boughtSeal ? '정비 완료 · 덱 개조하기' : '정비 마치기');
+    this.finishBtn.setLabel(this.boughtSeal ? tr('정비 완료 · 덱 개조하기', 'Finish maintenance · Edit deck') : tr('정비 마치기', 'Finish maintenance'));
   }
 }

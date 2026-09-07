@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { bossMechanicStatus } from '../src/game/bossFeedback';
+import { setLocale } from '../src/i18n';
 
 describe('보스 능력 피드백', () => {
   test('황금 폭군과 군단왕은 발동 직전 긴급 경고를 표시한다', () => {
@@ -13,5 +14,12 @@ describe('보스 능력 피드백', () => {
     expect(bossMechanicStatus(60, 0.5, null)).toEqual({
       text: '광폭화! · 속도 증가 · 받는 피해 감소', urgent: true,
     });
+  });
+
+  test('영어 보스 상태는 호출 시점 로케일을 사용한다', () => {
+    setLocale('en');
+    expect(bossMechanicStatus(40, 1, 1.4).text).toBe('1.4s until gold theft · −5G');
+    expect(bossMechanicStatus(60, 0.5, null).text).toContain('ENRAGED');
+    setLocale('ko');
   });
 });
