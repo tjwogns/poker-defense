@@ -18,7 +18,9 @@ import {
   HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
 } from '../core/cards/handIdentity';
 import { isPortraitLayout } from './device';
-import { ENEMY_KINDS, type EnemyKindId, type WaveGroup } from '../core/enemies';
+import {
+  ENEMY_KINDS, FORMATION_COPY, type EnemyFormation, type EnemyKindId, type WaveGroup,
+} from '../core/enemies';
 import { getLocale, handName, relicName, tr, unitName, waveName } from '../i18n';
 
 const SPEEDS = [1, 2, 4] as const;
@@ -98,6 +100,38 @@ function mixedWaveHint(composition: readonly WaveGroup[], compact = false): stri
     `${kind.toUpperCase()} ${count}`,
   )).join(' + ');
   return tr('기본 + 고속 · 입구와 코너를 함께 방어', 'NORMAL + FAST · COVER ENTRY + CORNERS');
+}
+
+function formationName(formation: EnemyFormation, compact = false): string {
+  if (!compact) return FORMATION_COPY[formation.id][getLocale()];
+  const names = {
+    'escort-column': { ko: '호위', en: 'ESCORT' },
+    'cross-pressure': { ko: '교차', en: 'CROSS' },
+    'relay-assault': { ko: '교대', en: 'RELAY' },
+  } as const;
+  return names[formation.id][getLocale()];
+}
+
+function formationHint(formation: EnemyFormation, compact = false): string {
+  if (compact) {
+    const hints = {
+      'escort-column': { ko: '호위 틈 공략', en: 'PUNCTURE GAPS' },
+      'cross-pressure': { ko: '양속도 방어', en: 'COVER BOTH SPEEDS' },
+      'relay-assault': { ko: '교대 진입', en: 'PULSED ENTRY' },
+    } as const;
+    return hints[formation.id][getLocale()];
+  }
+  const copy = FORMATION_COPY[formation.id];
+  return getLocale() === 'ko' ? copy.hintKo : copy.hintEn;
+}
+
+function formationCounts(composition: readonly WaveGroup[], compact = false): string {
+  const abbreviation: Record<EnemyKindId, string> = {
+    normal: 'N', fast: 'F', tank: 'T', regen: 'R', splitter: 'S', boss: 'B',
+  };
+  return composition.map(({ kind, count }) => compact
+    ? `${abbreviation[kind]}${count}`
+    : `${kind.toUpperCase()} ${count}`).join(compact ? '  ' : ' + ');
 }
 
 export class SidePanel {
@@ -280,11 +314,11 @@ export class SidePanel {
       fontFamily: FONT_MONO, fontSize: '12px', color: UI.textFaint,
     });
     this.modeText = scene.add.text(0, 0, '').setVisible(false);
-    this.threatTitle = scene.add.text(80, 55, 'THREAT', {
+    this.threatTitle = scene.add.text(90, 55, 'THREAT', {
       fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#74727e', letterSpacing: 1.6,
     });
-    scene.add.rectangle(80, 81, 180, 8, UI.panelRaised, 1).setOrigin(0, 0.5);
-    this.gaugeFg = scene.add.rectangle(80, 81, 0, 8, UI.safe, 1).setOrigin(0, 0.5);
+    scene.add.rectangle(90, 81, 170, 8, UI.panelRaised, 1).setOrigin(0, 0.5);
+    this.gaugeFg = scene.add.rectangle(90, 81, 0, 8, UI.safe, 1).setOrigin(0, 0.5);
     this.gaugeText = scene.add.text(260, 55, '', {
       fontFamily: FONT_MONO, fontSize: '12px', fontStyle: 'bold', color: UI.text,
     }).setOrigin(1, 0);
@@ -433,16 +467,20 @@ export class SidePanel {
 
     const wave = g.nextWave();
     const mixed = isMixedWave(wave.kind, wave.composition);
-    this.waveName.setText(mixed ? tr('혼합 부대', 'MIXED WAVE') : waveName(wave.kind, wave.name));
+    this.waveName.setText(wave.formation
+      ? formationName(wave.formation)
+      : mixed ? tr('혼합 부대', 'MIXED WAVE') : waveName(wave.kind, wave.name));
     this.waveCount
-      .setText(mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
-      .setFontSize(mixed ? 12 : 19)
-      .setX(mixed ? 1080 : getLocale() === 'en' ? 1110 : 930);
+      .setText(wave.formation ? formationCounts(wave.composition) : mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
+      .setFontSize(wave.formation ? 11 : mixed ? 12 : 19)
+      .setX(wave.formation ? 1030 : mixed ? 1080 : getLocale() === 'en' ? 1110 : 930);
     const settlement = g.lastRoundSettlement;
     const otherIncome = settlement
       ? settlement.income.diamond + settlement.income.relic + settlement.income.sales
       : 0;
-    this.waveHint.setText(inPrep && settlement
+    this.waveHint.setText(wave.formation
+      ? formationHint(wave.formation)
+      : inPrep && settlement
       ? tr(
         `처치 +${settlement.income.bounty} · 클리어 +${settlement.income.clear} · 이자 +${settlement.income.interest}`
           + `${otherIncome > 0 ? ` · 기타 +${otherIncome}` : ''}`
@@ -531,6 +569,7 @@ export class SidePanel {
     const inPrep = g.phase === 'prep';
     this.roundText.setText(`R${g.round}`);
     this.roundSub.setText(`/${ROUNDS}`);
+    this.roundSub.setX(this.roundText.x + this.roundText.width + 4);
     this.modeText.setText(g.lifeMode
       ? g.crownLevel > 0 ? `LIFE CROWN ${g.crownLevel}` : mode === 'daily' ? 'LIFE DAILY' : 'LIFE'
       : g.crownLevel > 0 ? `CROWN ${g.crownLevel}` : mode === 'daily' ? 'DAILY' : 'CLASSIC');
@@ -542,7 +581,7 @@ export class SidePanel {
       ? g.lives <= 5 ? 'critical' : g.lives <= 10 ? 'warning' : 'safe'
       : threatBand(alive, g.fieldCap);
     const threatColor = band === 'critical' ? UI.danger : band === 'warning' ? UI.goldNum : UI.safe;
-    this.gaugeFg.width = 180 * ratio;
+    this.gaugeFg.width = 170 * ratio;
     this.gaugeFg.setFillStyle(threatColor);
     this.threatTitle
       .setText(g.crownLevel > 0 ? `CROWN ${g.crownLevel}` : g.lifeMode ? 'LIFE' : 'THREAT')
@@ -554,14 +593,17 @@ export class SidePanel {
 
     const wave = g.nextWave();
     const mixed = isMixedWave(wave.kind, wave.composition);
-    this.waveName.setText(mixed ? tr('혼합', 'MIXED') : waveName(wave.kind, wave.name));
-    this.waveCount.setText(mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
-      .setFontSize(mixed ? 10 : 16)
-      .setX(mixed ? 90 : 130);
+    this.waveName.setText(wave.formation
+      ? formationName(wave.formation, true)
+      : mixed ? tr('혼합', 'MIXED') : waveName(wave.kind, wave.name));
+    this.waveCount.setText(wave.formation ? formationCounts(wave.composition, true) : mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
+      .setFontSize(wave.formation ? 9 : mixed ? 10 : 16)
+      .setX(wave.formation ? 105 : mixed ? 90 : 130);
     const nextBoss = Math.ceil(g.round / 10) * 10;
     this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : tr(`R${nextBoss} 보스까지 ${nextBoss - g.round}`, `${nextBoss - g.round} TO R${nextBoss} BOSS`));
-    this.waveHint.setText(mixed
-      ? tr('입구 + 코너', 'ENTRY + CORNERS')
+    this.waveHint.setText(wave.formation
+      ? formationHint(wave.formation, true)
+      : mixed ? tr('입구 + 코너', 'ENTRY + CORNERS')
       : wave.kind === 'tank' || wave.kind === 'splitter'
       ? tr('광역이 유리', 'AREA DAMAGE WORKS WELL')
       : waveHint(wave.kind).split(' · ')[1] ?? tr('화력 집중', 'FOCUS FIRE'));

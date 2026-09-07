@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.6.1';
+export const CURRENT_VERSION = 'v2.7.0';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.7.0',
+    title: 'ENEMY FORMATIONS',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '중반 전장을 바꾸는 진형',
+        items: [
+          'R13~R19에 기본·고속·방어 역할 2종, R22~R29에 재생 역할까지 포함한 2~3종 편성 추가',
+          '호위 종대·교차 압박·교대 돌격이 서로 다른 순서로 진입해 배치와 화력 분산 판단 강화',
+          'R11·12·20·21의 학습·보스·신규 적 데뷔 라운드와 모든 일반 라운드 30기 유지',
+        ],
+      },
+      {
+        heading: '읽을 수 있고 공정한 공세',
+        items: [
+          '한국어·영어 데스크톱과 모바일 HUD에 진형 이름·정확한 역할별 수량·대응 힌트 표시',
+          '런 시드와 라운드만으로 편성과 순서를 재현하고 카드 뽑기 난수와 분리',
+          '처치 골드·점수·침투 규칙과 왕관 배율을 유지하고 대표 단일 웨이브 대비 유효 체력 편차 ±10% 이내',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.6.1',
     title: 'TACTICS IN MOTION',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '눈에 보이는 족보 전술',

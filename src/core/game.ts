@@ -13,7 +13,9 @@ import {
   CrownLevel, crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
   exchangeCost, interest, upgradeCost, upgradeMultiplier, clearBonus,
 } from './balance';
-import { EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveComposition, waveKind, waveSpawnOrder } from './enemies';
+import {
+  EnemyKindId, ENEMY_KINDS, enemyBreachPoints, waveComposition, waveFormation, waveKind, waveSpawnOrder,
+} from './enemies';
 import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
@@ -730,11 +732,18 @@ export class Game {
 
   // ── 웨이브 정보 (UI용) ─────────────────────────────
 
-  nextWave(): { kind: EnemyKindId; name: string; count: number; composition: ReturnType<typeof waveComposition> } {
+  nextWave(): {
+    kind: EnemyKindId;
+    name: string;
+    count: number;
+    composition: ReturnType<typeof waveComposition>;
+    formation: ReturnType<typeof waveFormation>;
+  } {
     const kind = waveKind(this.round);
-    const composition = waveComposition(this.round);
+    const formation = waveFormation(this.seed, this.round);
+    const composition = waveComposition(this.round, this.seed);
     const count = composition.reduce((total, group) => total + group.count, 0);
-    return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count, composition };
+    return { kind, name: kind === 'boss' ? bossDef(this.round).name : ENEMY_KINDS[kind].name, count, composition, formation };
   }
 
   /** HUD와 텔레그래프가 실제 보스 발동 시계와 같은 값을 표시한다. */

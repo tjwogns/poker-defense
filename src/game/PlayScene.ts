@@ -227,6 +227,9 @@ export class PlayScene extends Phaser.Scene {
         });
       });
       this.paused = true;
+    } else if (localVisualTest === 'formation-13' || localVisualTest === 'formation-24') {
+      this.profile.tutorialDone = true;
+      this.core.round = localVisualTest === 'formation-13' ? 13 : 24;
     } else if (localVisualTest === 'pixel-motion') {
       this.profile.tutorialDone = true;
       this.core.round = 28;
