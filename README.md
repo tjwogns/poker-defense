@@ -5,6 +5,8 @@
 
 ## v2.9.0 Life on the Line
 
+- 후속 검증 정정: 기존 평균 R50 결과는 CLASSIC 측정이었다. 현행 LIFE 일반·왕관 I를 동일 시드로 재측정하고 출력에 규칙·탈출·피해 집계를 명시했다. 게임 수치는 유지한다.
+
 - 정식 게임 주소: https://tjwogns.github.io/poker-defense/
 - 침투 게이지를 제거하고 보스를 제외한 모든 적은 탈출 1기당 라이프 1 즉시 감소
 - 탱커·재생·분열 적도 동일하게 1기당 라이프 1 피해, 동시 탈출은 수만큼 합산
@@ -288,7 +290,7 @@
 npm install
 npm run dev        # 개발 서버 (http://localhost:5173)
 npm test           # 코어 로직 단위 테스트 (vitest)
-npm run sim -- 30  # 헤드리스 밸런스 시뮬레이션 30판
+npm run sim -- 30  # CLASSIC 규칙·정비소 skip 30판 (현행 LIFE 평가에 사용하지 않음)
 npm run sim -- 30 compare  # 같은 시드로 정비소 4전략 경제 비교
 npm run sim -- 30 relic-compare  # 미구매/무조건/선별 유물 구매 비교
 npm run sim -- 5 clear           # 클리어 기준선: 즉시 강화·양쪽 인장·선별 유물·저족보 연마
@@ -297,7 +299,7 @@ npm run sim -- 5 clear-high6     # 고점 실험: 풀하우스3·포카드2·스
 npm run sim -- 30 hidden-compare  # 기본/복제/히든 추적 전략 비교
 npm run sim -- 30 mastery-compare # 미구매/전부/저족보/고족보 연마 전략 비교
 npm run sim -- 30 life-compare    # 클래식과 LIFE LAB 동일 시드 비교
-npm run sim -- 30 boss-gate      # 기본 LIFE·왕관 I 보스별 돌파 패배 비교
+npm run sim -- 30 boss-gate      # 현행 LIFE 일반·왕관 I: 자연패/강제 고족보, 탈출·피해·패배 라운드 집계
 npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
 SINGLEFILE=1 npm run build  # 단일 HTML 파일 빌드 (배포/공유용)
 node scripts/smoke.mjs      # E2E 스모크 (Chrome 필요, 프리뷰 서버 선행)
@@ -350,7 +352,7 @@ tests/      vitest 단위 테스트 (core 전체)
 ```
 
 밸런스 수치는 전부 `src/core/balance.ts` 한 파일에서 관리한다.
-밸런스 결과는 `npm run sim -- 100`으로 재현하며, 공개 테스트 데이터와 함께 릴리스마다 다시 기록한다.
+현행 LIFE 기준선은 `npm run sim -- 30 boss-gate`로 재현한다. 기본 `sim`은 CLASSIC이며 규칙과 전략이 달라 직접 비교하지 않는다. 봇은 초반 무료 교환을 충분히 사용하지 않는 단일 전략이므로 사람의 승률로 해석하지 않는다. 강제 고족보 결과는 자연패와 분리해 읽는다.
 
 ## 익명 플레이 분석
 
