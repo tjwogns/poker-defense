@@ -3,6 +3,7 @@ import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
 import { firstRunCoachHint } from '../src/game/coach';
 import { setLocale } from '../src/i18n';
+import { readFileSync } from 'node:fs';
 
 describe('첫 3라운드 인터랙티브 안내', () => {
   test('홀드 여부와 배치 대기에 맞춰 첫 라운드 문구를 바꾼다', () => {
@@ -29,5 +30,11 @@ describe('첫 3라운드 인터랙티브 안내', () => {
     game.pendingUnits.push(HandRank.Pair);
     expect(firstRunCoachHint(game)).toMatchObject({ title: 'PLACE YOUR FIRST UNIT' });
     setLocale('ko');
+  });
+
+  test('portrait coach는 wave card 전용 layout과 불투명 배경을 사용한다', () => {
+    const source = readFileSync(new URL('../src/game/FirstRunCoach.ts', import.meta.url), 'utf8');
+    expect(source).toContain('portraitCoachLayout(portraitSceneHeight(scene))');
+    expect(source).toContain('layout.panel.width, layout.panel.height, UI.panelRaised, 1');
   });
 });

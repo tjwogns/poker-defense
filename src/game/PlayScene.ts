@@ -36,7 +36,7 @@ import { attackFxBudget, canCreateTacticFeedback, tacticFeedbackBudget, totalFxB
 import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
 import { isLifeLabLocation } from './experiment';
-import { portraitSceneHeight, portraitY } from './layout';
+import { PORTRAIT_HEADER_TOAST_LANE, portraitSceneHeight, portraitToastFontSize, portraitY } from './layout';
 import {
   getLocale, handName, handVariantName, relicDescription, relicName, relicRarityName,
   suitIdentityName, tr, unitName,
@@ -46,7 +46,7 @@ import {
   createRoyalWagerState, recordRoyalWagerConfirmation, resolveRoyalWager,
   royalWagerOutcome, ROYAL_WAGERS, royalWagerOffers, RoyalWagerId, RoyalWagerState,
 } from '../core/wagers';
-import { HAND_TACTIC_COMPACT_COPY, HAND_TACTIC_COPY } from '../core/handTactics';
+import { createHandTactic, HAND_TACTIC_COMPACT_COPY, HAND_TACTIC_COPY } from '../core/handTactics';
 
 const DT = 1 / TICK_RATE;
 
@@ -71,6 +71,8 @@ export class PlayScene extends Phaser.Scene {
   private moving = false;
   private ended = false;
   private paused = false;
+  private portraitToastActive = false;
+  private portraitToastQueue: Array<{ text: string; color: number; depth: number; fontSize: number }> = [];
   private mode: RunMode = 'standard';
   private crownLevel: CrownLevel = 0;
   private runDate = '';
@@ -117,6 +119,8 @@ export class PlayScene extends Phaser.Scene {
   }
 
   init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean; crownLevel?: CrownLevel }): void {
+    this.portraitToastActive = false;
+    this.portraitToastQueue = [];
     this.seedValue = data.seed ?? Date.now() >>> 0;
     this.mode = data.mode ?? 'standard';
     // 오늘의 도전은 모두가 같은 기본 난이도로 경쟁한다. 일반 원정은
@@ -195,6 +199,14 @@ export class PlayScene extends Phaser.Scene {
     } else if (localVisualTest === 'crossroad-mark') {
       this.profile.tutorialDone = true;
       this.core.relics.push('crossroad_mark');
+    } else if (localVisualTest === 'mobile-hud-safe') {
+      this.profile.tutorialDone = true;
+      this.core.round = 3;
+      this.core.handTactic = createHandTactic(HandRank.RoyalFlush, 3, null);
+      this.wagerState = { ...createRoyalWagerState('suit_four'), progress: 3, lockedSuit: 'D' };
+      this.wagerChoiceMade = true;
+    } else if (localVisualTest === 'mobile-coach') {
+      this.profile.tutorialDone = false;
     } else if (localVisualTest === 'suits') {
       this.profile.tutorialDone = true;
       this.core.hand = [
@@ -483,6 +495,9 @@ export class PlayScene extends Phaser.Scene {
         wager(): RoyalWagerState;
         wagerOffers(): RoyalWagerId[];
         setWagerForTest?(id: RoyalWagerId, progress: number): void;
+        showMobileToastSequence?(): void;
+        mobileToastState?(): { active: boolean; queued: number };
+        restartMobileHud?(): void;
       };
     };
     debugWindow.__game = this.core;
@@ -497,6 +512,21 @@ export class PlayScene extends Phaser.Scene {
           const target = ROYAL_WAGERS[id].target;
           this.wagerState = { ...createRoyalWagerState(id), progress: Math.max(0, Math.min(target, progress)) };
         },
+      } : {}),
+      ...(localVisualTest === 'mobile-hud-safe' ? {
+        showMobileToastSequence: () => {
+          this.celebrate(HandRank.FullHouse);
+          this.flashTacticActivation();
+          this.flashCenter(
+            tr('완벽 방어 · 연속 ×12 · +1200점', 'PERFECT DEFENSE · STREAK ×12 · +1200'),
+            UI.accent,
+            60,
+          );
+        },
+        mobileToastState: () => ({ active: this.portraitToastActive, queued: this.portraitToastQueue.length }),
+        restartMobileHud: () => this.scene.restart({
+          seed: this.seedValue, mode: this.mode, date: this.runDate, retry: true, crownLevel: this.crownLevel,
+        }),
       } : {}),
     };
     if (localVisualTest === 'mastery-result' || localVisualTest === 'mastery-victory' || localVisualTest === 'life-result') {
@@ -1198,17 +1228,24 @@ export class PlayScene extends Phaser.Scene {
     position?: { x?: number; y?: number; targetY?: number; fontSize?: number; wrapWidth?: number },
   ): void {
     const portrait = isPortraitLayout();
-    const portraitHeight = portraitSceneHeight(this);
-    const startY = position?.y ?? (portrait ? portraitY(portraitHeight, 330) : 270);
+    if (portrait) {
+      const fontSize = Math.min(position?.fontSize ?? 12, portraitToastFontSize(labelText));
+      if (this.portraitToastQueue.length < 5) {
+        this.portraitToastQueue.push({ text: labelText, color, depth, fontSize });
+        this.showNextPortraitToast();
+      }
+      return;
+    }
+    const startY = position?.y ?? 270;
     const label = makeText(
-      this, position?.x ?? (portrait ? 195 : 390), startY, labelText, position?.fontSize ?? (portrait ? 20 : 30),
+      this, position?.x ?? 390, startY, labelText, position?.fontSize ?? 30,
       `#${color.toString(16).padStart(6, '0')}`, true,
     )
       .setOrigin(0.5).setDepth(depth).setShadow(0, 3, '#000000', 8);
     if (position?.wrapWidth) label.setWordWrapWidth(position.wrapWidth, true).setAlign('center');
     this.tweens.add({
       targets: label,
-      y: this.reducedMotion() ? startY : position?.targetY ?? (portrait ? portraitY(portraitHeight, 300) : 230),
+      y: this.reducedMotion() ? startY : position?.targetY ?? 230,
       alpha: 0,
       duration: this.reducedMotion() ? 700 : 1200,
       ease: 'Cubic.Out',
@@ -1216,16 +1253,50 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
+  private showNextPortraitToast(): void {
+    if (this.portraitToastActive || this.portraitToastQueue.length === 0) return;
+    this.portraitToastActive = true;
+    this.panel.setStatusChipsSuppressed(true);
+    const toast = this.portraitToastQueue.shift()!;
+    const lane = PORTRAIT_HEADER_TOAST_LANE;
+    const centerY = lane.y + lane.height / 2;
+    const label = makeText(
+      this, lane.x + lane.width / 2, centerY, toast.text, toast.fontSize,
+      `#${toast.color.toString(16).padStart(6, '0')}`, true,
+    ).setOrigin(0.5).setDepth(Math.max(16, toast.depth)).setAlign('center')
+      .setWordWrapWidth(lane.width - 12, true).setBackgroundColor('#0d0d13')
+      .setPadding(6, 3, 6, 3).setShadow(0, 1, '#000000', 4);
+    if (!this.reducedMotion()) label.setScale(0.96);
+    this.tweens.add({
+      targets: label,
+      y: this.reducedMotion() ? centerY : centerY - 3,
+      scale: 1,
+      alpha: 0,
+      delay: 360,
+      duration: this.reducedMotion() ? 420 : 620,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        label.destroy();
+        this.portraitToastActive = false;
+        if (this.portraitToastQueue.length > 0) this.showNextPortraitToast();
+        else this.panel.setStatusChipsSuppressed(false);
+      },
+    });
+  }
+
   private celebrate(rank: HandRank, newlyDiscovered = false): void {
     const portrait = isPortraitLayout();
-    const portraitHeight = portraitSceneHeight(this);
     const localizedHand = handName(rank, HAND_NAMES_KO[rank]);
     const text = newlyDiscovered
       ? `${localizedHand}!\nHIDDEN DISCOVERED`
       : `${localizedHand}!`;
+    if (portrait) {
+      this.flashCenter(text, 0xe6c84f, 18, { fontSize: newlyDiscovered ? 10 : 12 });
+      return;
+    }
     const label = makeText(
-      this, portrait ? 195 : 390, portrait ? portraitY(portraitHeight, 318) : 280, text,
-      portrait ? newlyDiscovered ? 22 : 28 : newlyDiscovered ? 34 : 44,
+      this, 390, 280, text,
+      newlyDiscovered ? 34 : 44,
       newlyDiscovered ? '#ffe27a' : UI.gold, true,
     )
       .setOrigin(0.5)
@@ -1242,7 +1313,7 @@ export class PlayScene extends Phaser.Scene {
         this.tweens.add({
           targets: label,
           alpha: 0,
-          y: portrait ? portraitY(portraitHeight, 286) : 240,
+          y: 240,
           delay: 900,
           duration: 500,
           onComplete: () => label.destroy(),
@@ -1448,7 +1519,13 @@ export class PlayScene extends Phaser.Scene {
     const now = performance.now();
     if (now - this.lastRelicFeedbackAt < 1200) return;
     this.lastRelicFeedbackAt = now;
-    this.panel.pulseRelics(ids);
+    if (isPortraitLayout()) {
+      const names = ids.slice(0, 2).map((id) => relicName(id, RELIC_DEFS[id].name));
+      const extra = ids.length > 2 ? tr(` 외 ${ids.length - 2}`, ` +${ids.length - 2} MORE`) : '';
+      this.flashCenter(tr(`⚡ ${names.join(' · ')}${extra} 발동`, `⚡ ${names.join(' · ')}${extra} TRIGGERED`), UI.goldNum, 17);
+    } else {
+      this.panel.pulseRelics(ids);
+    }
   }
 
   private trackBossAnalytics(result: TickResult, roundBefore: number): void {
@@ -1554,12 +1631,17 @@ export class PlayScene extends Phaser.Scene {
     if (!tactic) return;
     const portrait = isPortraitLayout();
     const copy = (portrait ? HAND_TACTIC_COMPACT_COPY : HAND_TACTIC_COPY)[tactic.id][getLocale()];
+    const text = tr(`♜ 전술 발동 · ${copy}`, `♜ TACTIC ACTIVE · ${copy}`);
+    if (portrait) {
+      this.flashCenter(text, tactic.id === 'royal-decree' ? 0xffe27a : 0xb7e5ff, 18, { fontSize: 11 });
+      return;
+    }
     const label = makeText(
       this,
-      portrait ? 195 : 390,
-      portrait ? portraitY(portraitSceneHeight(this), 250) : 370,
-      tr(`♜ 전술 발동 · ${copy}`, `♜ TACTIC ACTIVE · ${copy}`),
-      portrait ? 13 : 18,
+      390,
+      370,
+      text,
+      18,
       tactic.id === 'royal-decree' ? '#ffe27a' : '#b7e5ff',
       true,
     ).setOrigin(0.5).setDepth(11).setShadow(0, 2, '#000000', 6);

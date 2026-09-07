@@ -182,6 +182,9 @@ export class SidePanel {
   private fuseBtn!: Button;
   private portrait = false;
   private placementBg?: Phaser.GameObjects.Rectangle;
+  private statusChipsSuppressed = false;
+  private wagerStatusVisible = false;
+  private tacticStatusVisible = false;
 
   constructor(scene: Phaser.Scene, game: Game, cb: PanelCallbacks) {
     this.scene = scene;
@@ -360,14 +363,14 @@ export class SidePanel {
     this.buildCount = scene.add.text(0, 0, '').setVisible(false);
     this.buildText = scene.add.text(0, 0, '').setVisible(false);
     this.combatText = scene.add.text(0, 0, '').setVisible(false);
-    this.relicTriggerText = makeText(scene, 195, py(372), '', 12, UI.gold, true).setOrigin(0.5).setAlpha(0).setDepth(7);
-    this.wagerText = scene.add.text(195, py(104), '', {
-      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: UI.gold,
-      backgroundColor: '#0d0d13', padding: { x: 7, y: 3 }, align: 'center',
+    this.relicTriggerText = makeText(scene, 195, 22, '', 9, UI.gold, true).setOrigin(0.5).setAlpha(0).setDepth(7);
+    this.wagerText = scene.add.text(195, 3, '', {
+      fontFamily: FONT, fontSize: '9px', fontStyle: 'bold', color: UI.gold,
+      backgroundColor: '#0d0d13', padding: { x: 6, y: 2 }, align: 'center',
     }).setOrigin(0.5, 0).setDepth(6);
-    this.tacticText = scene.add.text(195, py(130), '', {
-      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#b7e5ff',
-      backgroundColor: '#0d0d13', padding: { x: 7, y: 3 }, align: 'center',
+    this.tacticText = scene.add.text(195, 25, '', {
+      fontFamily: FONT, fontSize: '9px', fontStyle: 'bold', color: '#b7e5ff',
+      backgroundColor: '#0d0d13', padding: { x: 6, y: 2 }, align: 'center',
     }).setOrigin(0.5, 0).setDepth(6);
 
     this.deckBtn = makeButton(scene, 53, py(769), 82, 50, tr('덱', 'DECK'), cb.onDeck, {
@@ -421,11 +424,19 @@ export class SidePanel {
   }
 
   setWagerStatus(text: string, visible: boolean): void {
-    this.wagerText.setText(text).setVisible(visible);
+    this.wagerStatusVisible = visible;
+    this.wagerText.setText(text).setVisible(visible && !this.statusChipsSuppressed);
   }
 
   setTacticStatus(text: string, visible: boolean): void {
-    this.tacticText.setText(text).setVisible(visible);
+    this.tacticStatusVisible = visible;
+    this.tacticText.setText(text).setVisible(visible && !this.statusChipsSuppressed);
+  }
+
+  setStatusChipsSuppressed(suppressed: boolean): void {
+    this.statusChipsSuppressed = suppressed;
+    this.wagerText.setVisible(!suppressed && this.wagerStatusVisible);
+    this.tacticText.setVisible(!suppressed && this.tacticStatusVisible);
   }
 
   private refreshFormationMastery(formation: boolean): void {

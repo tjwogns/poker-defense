@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.8.0';
+export const CURRENT_VERSION = 'v2.8.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.8.1',
+    title: 'CLEAR BATTLEFIELD',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '전장을 가리지 않는 모바일 HUD',
+        items: [
+          '세로 모바일의 왕실 내기·족보 전술 상태를 적 경로 밖 상단 전용 레인으로 이동',
+          '족보·전술·완벽 방어·유물 알림을 한 번에 하나씩 표시해 서로 겹치지 않고 상태 안내로 복귀',
+          '적·유닛에 직접 붙는 공격 피드백만 전장에 남겨 전투 상황을 계속 확인 가능',
+        ],
+      },
+      {
+        heading: '작은 화면 첫 경험 정리',
+        items: [
+          '첫 실행 코치를 모바일에서는 다음 웨이브 카드 안에 표시해 적 경로·손패·행동 버튼을 보호',
+          '짧은 화면부터 큰 화면까지 한국어·영어 긴 문구와 동작 줄이기·재시작 상태 검증',
+          '데스크톱 UI와 게임 밸런스·저장·분석 규칙은 변경하지 않음',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.8.0',
     title: 'FORMATION MASTERY',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '읽고 대응하는 진형',

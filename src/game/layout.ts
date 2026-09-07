@@ -44,6 +44,28 @@ export const PORTRAIT_MAX_HEIGHT = 920;
 
 let activePortraitHeight = PORTRAIT_BASE_HEIGHT;
 
+/** 전장 시작점 위의 비공간성 상태/토스트 전용 레인. 화면 높이와 무관하게 헤더 안에 고정한다. */
+export const PORTRAIT_HEADER_TOAST_LANE: UiRect = { x: 8, y: 2, width: 374, height: 44 };
+
+export function portraitToastFontSize(text: string): number {
+  return text.length > 54 ? 9 : text.length > 36 ? 10 : 12;
+}
+
+export function portraitCoachLayout(height: number): {
+  panel: UiRect;
+  step: { x: number; y: number };
+  title: { x: number; y: number };
+  body: UiRect;
+} {
+  const top = portraitY(height, 382);
+  return {
+    panel: { x: 8, y: top, width: 374, height: 58 },
+    step: { x: 22, y: top + 10 },
+    title: { x: 72, y: top + 7 },
+    body: { x: 72, y: top + 27, width: 292, height: 27 },
+  };
+}
+
 /** 실제 CSS 뷰포트 비율을 보존하되 지나치게 짧거나 긴 캔버스는 안전 범위로 제한한다. */
 export function portraitLogicalHeight(viewportWidth: number, viewportHeight: number): number {
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight) || viewportWidth <= 0 || viewportHeight <= 0) {
