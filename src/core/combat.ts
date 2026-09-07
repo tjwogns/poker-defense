@@ -54,13 +54,25 @@ export interface TickResult {
   attacks: AttackEvent[];
   bossEvents: BossEvent[];
   relicTriggers: RelicId[];
+  tacticEvents: TacticCombatEvent[];
 }
+
+export type TacticHitFeedback =
+  | { type: 'focus-stack'; stage: number }
+  | { type: 'fourth-strike'; hit: number };
+
+export type TacticCombatEvent =
+  | { type: 'focus-stack'; unitId: number; enemyId: number; stage: number; x: number; y: number }
+  | { type: 'fourth-strike'; unitId: number; enemyId: number; hit: number; damage: number; x: number; y: number }
+  | { type: 'overflow'; unitId: number; fromEnemyId: number; toEnemyId: number; damage: number; x1: number; y1: number; x2: number; y2: number }
+  | { type: 'royal-bounty'; amount: number };
 
 export interface CombatTacticHooks {
   damageMultiplier(unit: Unit, enemy: Enemy, primary: boolean): number;
   attackSpeedMultiplier(unit: Unit, enemy: Enemy): number;
   enemySpeedMultiplier(enemy: Enemy): number;
   overkillTransferRatio(unit: Unit, enemy: Enemy): number;
+  hitFeedback?(unit: Unit, enemy: Enemy, primary: boolean): TacticHitFeedback | null;
 }
 
 const NO_TACTIC_HOOKS: CombatTacticHooks = {
@@ -68,6 +80,7 @@ const NO_TACTIC_HOOKS: CombatTacticHooks = {
   attackSpeedMultiplier: () => 1,
   enemySpeedMultiplier: () => 1,
   overkillTransferRatio: () => 0,
+  hitFeedback: () => null,
 };
 
 export type BossEvent =
@@ -145,7 +158,7 @@ export function aliveEnemies(field: Field): Enemy[] {
 }
 
 function emptyResult(): TickResult {
-  return { goldEarned: 0, deaths: [], escaped: [], attacks: [], bossEvents: [], relicTriggers: [] };
+  return { goldEarned: 0, deaths: [], escaped: [], attacks: [], bossEvents: [], relicTriggers: [], tacticEvents: [] };
 }
 
 function dist2(a: Pt, b: Pt): number {
@@ -237,16 +250,32 @@ function performAttack(
 
   const targetPos = enemyPos(target);
   const deathsBefore = result.deaths.length;
-  const damageAgainst = (enemy: Enemy, amount: number, primary: boolean) => amount
-    * relicDamageMultiplier(unit, enemy, field)
-    * suitDamageMultiplier(unit.suit, enemy.kind === 'boss')
-    * variantDamageMultiplier(unit.variant)
-    * tacticHooks.damageMultiplier(unit, enemy, primary);
+  const damageAgainst = (enemy: Enemy, amount: number, primary: boolean) => {
+    const tacticMultiplier = tacticHooks.damageMultiplier(unit, enemy, primary);
+    return {
+      amount: amount
+        * relicDamageMultiplier(unit, enemy, field)
+        * suitDamageMultiplier(unit.suit, enemy.kind === 'boss')
+        * variantDamageMultiplier(unit.variant)
+        * tacticMultiplier,
+      feedback: tacticHooks.hitFeedback?.(unit, enemy, primary) ?? null,
+    };
+  };
   const targetDamage = damageAgainst(target, base, true);
 
-  const applyHit = (enemy: Enemy, amount: number, primary: boolean): { direct: number; total: number } => {
-    const application = applyDamage(field, enemy, amount, ignoreDefense, result);
+  const applyHit = (
+    enemy: Enemy,
+    damage: ReturnType<typeof damageAgainst>,
+    primary: boolean,
+  ): { direct: number; total: number } => {
+    const application = applyDamage(field, enemy, damage.amount, ignoreDefense, result);
     let total = application.dealt;
+    if (application.dealt > 0 && damage.feedback) {
+      const at = enemyPos(enemy);
+      result.tacticEvents.push(damage.feedback.type === 'focus-stack'
+        ? { ...damage.feedback, unitId: unit.id, enemyId: enemy.id, x: at.x, y: at.y }
+        : { ...damage.feedback, unitId: unit.id, enemyId: enemy.id, damage: application.dealt, x: at.x, y: at.y });
+    }
     const ratio = tacticHooks.overkillTransferRatio(unit, enemy);
     if (application.killed && application.overkill > 0 && ratio > 0) {
       // 배열 삽입 순서에 기대지 않고 계약대로 가장 낮은 ID의 유효 적에게 1회 전달한다.
@@ -257,7 +286,18 @@ function performAttack(
           ? candidate
           : best
       ), null);
-      if (next) total += applyDamage(field, next, application.overkill * ratio, true, result).dealt;
+      if (next) {
+        const transferred = applyDamage(field, next, application.overkill * ratio, true, result).dealt;
+        total += transferred;
+        if (transferred > 0) {
+          const from = enemyPos(enemy);
+          const to = enemyPos(next);
+          result.tacticEvents.push({
+            type: 'overflow', unitId: unit.id, fromEnemyId: enemy.id, toEnemyId: next.id,
+            damage: transferred, x1: from.x, y1: from.y, x2: to.x, y2: to.y,
+          });
+        }
+      }
     }
     return { direct: primary ? application.dealt : 0, total };
   };

@@ -20,6 +20,7 @@ import { enemySpriteExtent, enemySpriteKey } from './enemyAssets';
 import { isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
 import { tr } from '../i18n';
+import { tacticApplies, unitZone } from '../core/handTactics';
 
 export const FIELD_X = 24;
 export const FIELD_Y = 68;
@@ -60,7 +61,7 @@ export function isInsideField(px: number, py: number): boolean {
 
 /** 이번 프레임에 그릴 공격 이펙트 */
 export interface Fx {
-  kind: 'attack' | 'death' | 'bossAbility';
+  kind: 'attack' | 'death' | 'bossAbility' | 'tactic';
   unitId?: number;
   x1: number;
   y1: number;
@@ -73,6 +74,7 @@ export interface Fx {
   targetKind: EnemyKindId;
   targetRound?: number;
   bossAbility?: 'tax' | 'summon';
+  tacticType?: 'focus-stack' | 'fourth-strike' | 'overflow';
   seed: number;
 }
 
@@ -276,6 +278,7 @@ export class FieldRenderer {
   private rangeG: Phaser.GameObjects.Graphics;
   private fxG: Phaser.GameObjects.Graphics;
   private bossAbilityG: Phaser.GameObjects.Graphics;
+  private tacticG: Phaser.GameObjects.Graphics;
   private placementHint: Phaser.GameObjects.Text;
   private enemyViews = new Map<number, EnemyView>();
   private unitViews = new Map<number, UnitView>();
@@ -293,6 +296,7 @@ export class FieldRenderer {
     this.rangeG = scene.add.graphics().setDepth(1);
     this.fxG = scene.add.graphics().setDepth(4);
     this.bossAbilityG = scene.add.graphics().setDepth(4);
+    this.tacticG = scene.add.graphics().setDepth(3);
     this.placementHint = scene.add.text(this.metrics.portrait ? 195 : 381, this.metrics.portrait ? 374 : 76, tr('◆ 금색 점선이 추천 위치입니다', '◆ GOLD DASHED TILES ARE RECOMMENDED'), {
       fontFamily: FONT,
       fontSize: '11px',
@@ -438,6 +442,7 @@ export class FieldRenderer {
   ): void {
     this.updateUnits(game, selectedUnitId, fx, fusionTier, fusionSelectedIds);
     this.updateEnemies(game);
+    this.updateTactics(game);
     this.updateEscapeWarning(game);
     this.drawBossAbilities(game);
     this.updateHighlight(game, placingTier);
@@ -664,6 +669,63 @@ export class FieldRenderer {
     }
   }
 
+  /** 코어의 현재 전술 상태만 그린다. 판정/대상 선택은 여기서 재계산하지 않는다. */
+  private updateTactics(game: Game): void {
+    this.tacticG.clear();
+    const tactic = game.phase === 'combat' ? game.handTactic : null;
+    if (!tactic || tactic.round !== game.round) return;
+    const { x, y, tile, scale } = this.metrics;
+
+    if (tactic.id === 'stronghold' && tactic.lockedZone !== null) {
+      const right = tactic.lockedZone === 1 || tactic.lockedZone === 3;
+      const bottom = tactic.lockedZone >= 2;
+      const tx = right ? Math.floor(GRID_W / 2) : 0;
+      const ty = bottom ? Math.floor(GRID_H / 2) : 0;
+      const tw = right ? GRID_W - tx : tx === 0 ? Math.floor(GRID_W / 2) : 0;
+      const th = bottom ? GRID_H - ty : ty === 0 ? Math.floor(GRID_H / 2) : 0;
+      this.tacticG.fillStyle(0xe6c84f, 0.055);
+      this.tacticG.fillRect(x + tx * tile, y + ty * tile, tw * tile, th * tile);
+      this.tacticG.lineStyle(this.metrics.portrait ? 1 : 1.5, 0xe6c84f, 0.42);
+      this.tacticG.strokeRect(x + tx * tile + 1, y + ty * tile + 1, tw * tile - 2, th * tile - 2);
+    }
+
+    for (const unit of game.field.units) {
+      const applies = tactic.id === 'volley'
+        || tactic.id === 'royal-decree'
+        || (tactic.id === 'suit-command' && tactic.suit !== null && unit.suit === tactic.suit)
+        || (tactic.id === 'stronghold' && tactic.lockedZone !== null && unitZone(unit) === tactic.lockedZone);
+      if (!applies) continue;
+      const at = unitPos(unit);
+      const ux = x + at.x * scale;
+      const uy = y + at.y * scale;
+      const color = tactic.id === 'royal-decree' || tactic.id === 'stronghold' ? 0xe6c84f
+        : tactic.id === 'suit-command' ? 0x75d9c3 : 0x65bfff;
+      this.tacticG.lineStyle(this.metrics.portrait ? 1 : 1.5, color, 0.72);
+      this.tacticG.strokeCircle(ux, uy, (this.metrics.portrait ? 11 : 20) * scale);
+      if (tactic.id === 'volley') {
+        this.tacticG.lineBetween(ux - 8 * scale, uy - 16 * scale, ux - 3 * scale, uy - 12 * scale);
+        this.tacticG.lineBetween(ux - 3 * scale, uy - 12 * scale, ux - 8 * scale, uy - 8 * scale);
+      }
+    }
+
+    for (const enemy of game.field.enemies) {
+      if (!enemy.alive || !tacticApplies(tactic, enemy)) continue;
+      const at = enemyPos(enemy);
+      const ex = x + at.x * scale;
+      const ey = y + at.y * scale;
+      if (tactic.id === 'roadblock') {
+        this.tacticG.lineStyle(this.metrics.portrait ? 1 : 1.5, 0x65bfff, 0.72);
+        this.tacticG.strokeEllipse(ex, ey + 7 * scale, 22 * scale, 7 * scale);
+      } else if (tactic.id === 'fourth-strike') {
+        const filled = (tactic.hitsByEnemy[enemy.id] ?? 0) % 4;
+        for (let index = 0; index < 4; index++) {
+          this.tacticG.fillStyle(index < filled ? 0xffd45e : 0x5b5362, index < filled ? 0.9 : 0.45);
+          this.tacticG.fillCircle(ex + (index - 1.5) * 4 * scale, ey - 14 * scale, Math.max(1, 1.4 * scale));
+        }
+      }
+    }
+  }
+
   private updateEscapeWarning(game: Game): void {
     if (!this.escapeWarningText) return;
     const count = game.escapeWarningCount;
@@ -868,6 +930,27 @@ export class FieldRenderer {
       this.fxG.strokeCircle(x2, y2, radius);
       this.fxG.lineStyle(2, 0xffffff, fade * 0.8);
       this.fxG.strokeCircle(x2, y2, Math.max(4, radius * 0.58));
+      return;
+    }
+
+    if (f.kind === 'tactic') {
+      if (f.tacticType === 'overflow') {
+        this.fxG.lineStyle(5, 0xb995ff, 0.1 * fade);
+        this.fxG.lineBetween(x1, y1, px, py);
+        this.fxG.lineStyle(1.7, 0xe4d7ff, fade * 0.9);
+        this.fxG.lineBetween(x1, y1, px, py);
+        this.fxG.fillStyle(0xffffff, fade);
+        this.fxG.fillCircle(px, py, this.metrics.portrait ? 2 : 3);
+      } else {
+        const color = f.tacticType === 'fourth-strike' ? 0xffd45e : 0x65bfff;
+        const radius = (f.tacticType === 'fourth-strike' ? 8 : 5) + progress * 14;
+        this.fxG.lineStyle(f.tacticType === 'fourth-strike' ? 3 : 2, color, fade * 0.9);
+        this.fxG.strokeCircle(x2, y2, radius * this.metrics.scale);
+        if (f.tacticType === 'fourth-strike') {
+          this.fxG.lineBetween(x2 - radius, y2, x2 + radius, y2);
+          this.fxG.lineBetween(x2, y2 - radius, x2, y2 + radius);
+        }
+      }
       return;
     }
 

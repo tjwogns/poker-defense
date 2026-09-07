@@ -9,6 +9,7 @@ import {
   handTacticBountyMultiplier,
   handTacticDamageMultiplier,
   handTacticEnemySpeedMultiplier,
+  handTacticHitFeedback,
   handTacticOverkillRatio,
   lockHandTacticForCombat,
   tacticIdForRank,
@@ -113,6 +114,41 @@ describe('hand tactics', () => {
     expect(handTacticDamageMultiplier(state, a, late, true)).toBe(1);
   });
 
+  test('Trips 2~5타와 Quads 정확한 4타만 typed 시각 피드백을 만든다', () => {
+    const field = createField();
+    const enemy = spawnEnemy(field, 'normal', 20, { dist: AT_TILE_3_1 });
+    const unit = addUnit(field, HandRank.Pair, 3, 2);
+    const focus = createHandTactic(HandRank.Trips, 20, 'S')!;
+    const focusStages: number[] = [];
+    for (let hit = 1; hit <= 6; hit++) {
+      handTacticDamageMultiplier(focus, unit, enemy, true);
+      const feedback = handTacticHitFeedback(focus, unit, enemy, true);
+      if (feedback?.type === 'focus-stack') focusStages.push(feedback.stage);
+    }
+    expect(focusStages).toEqual([2, 3, 4, 5]);
+
+    const quads = createHandTactic(HandRank.FourKind, 20, 'S')!;
+    const hooks: CombatTacticHooks = {
+      damageMultiplier: (u, e, primary) => handTacticDamageMultiplier(quads, u, e, primary),
+      attackSpeedMultiplier: () => 1,
+      enemySpeedMultiplier: () => 1,
+      overkillTransferRatio: () => 0,
+      hitFeedback: (u, e, primary) => handTacticHitFeedback(quads, u, e, primary),
+    };
+    const fourthEvents = [];
+    for (let hit = 1; hit <= 8; hit++) {
+      unit.cooldown = 0;
+      const result = tick(field, 1 / 30, 1, () => 1, Infinity, () => 1, hooks);
+      fourthEvents.push(...result.tacticEvents);
+      expect(result.tacticEvents.length > 0).toBe(hit % 4 === 0);
+    }
+    expect(fourthEvents.map((event) => event.type === 'fourth-strike' ? event.hit : -1)).toEqual([4, 8]);
+    for (const event of fourthEvents) {
+      expect(event).toMatchObject({ type: 'fourth-strike', unitId: unit.id, enemyId: enemy.id });
+      if (event.type === 'fourth-strike') expect(event.damage).toBeCloseTo(11.2 * 1.4, 8);
+    }
+  });
+
   test('Straight Flush와 Royal은 현재 라운드에만 승인된 전달/피해/골드 배율을 준다', () => {
     const field = createField();
     const current = spawnEnemy(field, 'normal', 8);
@@ -151,6 +187,9 @@ describe('hand tactics', () => {
     expect(highId.hp).toBe(100); // lowId 전이 사망의 초과 피해는 재전이되지 않는다.
     expect(result.deaths.map((enemy) => enemy.id)).toEqual([target.id, lowId.id]);
     expect(result.goldEarned).toBe(target.bounty + lowId.bounty);
+    expect(result.tacticEvents).toEqual([expect.objectContaining({
+      type: 'overflow', unitId: unit.id, fromEnemyId: target.id, toEnemyId: lowId.id, damage: 1,
+    })]);
     expect(result.attacks[0].totalDamage).toBeCloseTo(2);
     expect(unit.id).toBeGreaterThan(highId.id);
   });

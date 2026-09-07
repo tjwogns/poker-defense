@@ -1,5 +1,5 @@
 import { HandRank, Suit } from './cards/types';
-import type { Enemy, Unit } from './combat';
+import type { Enemy, TacticHitFeedback, Unit } from './combat';
 import { GRID_H, GRID_W } from './map';
 
 export type HandTacticId = 'volley' | 'focus-fire' | 'roadblock' | 'suit-command'
@@ -127,4 +127,23 @@ export function handTacticOverkillRatio(state: HandTacticState | null, enemy: En
 
 export function handTacticBountyMultiplier(state: HandTacticState | null, enemy: Enemy): number {
   return tacticApplies(state, enemy) && state?.id === 'royal-decree' ? 1.1 : 1;
+}
+
+/** damageMultiplier 호출 직후의 실제 코어 카운터를 시각 이벤트로만 노출한다. */
+export function handTacticHitFeedback(
+  state: HandTacticState | null,
+  unit: Unit,
+  enemy: Enemy,
+  primary: boolean,
+): TacticHitFeedback | null {
+  if (!state || !tacticApplies(state, enemy)) return null;
+  if (state.id === 'focus-fire' && primary) {
+    const stage = state.consecutiveByUnit[unit.id]?.hits ?? 0;
+    return stage >= 2 && stage <= 5 ? { type: 'focus-stack', stage } : null;
+  }
+  if (state.id === 'fourth-strike') {
+    const hit = state.hitsByEnemy[enemy.id] ?? 0;
+    return hit > 0 && hit % 4 === 0 ? { type: 'fourth-strike', hit } : null;
+  }
+  return null;
 }

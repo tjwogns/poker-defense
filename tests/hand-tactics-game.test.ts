@@ -89,6 +89,7 @@ describe('hand tactics Game integration', () => {
     expect(result.deaths).toHaveLength(10);
     expect(result.goldEarned).toBe(expected);
     expect(game.goldIncome.bounty).toBe(expected);
+    expect(result.tacticEvents).toContainEqual({ type: 'royal-bounty', amount: expected - Math.floor(30 * 1.25 * lifeMult) });
     expect(game.handTactic).toBeNull();
   });
 

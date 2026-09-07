@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DeckSealId, Game, Phase } from '../core/game';
-import { Enemy, TickResult, addUnit, enemyPos, spawnEnemy, unitPos } from '../core/combat';
+import { Enemy, TacticCombatEvent, TickResult, addUnit, enemyPos, spawnEnemy, unitPos } from '../core/combat';
 import { UNIT_DEFS } from '../core/units';
 import { ENEMY_KINDS } from '../core/enemies';
 import { Card, HAND_NAMES_KO, HandRank, isHiddenHand, RANK_LABELS, SUIT_GLYPHS } from '../core/cards/types';
@@ -32,7 +32,7 @@ import { WagerOverlay } from './WagerOverlay';
 import { MaintenanceOverlay } from './MaintenanceOverlay';
 import { FirstRunCoach } from './FirstRunCoach';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
-import { attackFxBudget, totalFxBudget } from './fxBudget';
+import { attackFxBudget, canCreateTacticFeedback, tacticFeedbackBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
 import { isLifeLabLocation } from './experiment';
@@ -64,6 +64,7 @@ export class PlayScene extends Phaser.Scene {
   private fx: Fx[] = [];
   private damageLabelShownThisFrame = false;
   private cameraShakenThisFrame = false;
+  private tacticFeedbackTweens = new Set<Phaser.Tweens.Tween>();
   private selectedUnitId: number | null = null;
   private fusionAnchorId: number | null = null;
   private fusionSelectedIds: number[] = [];
@@ -426,6 +427,7 @@ export class PlayScene extends Phaser.Scene {
       if (this.core.phase === 'combat' && !this.paused && !this.backgroundPaused) {
         this.paused = true;
         this.backgroundPaused = true;
+        this.syncTacticFeedbackPause();
         this.analytics.track('background_pause', {
           round: this.core.round,
           speed: this.speed,
@@ -497,7 +499,7 @@ export class PlayScene extends Phaser.Scene {
       this.selectedUnitId,
       this.placementTier(),
       this.fx,
-      dt,
+      this.paused ? 0 : dt,
       this.fusionTier(),
       this.fusionSelectedIds,
     );
@@ -514,6 +516,7 @@ export class PlayScene extends Phaser.Scene {
     if (!this.backgroundPaused) return;
     this.paused = pauseStateAfterFocus(this.paused, this.backgroundPaused);
     this.backgroundPaused = false;
+    this.syncTacticFeedbackPause();
     this.flashCenter(tr(`게임 재개 · ×${this.speed} 유지`, `RESUMED · SPEED ×${this.speed}`), 0xe6c84f);
     this.refreshUI();
   }
@@ -706,6 +709,7 @@ export class PlayScene extends Phaser.Scene {
         locale: getLocale(),
         durationSeconds: this.elapsedSeconds(),
       }, this.runId);
+      if (this.core.handTactic) this.flashTacticActivation();
       if (this.core.lastHandVariant) {
         this.flashCenter(
           `${handVariantName(this.core.lastHandVariant, HAND_VARIANT_LABELS[this.core.lastHandVariant])} · ${suitIdentityName(this.core.lastHandSuit, suitIdentityLabel(this.core.lastHandSuit))}`,
@@ -784,8 +788,16 @@ export class PlayScene extends Phaser.Scene {
   private togglePause(): void {
     if (this.core.phase !== 'combat') return;
     this.paused = !this.paused;
+    this.syncTacticFeedbackPause();
     this.audio.play('click');
     this.refreshUI();
+  }
+
+  private syncTacticFeedbackPause(): void {
+    for (const tween of this.tacticFeedbackTweens) {
+      if (this.paused) tween.pause();
+      else tween.resume();
+    }
   }
 
   private toggleSound(): void {
@@ -868,6 +880,7 @@ export class PlayScene extends Phaser.Scene {
     ) return;
     this.deckWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
+    this.syncTacticFeedbackPause();
     this.deckOverlay = new DeckOverlay(
       this,
       this.core,
@@ -887,6 +900,7 @@ export class PlayScene extends Phaser.Scene {
     this.deckOverlay.destroy();
     this.deckOverlay = null;
     if (this.core.phase === 'combat') this.paused = this.deckWasPaused;
+    this.syncTacticFeedbackPause();
     this.audio.play('click');
     this.refreshUI();
   }
@@ -919,6 +933,7 @@ export class PlayScene extends Phaser.Scene {
     }
     this.exitWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
+    this.syncTacticFeedbackPause();
     this.exitOverlay = new ExitConfirmOverlay(
       this,
       () => this.closeExitConfirm(),
@@ -933,6 +948,7 @@ export class PlayScene extends Phaser.Scene {
     this.exitOverlay.destroy();
     this.exitOverlay = null;
     if (this.core.phase === 'combat') this.paused = this.exitWasPaused;
+    this.syncTacticFeedbackPause();
     this.audio.play('click');
     this.refreshUI();
   }
@@ -941,6 +957,7 @@ export class PlayScene extends Phaser.Scene {
     if (this.guideOverlay || this.deckOverlay || this.maintenanceOverlay || this.tutorialActive || this.ended || this.relicOverlay || this.exitOverlay) return;
     this.guideWasPaused = this.paused;
     if (this.core.phase === 'combat') this.paused = true;
+    this.syncTacticFeedbackPause();
     this.guideOverlay = new GuideOverlay(this, this.profile.discoveredHands, () => this.closeGuide());
     this.audio.play('click');
     this.refreshUI();
@@ -951,6 +968,7 @@ export class PlayScene extends Phaser.Scene {
     this.guideOverlay.destroy();
     this.guideOverlay = null;
     if (this.core.phase === 'combat') this.paused = this.guideWasPaused;
+    this.syncTacticFeedbackPause();
     this.audio.play('click');
     this.refreshUI();
   }
@@ -1163,9 +1181,10 @@ export class PlayScene extends Phaser.Scene {
   private celebrate(rank: HandRank, newlyDiscovered = false): void {
     const portrait = isPortraitLayout();
     const portraitHeight = portraitSceneHeight(this);
+    const localizedHand = handName(rank, HAND_NAMES_KO[rank]);
     const text = newlyDiscovered
-      ? `${HAND_NAMES_KO[rank]}!\nHIDDEN DISCOVERED`
-      : `${HAND_NAMES_KO[rank]}!`;
+      ? `${localizedHand}!\nHIDDEN DISCOVERED`
+      : `${localizedHand}!`;
     const label = makeText(
       this, portrait ? 195 : 390, portrait ? portraitY(portraitHeight, 318) : 280, text,
       portrait ? newlyDiscovered ? 22 : 28 : newlyDiscovered ? 34 : 44,
@@ -1196,6 +1215,7 @@ export class PlayScene extends Phaser.Scene {
 
   private collectFx(result: TickResult): void {
     this.showRelicTriggers(result.relicTriggers, 'combat');
+    this.collectTacticFx(result.tacticEvents);
     if (result.escaped.length > 0) {
       this.flashCenter(
         this.core.defeatReason === 'boss-escaped'
@@ -1254,7 +1274,11 @@ export class PlayScene extends Phaser.Scene {
         x1: from.x, y1: from.y, x2: to.x, y2: to.y,
         ttl: unit.tier === HandRank.RoyalFlush ? 0.34 : 0.2,
         duration: unit.tier === HandRank.RoyalFlush ? 0.34 : 0.2,
-        color: unit.suit ? SUIT_COLORS[unit.suit] : UNIT_DEFS[unit.tier].color,
+        color: this.core.handTactic?.round === enemy.round && this.core.handTactic.id === 'volley'
+          ? 0x65bfff
+          : this.core.handTactic?.round === enemy.round && this.core.handTactic.id === 'royal-decree'
+            ? 0xe6c84f
+            : unit.suit ? SUIT_COLORS[unit.suit] : UNIT_DEFS[unit.tier].color,
         tier: unit.tier,
         targetKind: enemy.kind,
         targetRound: enemy.round,
@@ -1296,6 +1320,79 @@ export class PlayScene extends Phaser.Scene {
       this.cameraShakenThisFrame = true;
       this.cameras.main.shake(Math.min(130, 45 + result.deaths.length * 5), 0.0014);
     }
+  }
+
+  private collectTacticFx(events: readonly TacticCombatEvent[]): void {
+    let labels = 0;
+    const labelBudget = tacticFeedbackBudget(this.compactFx);
+    const canShowLabel = () => labels < labelBudget
+      && canCreateTacticFeedback(this.tacticFeedbackTweens.size, this.compactFx);
+    for (const event of events) {
+      if (event.type === 'royal-bounty') {
+        if (canShowLabel()) {
+          labels++;
+          this.showTacticEventLabel(
+            isPortraitLayout() ? 340 : 1165,
+            isPortraitLayout() ? 92 : 62,
+            tr(`왕명 +${event.amount}G`, `ROYAL +${event.amount}G`),
+            '#ffe27a',
+          );
+        }
+        continue;
+      }
+      const point = event.type === 'overflow'
+        ? { x: event.x2, y: event.y2 }
+        : { x: event.x, y: event.y };
+      const at = fieldScreenPoint(point.x, point.y);
+      if (canShowLabel()) {
+        labels++;
+        const text = event.type === 'focus-stack'
+          ? tr(`집중 ${event.stage}/5`, `FOCUS ${event.stage}/5`)
+          : event.type === 'fourth-strike'
+            ? tr(`4타 ${Math.round(event.damage)}`, `4TH ${Math.round(event.damage)}`)
+            : tr(`전이 ${Math.round(event.damage)}`, `TRANSFER ${Math.round(event.damage)}`);
+        this.showTacticEventLabel(at.x, at.y - (isPortraitLayout() ? 8 : 14), text,
+          event.type === 'fourth-strike' ? '#ffe27a' : event.type === 'overflow' ? '#e4d7ff' : '#b7e5ff');
+      }
+      if (this.reducedMotion() || this.fx.length >= totalFxBudget(this.compactFx)) continue;
+      const enemy = this.core.field.enemies.find((candidate) => candidate.id === (
+        event.type === 'overflow' ? event.toEnemyId : event.enemyId
+      ));
+      this.fx.push({
+        kind: 'tactic',
+        tacticType: event.type,
+        unitId: event.unitId,
+        x1: event.type === 'overflow' ? event.x1 : point.x,
+        y1: event.type === 'overflow' ? event.y1 : point.y,
+        x2: point.x,
+        y2: point.y,
+        ttl: event.type === 'overflow' ? 0.34 : 0.28,
+        duration: event.type === 'overflow' ? 0.34 : 0.28,
+        color: event.type === 'fourth-strike' ? 0xffd45e : event.type === 'overflow' ? 0xb995ff : 0x65bfff,
+        tier: HandRank.HighCard,
+        targetKind: enemy?.kind ?? 'normal',
+        targetRound: enemy?.round ?? this.core.round,
+        seed: event.type === 'overflow' ? event.toEnemyId * 37 : event.enemyId * 37,
+      });
+    }
+  }
+
+  private showTacticEventLabel(x: number, y: number, text: string, color: string): void {
+    const label = makeText(this, x, y, text, isPortraitLayout() ? 8 : 10, color, true)
+      .setOrigin(0.5).setDepth(8).setShadow(0, 1, '#000000', 3);
+    let tween!: Phaser.Tweens.Tween;
+    tween = this.tweens.add({
+      targets: label,
+      y: y - (this.reducedMotion() ? 0 : 12),
+      alpha: 0,
+      delay: 120,
+      duration: 360,
+      onComplete: () => {
+        this.tacticFeedbackTweens.delete(tween);
+        label.destroy();
+      },
+    });
+    this.tacticFeedbackTweens.add(tween);
   }
 
   private showRelicTriggers(ids: readonly RelicId[], context: 'hand' | 'exchange' | 'combat'): void {
@@ -1412,6 +1509,35 @@ export class PlayScene extends Phaser.Scene {
       ? tr(` · 구역 ${zoneNames[tactic.lockedZone]}`, ` · ZONE ${zoneNames[tactic.lockedZone]}`)
       : '';
     return `♜ ${label}${suit}${zone}`;
+  }
+
+  private flashTacticActivation(): void {
+    const tactic = this.core.handTactic;
+    if (!tactic) return;
+    const portrait = isPortraitLayout();
+    const copy = (portrait ? HAND_TACTIC_COMPACT_COPY : HAND_TACTIC_COPY)[tactic.id][getLocale()];
+    const label = makeText(
+      this,
+      portrait ? 195 : 390,
+      portrait ? portraitY(portraitSceneHeight(this), 250) : 370,
+      tr(`♜ 전술 발동 · ${copy}`, `♜ TACTIC ACTIVE · ${copy}`),
+      portrait ? 13 : 18,
+      tactic.id === 'royal-decree' ? '#ffe27a' : '#b7e5ff',
+      true,
+    ).setOrigin(0.5).setDepth(11).setShadow(0, 2, '#000000', 6);
+    if (!this.reducedMotion()) {
+      label.setScale(0.92);
+      this.tweens.add({ targets: label, scale: 1, duration: 180, ease: 'Cubic.Out' });
+    }
+    this.tweens.add({
+      targets: label,
+      alpha: 0,
+      y: label.y - (this.reducedMotion() ? 0 : 12),
+      delay: 820,
+      duration: 400,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
   }
 
   private wagerResultText(): string {

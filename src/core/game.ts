@@ -54,6 +54,7 @@ import {
   handTacticBountyMultiplier,
   handTacticDamageMultiplier,
   handTacticEnemySpeedMultiplier,
+  handTacticHitFeedback,
   handTacticOverkillRatio,
   lockHandTacticForCombat,
 } from './handTactics';
@@ -812,6 +813,7 @@ export class Game {
         attackSpeedMultiplier: (_unit, enemy) => handTacticAttackSpeedMultiplier(this.handTactic, enemy),
         enemySpeedMultiplier: (enemy) => handTacticEnemySpeedMultiplier(this.handTactic, enemy),
         overkillTransferRatio: (_unit, enemy) => handTacticOverkillRatio(this.handTactic, enemy),
+        hitFeedback: (unit, enemy, primary) => handTacticHitFeedback(this.handTactic, unit, enemy, primary),
       },
     );
     result.relicTriggers = [...triggeredRelics];
@@ -843,6 +845,7 @@ export class Game {
     this.handTacticBountyRemainder = this.handTactic?.id === 'royal-decree'
       ? rawTacticBonus - tacticBountyGold
       : 0;
+    if (tacticBountyGold > 0) result.tacticEvents.push({ type: 'royal-bounty', amount: tacticBountyGold });
     result.goldEarned = bountyGold + diamondBonusGold;
     this.gold += result.goldEarned;
     this.goldIncome.bounty += bountyGold;

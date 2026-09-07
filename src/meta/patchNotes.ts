@@ -9,14 +9,37 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.6.0';
+export const CURRENT_VERSION = 'v2.6.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.6.1',
+    title: 'TACTICS IN MOTION',
+    date: '2026-09-07',
+    current: true,
+    sections: [
+      {
+        heading: '눈에 보이는 족보 전술',
+        items: [
+          '패 확정 직후 전술 이름과 효과를 충분히 읽을 수 있는 한국어·영어 발동 배너 표시',
+          '연사 유닛·봉쇄된 적·문양 강화 유닛·풀하우스 거점 구역을 전장에 지속 표시',
+          '집중 단계·포카드 4번째 타격·초과 피해 전이·왕명 보너스 골드에 실제 발동 피드백 추가',
+        ],
+      },
+      {
+        heading: '모바일과 성능 보호',
+        items: [
+          '실제 코어 전술 이벤트만 연출해 늦은 스폰·이월 적·보상 판정과 화면을 일치',
+          '데스크톱 2개·작은 터치 화면 1개의 동시 전술 라벨 상한과 전체 FX 예산 적용',
+          '일시정지·동작 줄이기 설정을 지원하고 영어 로열 플러시 축하 문구의 한국어 노출 수정',
+        ],
+      },
+    ],
+  },
   {
     version: 'v2.6.0',
     title: 'HAND TACTICS',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '좋은 패가 바꾸는 이번 전투',
