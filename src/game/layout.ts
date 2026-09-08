@@ -9,7 +9,7 @@ export const PANEL_BOUNDS: UiRect = { x: 798, y: 68, width: 458, height: 640 };
 
 /** 8px 거터를 가진 고정 패널 구획. 텍스트 길이는 각 영역 안에서 줄바꿈한다. */
 export const PANEL_SECTIONS = {
-  nextWave: { x: 798, y: 68, width: 458, height: 112 },
+  status: { x: 798, y: 68, width: 458, height: 112 },
   directive: { x: 798, y: 192, width: 458, height: 72 },
   economy: { x: 798, y: 276, width: 458, height: 120 },
   build: { x: 798, y: 408, width: 458, height: 150 },
@@ -18,7 +18,6 @@ export const PANEL_SECTIONS = {
 
 export const BOSS_HUD_BOUNDS: UiRect = { x: 812, y: 136, width: 430, height: 36 };
 export const HAND_PREVIEW_BOUNDS: UiRect = { x: 472, y: 594, width: 250, height: 30 };
-export const HAND_ODDS_SUMMARY_BOUNDS: UiRect = { x: 472, y: 616, width: 172, height: 42 };
 export const HAND_ODDS_BUTTON_BOUNDS: UiRect = { x: 650, y: 616, width: 80, height: 42 };
 export const HAND_ACTION_BOUNDS: UiRect = { x: 472, y: 658, width: 247, height: 48 };
 
@@ -27,7 +26,7 @@ export const PORTRAIT_LAYOUT = {
   height: 844,
   hud: { x: 0, y: 44, width: 390, height: 52 },
   field: { x: 8, y: 106, width: 374, height: 264 },
-  nextWave: { x: 8, y: 382, width: 374, height: 58 },
+  status: { x: 8, y: 382, width: 374, height: 58 },
   handDividerY: 452,
   handY: 524,
   handSummaryY: 588,

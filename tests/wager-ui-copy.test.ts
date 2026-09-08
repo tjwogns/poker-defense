@@ -16,8 +16,9 @@ describe('royal wager UI regression', () => {
     expect(playScene).toMatch(/ROYAL WAGER FAILED[\s\S]*?\n\s+60,\n\s+\{/);
   });
 
-  test('결산 UI는 왕실 내기 수입을 기타나 유물과 분리한다', () => {
-    expect(sidePanel).toContain('settlement.income.wager');
-    expect(sidePanel).toContain('WAGER +${settlement.income.wager}');
+  test('짧은 결산은 총수입을 표시하고 내기 상태와 보상 알림은 유지한다', () => {
+    expect(sidePanel).toContain('settlement.incomeTotal');
+    expect(sidePanel).toContain('setWagerStatus');
+    expect(playScene).toContain('ROYAL WAGER CLEARED');
   });
 });

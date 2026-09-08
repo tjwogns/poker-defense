@@ -25,7 +25,7 @@ describe('English onboarding copy regression', () => {
 
     const panel = read('../src/game/SidePanel.ts');
     for (const copy of [
-      'AREA DAMAGE WORKS WELL', 'COMBAT IN PROGRESS', 'SELECT 3 MATCHING UNITS',
+      'COMBAT IN PROGRESS', 'SELECT 3 MATCHING UNITS',
       'IGNORES DEFENSE', 'SELL +', 'englishSuitTrait', 'handName(rank, HAND_NAMES_KO[rank])',
       "tr('왕국 라이프 · 적 한 바퀴 완주 시 감소', 'KINGDOM LIVES')",
     ]) expect(panel).toContain(copy);

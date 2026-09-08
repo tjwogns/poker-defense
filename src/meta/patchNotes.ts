@@ -9,14 +9,30 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.9.1';
+export const CURRENT_VERSION = 'v2.9.2';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.2',
+    title: 'QUIET UI, LIVE UPGRADES',
+    date: '2026-09-08',
+    current: true,
+    sections: [{
+      heading: '현재 플레이에 집중하는 화면',
+      items: [
+        '다음 웨이브 종류·수량·대응 힌트·보스까지 거리·다음 스폰 아이콘 제거',
+        '상시 리롤 판단 두 줄을 줄이고 현재 패와 홀드에 맞춘 확률 보기 기능 유지',
+        '상단은 현재 라이프 중심으로 정리하고 결산·현재 보스 체력·진형 숙련은 필요한 상황에서 표시',
+        '빈 빌드 안내와 예고 테두리를 없애고 문양 효과·전술·내기·핵심 조작은 유지',
+        '전투 중에도 골드로 전역 공격 강화를 구매해 다음 공격부터 즉시 적용하며 비용·상승폭은 유지',
+        '일시정지 중 강화는 정지를 유지하고 잔액 부족·정비 중·승리·패배 상태의 구매는 차단',
+      ],
+    }],
+  },
   {
     version: 'v2.9.1',
     title: 'NO FINAL COUNTDOWN',
     date: '2026-09-08',
-    current: true,
     sections: [{
       heading: '최종 보스 시간 제한 제거',
       items: [

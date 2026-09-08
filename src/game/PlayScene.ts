@@ -188,7 +188,18 @@ export class PlayScene extends Phaser.Scene {
     const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
       ? new URLSearchParams(window.location.search).get('visualTest')
       : null;
-    if (localVisualTest === 'relics') {
+    if (localVisualTest === 'ui-clean-prep' || localVisualTest === 'ui-clean-boss') {
+      this.profile.tutorialDone = true;
+      this.wagerChoiceMade = true;
+      if (localVisualTest === 'ui-clean-boss') {
+        this.core.gold = 100;
+        this.core.round = 60;
+        this.core.handConfirmed = true;
+        this.core.startCombat();
+        this.core.tickCombat(1.4);
+        this.paused = true;
+      }
+    } else if (localVisualTest === 'relics') {
       this.profile.tutorialDone = true;
       this.core.relicChoices = ['royal_seal', 'compound_ledger', 'glass_crown'];
     } else if (localVisualTest === 'last-stand') {

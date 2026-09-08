@@ -7,12 +7,10 @@ import {
 } from '../core/cards/handIdentity';
 import { UNIT_DEFS } from '../core/units';
 import {
-  HAND_ODDS_BUTTON_BOUNDS, HAND_ODDS_SUMMARY_BOUNDS, HAND_PREVIEW_BOUNDS,
+  HAND_ODDS_BUTTON_BOUNDS, HAND_PREVIEW_BOUNDS,
 } from './layout';
-import { Button, FONT, FONT_MONO, UI, makeButton, makeText } from './ui';
+import { Button, FONT, UI, makeButton, makeText } from './ui';
 import { rerollOdds, RerollOdds } from '../core/cards/odds';
-import { formatOddsPercent } from './OddsOverlay';
-import { rerollGuidance } from './rerollGuidance';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, portraitScale, portraitSceneHeight, portraitY } from './layout';
 import { getLocale, handName, tr, unitName } from '../i18n';
@@ -37,7 +35,6 @@ export class HandBar {
   private game: Game;
   private cards: CardView[] = [];
   private preview: Phaser.GameObjects.Text;
-  private oddsText: Phaser.GameObjects.Text;
   private oddsBtn: Button;
   private exchangeBtn: Button;
   private confirmBtn: Button;
@@ -127,14 +124,6 @@ export class HandBar {
       .setLineSpacing(0)
       .setDepth(2);
     if (this.portrait) this.preview.setOrigin(0.5, 0);
-    this.oddsText = scene.add.text(this.portrait ? 8 : HAND_ODDS_SUMMARY_BOUNDS.x, this.portrait ? py(622) : HAND_ODDS_SUMMARY_BOUNDS.y, '', {
-      fontFamily: this.portrait ? FONT : FONT_MONO, fontSize: this.portrait ? '12px' : '10px', fontStyle: 'bold', color: '#cfe6ec',
-      backgroundColor: '#172126', padding: { x: 8, y: 5 },
-    })
-      .setFixedSize(this.portrait ? 374 : HAND_ODDS_SUMMARY_BOUNDS.width, this.portrait ? 36 : HAND_ODDS_SUMMARY_BOUNDS.height)
-      .setWordWrapWidth((this.portrait ? 374 : HAND_ODDS_SUMMARY_BOUNDS.width) - 16, true)
-      .setLineSpacing(2)
-      .setDepth(3);
     this.oddsBtn = makeButton(
       scene,
       this.portrait ? 340 : HAND_ODDS_BUTTON_BOUNDS.x + HAND_ODDS_BUTTON_BOUNDS.width / 2,
@@ -256,7 +245,6 @@ export class HandBar {
   }
 
   private refreshOdds(visible: boolean): void {
-    this.oddsText.setVisible(visible);
     this.oddsBtn.container.setVisible(visible);
     if (!visible) return;
     const deck = this.game.deckSnapshot();
@@ -275,9 +263,5 @@ export class HandBar {
       // 이상 손에 잡혔을 때 remainingCards가 예외를 던져 게임 루프까지 멈춘다.
       this.cachedOdds = rerollOdds(this.game.hand, oddsHolds, deck);
     }
-    const guide = rerollGuidance(this.cachedOdds!, formatOddsPercent);
-    this.oddsText.setText(getLocale() === 'ko'
-      ? `${guide.title}\n${guide.decision}`
-      : 'REROLL ODDS\nHOLD promising cards, then exchange the rest.');
   }
 }

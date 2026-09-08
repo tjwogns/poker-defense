@@ -26,11 +26,11 @@ describe('full expedition localization', () => {
     }
   });
 
-  test('초반 혼합 웨이브 HUD는 KO/EN 역할과 실제 수량 슬롯을 제공한다', () => {
+  test('KO/EN HUD 모두 혼합 웨이브 예고를 없애고 현재 결산을 제공한다', () => {
     const source = readFileSync(new URL('../src/game/SidePanel.ts', import.meta.url), 'utf8');
-    expect(source).toContain("tr('혼합 부대', 'MIXED WAVE')");
-    expect(source).toContain("tr('혼합', 'MIXED')");
-    expect(source).toContain("'NORMAL + FAST · COVER ENTRY + CORNERS'");
-    expect(source).toContain('mixedWaveHint(wave.composition, true)');
+    expect(source).not.toContain('MIXED WAVE');
+    expect(source).not.toContain('mixedWaveHint');
+    expect(source).toContain('R${settlement.round} 결산');
+    expect(source).toContain('R${settlement.round} RESULT');
   });
 });

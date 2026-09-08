@@ -188,10 +188,10 @@ describe('formation mastery Game integration', () => {
     }
   });
 
-  test('HUD는 desktop 8기/portrait 5기 preview와 실제 역할 색을 사용한다', () => {
+  test('HUD는 적 예고 없이 현재 진형 숙련과 실제 탈출 결과를 사용한다', () => {
     const panel = readFileSync(new URL('../src/game/SidePanel.ts', import.meta.url), 'utf8');
-    expect(panel).toContain('this.game.nextEnemyPreview(compact ? 5 : 8)');
-    expect(panel).toContain('ENEMY_KINDS[kind].color');
+    expect(panel).not.toContain('nextEnemyPreview');
+    expect(panel).toContain("g.phase === 'combat' && g.nextWave().formation !== null");
     expect(panel).toContain('this.game.currentFormationEscaped');
     const play = readFileSync(new URL('../src/game/PlayScene.ts', import.meta.url), 'utf8');
     expect(play).toContain('PERFECT DEFENSE · STREAK ×${formation.streak} · +${formation.scoreBonus}');

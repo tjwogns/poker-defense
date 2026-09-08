@@ -18,11 +18,8 @@ import {
   HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_TRAIT_LABELS, variantUnitName,
 } from '../core/cards/handIdentity';
 import { isPortraitLayout } from './device';
-import {
-  ENEMY_KINDS, FORMATION_COPY, type EnemyFormation, type EnemyKindId, type WaveGroup,
-} from '../core/enemies';
 import { FORMATION_MASTERY_COPY } from '../core/formationMastery';
-import { getLocale, handName, relicName, tr, unitName, waveName } from '../i18n';
+import { getLocale, handName, relicName, tr, unitName } from '../i18n';
 
 const SPEEDS = [1, 2, 4] as const;
 
@@ -79,62 +76,6 @@ function railCard(scene: Phaser.Scene, rect: UiRect, dashed = false): Phaser.Gam
   return g;
 }
 
-function waveHint(kind: EnemyKindId): string {
-  const hints = {
-    normal: ['표준 병력 · 균형 잡힌 기본 웨이브', 'Standard troops · balanced wave'],
-    fast: ['이동이 빠름 · 입구와 코너 화력 집중', 'Fast movement · cover entrances and corners'],
-    tank: ['받는 피해 −25% · 이동 느림 · 광역이 유리', '−25% damage taken · slow · area damage works well'],
-    regen: ['체력을 회복함 · 한 지점에 화력 집중', 'Regenerates · focus fire at one point'],
-    splitter: ['처치 시 분열 · 광역과 연쇄 공격이 유리', 'Splits on death · use area and chain attacks'],
-    boss: ['강력한 우두머리 · 기믹과 제한시간 확인', 'Powerful boss · watch its mechanic and timer'],
-  } as const;
-  return tr(hints[kind][0], hints[kind][1]);
-}
-
-function isMixedWave(kind: EnemyKindId, composition: readonly WaveGroup[]): boolean {
-  return kind !== 'boss' && composition.length > 1;
-}
-
-function mixedWaveHint(composition: readonly WaveGroup[], compact = false): string {
-  if (compact) return composition.map(({ kind, count }) => tr(
-    `${kind === 'normal' ? '카드병' : kind === 'fast' ? '도둑' : ENEMY_KINDS[kind].name} ${count}`,
-    `${kind.toUpperCase()} ${count}`,
-  )).join(' + ');
-  return tr('기본 + 고속 · 입구와 코너를 함께 방어', 'NORMAL + FAST · COVER ENTRY + CORNERS');
-}
-
-function formationName(formation: EnemyFormation, compact = false): string {
-  if (!compact) return FORMATION_COPY[formation.id][getLocale()];
-  const names = {
-    'escort-column': { ko: '호위', en: 'ESCORT' },
-    'cross-pressure': { ko: '교차', en: 'CROSS' },
-    'relay-assault': { ko: '교대', en: 'RELAY' },
-  } as const;
-  return names[formation.id][getLocale()];
-}
-
-function formationHint(formation: EnemyFormation, compact = false): string {
-  if (compact) {
-    const hints = {
-      'escort-column': { ko: '호위 틈 공략', en: 'PUNCTURE GAPS' },
-      'cross-pressure': { ko: '양속도 방어', en: 'COVER BOTH SPEEDS' },
-      'relay-assault': { ko: '교대 진입', en: 'PULSED ENTRY' },
-    } as const;
-    return hints[formation.id][getLocale()];
-  }
-  const copy = FORMATION_COPY[formation.id];
-  return getLocale() === 'ko' ? copy.hintKo : copy.hintEn;
-}
-
-function formationCounts(composition: readonly WaveGroup[], compact = false): string {
-  const abbreviation: Record<EnemyKindId, string> = {
-    normal: 'N', fast: 'F', tank: 'T', regen: 'R', splitter: 'S', boss: 'B',
-  };
-  return composition.map(({ kind, count }) => compact
-    ? `${abbreviation[kind]}${count}`
-    : `${kind.toUpperCase()} ${count}`).join(compact ? '  ' : ' + ');
-}
-
 export class SidePanel {
   private scene: Phaser.Scene;
   private game: Game;
@@ -146,17 +87,15 @@ export class SidePanel {
   private gaugeText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private goldText!: Phaser.GameObjects.Text;
-  private waveName!: Phaser.GameObjects.Text;
-  private waveCount!: Phaser.GameObjects.Text;
-  private waveHint!: Phaser.GameObjects.Text;
   private settlementText!: Phaser.GameObjects.Text;
-  private bossCountdown!: Phaser.GameObjects.Text;
   private directiveTitle!: Phaser.GameObjects.Text;
   private directiveBody!: Phaser.GameObjects.Text;
   private startBtn!: Button;
   private interestText!: Phaser.GameObjects.Text;
   private upgradeSub!: Phaser.GameObjects.Text;
   private upgradeBtn!: Button;
+  private buildCard?: Phaser.GameObjects.Graphics;
+  private buildTitle?: Phaser.GameObjects.Text;
   private buildCount!: Phaser.GameObjects.Text;
   private buildText!: Phaser.GameObjects.Text;
   private deckBtn!: Button;
@@ -168,10 +107,7 @@ export class SidePanel {
   private combatText!: Phaser.GameObjects.Text;
   private tacticText!: Phaser.GameObjects.Text;
   private wagerText!: Phaser.GameObjects.Text;
-  private formationPreviewLabel!: Phaser.GameObjects.Text;
   private formationMasteryText!: Phaser.GameObjects.Text;
-  private formationPreviewIcons: Phaser.GameObjects.Container[] = [];
-  private formationPreviewSignature = '';
   private lastThreatBand: 'safe' | 'warning' | 'critical' = 'safe';
   private inspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
   private inspectorName!: Phaser.GameObjects.Text;
@@ -228,22 +164,14 @@ export class SidePanel {
       fill: UI.panelDeep, textColor: UI.textDim, fontSize: 16, radius: 18, strokeAlpha: 0.16,
     });
 
-    railCard(scene, PANEL_SECTIONS.nextWave);
     railCard(scene, PANEL_SECTIONS.directive, true);
     railCard(scene, PANEL_SECTIONS.economy);
-    railCard(scene, PANEL_SECTIONS.build);
+    this.buildCard = railCard(scene, PANEL_SECTIONS.build).setVisible(false);
     railCard(scene, PANEL_SECTIONS.utility);
 
-    makeText(scene, 816, 84, 'NEXT WAVE', 10, UI.textDim, true).setLetterSpacing(2);
-    this.bossCountdown = makeText(scene, 1238, 84, '', 10, UI.dangerText, true).setOrigin(1, 0);
-    this.waveName = makeText(scene, 816, 108, '', 25, UI.text, true);
-    this.waveCount = scene.add.text(getLocale() === 'en' ? 1110 : 930, 111, '', {
-      fontFamily: FONT_MONO, fontSize: '19px', fontStyle: 'bold', color: UI.gold,
-    });
-    this.waveHint = makeText(scene, 816, 144, '', 12, UI.textDim).setWordWrapWidth(410, true);
-    this.settlementText = makeText(scene, 816, 162, '', 10, UI.gold, true).setWordWrapWidth(420, true);
-    this.formationPreviewLabel = makeText(scene, 816, 157, '', 8, UI.textFaint, true);
-    this.formationMasteryText = makeText(scene, 1238, 157, '', 9, '#8fd8ff', true).setOrigin(1, 0);
+    this.settlementText = makeText(scene, 816, 90, '', 12, UI.gold, true).setWordWrapWidth(420, true);
+    this.formationMasteryText = makeText(scene, 816, 90, '', 12, '#8fd8ff', true);
+
 
     scene.add.circle(832, 228, 18, UI.goldNum, 0.15).setStrokeStyle(1, UI.goldNum, 0.35);
     makeText(scene, 832, 228, '◆', 12, UI.gold, true).setOrigin(0.5);
@@ -263,7 +191,7 @@ export class SidePanel {
       fill: UI.panelRaised, textColor: UI.gold, fontSize: 13, radius: 6, stroke: UI.goldNum, strokeAlpha: 0.5,
     });
 
-    makeText(scene, 816, 424, 'BUILD', 10, UI.textDim, true).setLetterSpacing(2);
+    this.buildTitle = makeText(scene, 816, 424, 'BUILD', 10, UI.textDim, true).setLetterSpacing(2).setVisible(false);
     this.buildCount = scene.add.text(1238, 424, '', {
       fontFamily: FONT_MONO, fontSize: '11px', color: UI.textFaint,
     }).setOrigin(1, 0);
@@ -337,17 +265,9 @@ export class SidePanel {
       fontFamily: FONT_MONO, fontSize: '19px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(1, 0);
 
-    railCard(scene, { x: 8, y: py(382), width: 374, height: 58 });
-    makeText(scene, 22, py(391), tr('다음 웨이브', 'NEXT WAVE'), 12, UI.textDim);
-    this.waveName = makeText(scene, 22, py(410), '', 18, UI.text, true);
-    this.waveCount = scene.add.text(130, py(412), '', {
-      fontFamily: FONT_MONO, fontSize: '16px', fontStyle: 'bold', color: UI.gold,
-    });
-    this.waveHint = makeText(scene, 368, py(414), '', 12, UI.textDim).setOrigin(1, 0);
-    this.settlementText = makeText(scene, 368, py(391), '', 10, UI.gold, true).setOrigin(1, 0);
-    this.bossCountdown = makeText(scene, 368, py(392), '', 12, UI.dangerText, true).setOrigin(1, 0);
-    this.formationPreviewLabel = makeText(scene, 22, py(439), '', 8, UI.textFaint, true);
-    this.formationMasteryText = makeText(scene, 368, py(439), '', 8, '#8fd8ff', true).setOrigin(1, 0);
+    this.settlementText = makeText(scene, 22, py(401), '', 11, UI.gold, true).setWordWrapWidth(346, true);
+    this.formationMasteryText = makeText(scene, 22, py(401), '', 11, '#8fd8ff', true);
+
 
     this.placementBg = scene.add.rectangle(195, py(702), 374, 56, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.goldNum, 0.45).setDepth(4).setVisible(false);
@@ -444,9 +364,6 @@ export class SidePanel {
     const locale = getLocale();
     const compact = this.portrait;
     const escaped = this.game.currentFormationEscaped;
-    this.formationPreviewLabel
-      .setText(formation ? copy.nextEnemies[locale] : '')
-      .setVisible(formation);
     this.formationMasteryText
       .setText(!formation ? '' : escaped
         ? `${copy.lost[locale]} · ${compact ? '×0' : `${copy.streak[locale]} ×0`}`
@@ -454,27 +371,15 @@ export class SidePanel {
       .setColor(escaped ? '#ffaaa3' : '#8fd8ff')
       .setVisible(formation);
 
-    const preview = formation ? this.game.nextEnemyPreview(compact ? 5 : 8) : [];
-    const signature = `${compact ? 'p' : 'd'}:${preview.join(',')}`;
-    if (signature === this.formationPreviewSignature) return;
-    this.formationPreviewIcons.forEach((icon) => icon.destroy(true));
-    this.formationPreviewIcons = [];
-    this.formationPreviewSignature = signature;
-    const startX = compact ? 66 : 865;
-    const y = compact ? portraitY(portraitSceneHeight(this.scene), 446) : 164;
-    const gap = compact ? 20 : 24;
-    const radius = compact ? 6 : 7;
-    const glyph: Record<EnemyKindId, string> = {
-      normal: 'N', fast: 'F', tank: 'T', regen: 'R', splitter: 'S', boss: 'B',
-    };
-    this.formationPreviewIcons = preview.map((kind, index) => {
-      const circle = this.scene.add.circle(0, 0, radius, ENEMY_KINDS[kind].color, 0.95)
-        .setStrokeStyle(1, 0xf2ede3, 0.42);
-      const text = this.scene.add.text(0, 0, glyph[kind], {
-        fontFamily: FONT_MONO, fontSize: compact ? '7px' : '8px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5);
-      return this.scene.add.container(startX + index * gap, y, [circle, text]).setDepth(4);
-    });
+  }
+
+  private refreshCurrentStatus(): void {
+    const g = this.game;
+    const settlement = g.phase === 'prep' ? g.lastRoundSettlement : null;
+    this.settlementText.setText(settlement
+      ? tr(`R${settlement.round} 결산 · +${settlement.incomeTotal}G / −${settlement.spendTotal}G`, `R${settlement.round} RESULT · +${settlement.incomeTotal}G / −${settlement.spendTotal}G`)
+      : '').setVisible(Boolean(settlement));
+    this.refreshFormationMastery(g.phase === 'combat' && g.nextWave().formation !== null);
   }
 
   refresh(
@@ -512,7 +417,7 @@ export class SidePanel {
       ? tr('왕국 라이프 · 적 한 바퀴 완주 시 감소', 'KINGDOM LIVES')
       : tr(threatTitle(g.fieldCap), 'FIELD THREAT'));
     this.gaugeText.setText(
-      g.lifeMode ? tr(`♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · 탈출 ${g.escapedEnemies}`, `♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES} · ESCAPED ${g.escapedEnemies}`) : tr(threatLabel(alive, g.fieldCap), `${alive} / ${g.fieldCap}`),
+      g.lifeMode ? `♥ ${g.lives}/${LIFE_MODE_STARTING_LIVES}` : tr(threatLabel(alive, g.fieldCap), `${alive} / ${g.fieldCap}`),
     );
     if (band !== this.lastThreatBand && band !== 'safe') {
       this.scene.tweens.killTweensOf(this.gaugeText);
@@ -523,45 +428,7 @@ export class SidePanel {
     this.scoreText.setText(`SCORE  ${g.score.toLocaleString()}`);
     this.goldText.setText(`G  ${g.gold.toLocaleString()}`);
 
-    const wave = g.nextWave();
-    const mixed = isMixedWave(wave.kind, wave.composition);
-    this.waveName.setText(wave.formation
-      ? formationName(wave.formation)
-      : mixed ? tr('혼합 부대', 'MIXED WAVE') : waveName(wave.kind, wave.name));
-    this.waveCount
-      .setText(wave.formation ? formationCounts(wave.composition) : mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
-      .setFontSize(wave.formation ? 11 : mixed ? 12 : 19)
-      .setX(wave.formation ? 1030 : mixed ? 1080 : getLocale() === 'en' ? 1110 : 930);
-    const settlement = g.lastRoundSettlement;
-    const otherIncome = settlement
-      ? settlement.income.diamond + settlement.income.relic + settlement.income.sales
-      : 0;
-    this.waveHint.setText(wave.formation
-      ? formationHint(wave.formation)
-      : inPrep && settlement
-      ? tr(
-        `처치 +${settlement.income.bounty} · 클리어 +${settlement.income.clear} · 이자 +${settlement.income.interest}`
-          + `${otherIncome > 0 ? ` · 기타 +${otherIncome}` : ''}`
-          + `${settlement.income.wager > 0 ? ` · 내기 +${settlement.income.wager}` : ''}`
-          + `${settlement.escaped > 0 ? ` · 탈출 ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`,
-        `KILLS +${settlement.income.bounty} · CLEAR +${settlement.income.clear} · INTEREST +${settlement.income.interest}`
-          + `${otherIncome > 0 ? ` · OTHER +${otherIncome}` : ''}`
-          + `${settlement.income.wager > 0 ? ` · WAGER +${settlement.income.wager}` : ''}`
-          + `${settlement.escaped > 0 ? ` · ESCAPED ${settlement.escaped}${settlement.lifeDamage > 0 ? ` / ♥−${settlement.lifeDamage}` : ''}` : ''}`,
-      )
-      : mixed ? mixedWaveHint(wave.composition) : waveHint(wave.kind));
-    this.settlementText.setText(inPrep && settlement
-      ? tr(
-        `R${settlement.round} 결산  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · 잔액 ${settlement.goldEnd}G · 다음 강화 ${settlement.nextUpgradeCost}G`,
-        `R${settlement.round} RESULT  +${settlement.incomeTotal}G · −${settlement.spendTotal}G · BALANCE ${settlement.goldEnd}G · NEXT UPGRADE ${settlement.nextUpgradeCost}G`,
-      )
-      : '')
-      .setY(wave.formation ? 171 : 162)
-      .setFontSize(wave.formation ? 8 : 10);
-    this.refreshFormationMastery(wave.formation !== null);
-    const nextBoss = Math.ceil(g.round / 10) * 10;
-    const bossDistance = nextBoss - g.round;
-    this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : tr(`R${nextBoss} 보스까지 ${bossDistance}`, `${bossDistance} TO R${nextBoss} BOSS`));
+    this.refreshCurrentStatus();
 
     const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
     this.startBtn.container.setVisible(readyToStart);
@@ -587,7 +454,7 @@ export class SidePanel {
     this.interestText.setText(tr(`다음 이자 +${g.interestNow}G`, `NEXT INTEREST +${g.interestNow}G`));
     this.upgradeSub.setText(`Lv${g.upgradeLevel} · ×${g.dmgMult.toFixed(2)} → ×${upgradeMultiplier(g.upgradeLevel + 1).toFixed(2)}`);
     this.upgradeBtn.setLabel(`${g.upgradeCostNow}G`);
-    this.upgradeBtn.setEnabled(inPrep && g.gold >= g.upgradeCostNow);
+    this.upgradeBtn.setEnabled(g.canBuyUpgrade);
 
     this.buildCount.setText(`${g.relics.length} / ${RELIC_SLOT_CAP}`);
     const relicIconIds = g.relics.join(',');
@@ -598,7 +465,11 @@ export class SidePanel {
     }
     const masteries = MASTERABLE_HANDS.filter((rank) => g.handMastery[rank] > 0).slice(0, 2)
       .map((rank) => `${handName(rank, HAND_NAMES_KO[rank])} Lv${g.handMastery[rank]}`);
-    this.buildText.setText(masteries.join('   ') || tr('연마 효과가 여기에 표시됩니다', 'Mastery effects appear here'));
+    this.buildText.setText(masteries.join('   ')).setVisible(masteries.length > 0);
+    const hasBuild = g.relics.length > 0 || masteries.length > 0;
+    this.buildCard?.setVisible(hasBuild);
+    this.buildTitle?.setVisible(hasBuild);
+    this.buildCount.setVisible(g.relics.length > 0);
 
     this.speedBtn.container.setData('speed', speed);
     this.speedBtn.setLabel(`×1  ${speed === 2 ? '×2 ●' : '×2'}  ${speed === 4 ? '×4 ●' : '×4'}`);
@@ -649,32 +520,11 @@ export class SidePanel {
       .setText(g.crownLevel > 0 ? `CROWN ${g.crownLevel}` : g.lifeMode ? 'LIFE' : 'THREAT')
       .setColor(g.crownLevel > 0 ? UI.gold : '#74727e');
     this.gaugeText.setText(
-      g.lifeMode ? tr(`♥ ${g.lives} · 탈출 ${g.escapedEnemies}`, `♥ ${g.lives} · ESCAPED ${g.escapedEnemies}`) : tr(threatLabel(alive, g.fieldCap), `${alive}/${g.fieldCap}`),
+      g.lifeMode ? `♥ ${g.lives}` : tr(threatLabel(alive, g.fieldCap), `${alive}/${g.fieldCap}`),
     );
     this.goldText.setText(`G ${g.gold.toLocaleString()}`);
 
-    const wave = g.nextWave();
-    const mixed = isMixedWave(wave.kind, wave.composition);
-    this.waveName.setText(wave.formation
-      ? formationName(wave.formation, true)
-      : mixed ? tr('혼합', 'MIXED') : waveName(wave.kind, wave.name));
-    this.waveCount.setText(wave.formation ? formationCounts(wave.composition, true) : mixed ? mixedWaveHint(wave.composition, true) : `×${wave.count}`)
-      .setFontSize(wave.formation ? 9 : mixed ? 10 : 16)
-      .setX(wave.formation ? 105 : mixed ? 90 : 130);
-    const nextBoss = Math.ceil(g.round / 10) * 10;
-    this.bossCountdown.setText(wave.kind === 'boss' ? 'BOSS ROUND' : tr(`R${nextBoss} 보스까지 ${nextBoss - g.round}`, `${nextBoss - g.round} TO R${nextBoss} BOSS`));
-    this.waveHint.setText(wave.formation
-      ? formationHint(wave.formation, true)
-      : mixed ? tr('입구 + 코너', 'ENTRY + CORNERS')
-      : wave.kind === 'tank' || wave.kind === 'splitter'
-      ? tr('광역이 유리', 'AREA DAMAGE WORKS WELL')
-      : waveHint(wave.kind).split(' · ')[1] ?? tr('화력 집중', 'FOCUS FIRE'));
-    const settlement = g.lastRoundSettlement;
-    this.settlementText.setText(inPrep && settlement
-      ? `R${settlement.round} +${settlement.incomeTotal} / −${settlement.spendTotal}G`
-      : '');
-    this.bossCountdown.setVisible(!(inPrep && settlement));
-    this.refreshFormationMastery(wave.formation !== null);
+    this.refreshCurrentStatus();
 
     const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
     const placing = inPrep && g.handConfirmed && g.pendingUnits.length > 0;
@@ -692,7 +542,7 @@ export class SidePanel {
     this.startBtn.setLabel(inCombat ? paused ? tr('전투 계속 ▶', 'RESUME ▶') : tr(`일시정지 · ×${speed}`, `PAUSE · ×${speed}`) : tr('전투 시작 ▶', 'START COMBAT ▶'));
 
     this.upgradeBtn.setLabel(tr(`강화 ${g.upgradeCostNow}G`, `UPGRADE ${g.upgradeCostNow}G`));
-    this.upgradeBtn.setEnabled(inPrep && g.gold >= g.upgradeCostNow);
+    this.upgradeBtn.setEnabled(g.canBuyUpgrade);
     this.speedBtn.container.setData('speed', speed);
     this.speedBtn.setLabel(`×${speed}`);
     this.deckBtn.setEnabled(true);

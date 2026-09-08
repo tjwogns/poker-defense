@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
-import { spawnEnemy } from '../src/core/combat';
+import { addUnit, spawnEnemy } from '../src/core/combat';
 import { ENEMY_KINDS } from '../src/core/enemies';
 import {
   START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, FINAL_BOSS_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
@@ -9,7 +9,7 @@ import {
   crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier, killGold,
 } from '../src/core/balance';
 import { scoreForKills, scoreForRoundClear } from '../src/core/scoring';
-import { PATH_LENGTH, pathLength } from '../src/core/map';
+import { PATH_LENGTH, pathLength, TILE } from '../src/core/map';
 import { h } from './helpers';
 
 /** 라운드가 끝나 prep으로 돌아오거나 게임이 끝날 때까지 틱 진행 */
@@ -280,7 +280,7 @@ describe('Game state machine', () => {
     expect(hidden.fuseUnits(hidden.field.units.map((unit) => unit.id))).toBe(false);
   });
 
-  test('전투 중에는 유닛 판매와 공격력 강화를 할 수 없다', () => {
+  test('전투 중 유닛 판매는 막고 공격력 강화는 즉시 허용한다', () => {
     const g = new Game(54);
     g.pendingUnits.push(HandRank.Pair);
     g.placeUnit(4, 4);
@@ -290,9 +290,67 @@ describe('Game state machine', () => {
     g.startCombat();
 
     expect(g.sellUnit(unitId)).toBe(false);
-    expect(g.buyUpgrade()).toBe(false);
+    expect(g.buyUpgrade()).toBe(true);
     expect(g.field.units).toHaveLength(1);
+    expect(g.gold).toBe(1000 - upgradeCost(0));
+    expect(g.upgradeLevel).toBe(1);
+    expect(g.dmgMult).toBeCloseTo(1.08);
+  });
+
+  test.each(['prep', 'combat'] as const)('%s 강화는 최신 잔액을 확인하고 중복 클릭을 거부한다', (phase) => {
+    const g = new Game(6, 'life-economy');
+    g.phase = phase;
+    g.gold = upgradeCost(0);
+    expect(g.canBuyUpgrade).toBe(true);
+    expect(g.buyUpgrade()).toBe(true);
+    expect(g.gold).toBe(0);
+    expect(g.canBuyUpgrade).toBe(false);
+    expect(g.buyUpgrade()).toBe(false);
+    expect(g.upgradeLevel).toBe(1);
+    expect(g.gold).toBe(0);
+    expect(g.phase).toBe(phase);
+  });
+
+  test.each(['victory', 'defeat'] as const)('%s 상태에서는 잔액이 충분해도 강화하지 않는다', (phase) => {
+    const g = new Game(6);
+    g.phase = phase;
+    g.gold = 1000;
+    expect(g.canBuyUpgrade).toBe(false);
+    expect(g.buyUpgrade()).toBe(false);
     expect(g.gold).toBe(1000);
+    expect(g.upgradeLevel).toBe(0);
+  });
+
+  test.each(['prep', 'combat'] as const)('%s에서도 정비 중이면 강화를 거부한다', (phase) => {
+    const g = new Game(6);
+    g.phase = phase;
+    Object.defineProperty(g, 'maintenancePending', { get: () => true });
+    g.gold = 1000;
+    expect(g.canBuyUpgrade).toBe(false);
+    expect(g.buyUpgrade()).toBe(false);
+    expect(g.gold).toBe(1000);
+    expect(g.upgradeLevel).toBe(0);
+  });
+
+  test('전투 중 구매는 다음 실제 공격 피해와 해당 라운드 지출에 반영된다', () => {
+    const g = new Game(6);
+    g.gold = 100;
+    g.handConfirmed = true;
+    g.startCombat();
+    const unit = addUnit(g.field, HandRank.Pair, 3, 2);
+    const enemy = spawnEnemy(g.field, 'normal', 20, { dist: 2 * TILE });
+    g.tickCombat(1 / 30);
+    const firstDamage = enemy.maxHp - enemy.hp;
+    expect(firstDamage).toBeCloseTo(11.2);
+    expect(g.buyUpgrade()).toBe(true);
+    const before = enemy.hp;
+    unit.cooldown = 0;
+    g.tickCombat(1 / 30);
+    expect(before - enemy.hp).toBeCloseTo(firstDamage * 1.08);
+    expect(g.gold).toBe(100 - upgradeCost(0));
+    runCombat(g);
+    expect(g.lastRoundSettlement!.spend.upgrade).toBe(upgradeCost(0));
+    expect(g.lastRoundSettlement!.spendTotal).toBe(upgradeCost(0));
   });
 
   test('강화: 비용 차감과 배율 증가', () => {

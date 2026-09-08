@@ -627,6 +627,12 @@ export class Game {
     return upgradeCost(this.upgradeLevel);
   }
 
+  get canBuyUpgrade(): boolean {
+    return (this.phase === 'prep' || this.phase === 'combat')
+      && !this.maintenancePending
+      && this.gold >= this.upgradeCostNow;
+  }
+
   get dmgMult(): number {
     return upgradeMultiplier(this.upgradeLevel)
       * relicModifiers(this.relics, this.deckSize, this.gold).damageMultiplier;
@@ -727,9 +733,8 @@ export class Game {
   }
 
   buyUpgrade(): boolean {
-    if (this.phase !== 'prep' || this.maintenancePending) return false;
+    if (!this.canBuyUpgrade) return false;
     const cost = this.upgradeCostNow;
-    if (this.gold < cost) return false;
     this.gold -= cost;
     this.goldSpend.upgrade += cost;
     this.upgradeLevel++;
