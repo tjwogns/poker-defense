@@ -26,7 +26,7 @@ export class WagerOverlay {
       fontFamily: FONT_DISPLAY, fontSize: portrait ? '31px' : '42px', fontStyle: 'bold', color: UI.gold,
     }).setOrigin(0.5);
     const subtitle = scene.add.text(portrait ? 195 : 640, portrait ? py(118) : 132,
-      tr('R1~R9에 도전하고 R10 직전에 보상을 받으세요', 'TAKE A R1–R9 CHALLENGE · REWARD PAID BEFORE R10'), {
+      tr('선택 보너스 · R1~R9 도전, R10 직전 보상', 'OPTIONAL BONUS · R1–R9 · REWARD BEFORE R10'), {
         fontFamily: FONT, fontSize: portrait ? '11px' : '14px', color: UI.textDim, align: 'center',
       }).setOrigin(0.5);
     root.add([title, subtitle]);

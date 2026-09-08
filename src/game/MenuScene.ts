@@ -4,6 +4,7 @@ import {
   loadProfile, Profile, saveProfile,
 } from '../meta/profile';
 import { dailyDateFromSearch } from '../meta/share';
+import { dailyChallengeLabel } from './dailyChallengeLabel';
 import { getAnalytics } from '../meta/analytics';
 import { AnalyticsConsentOverlay } from './AnalyticsConsentOverlay';
 import { FONT, FONT_DISPLAY, FONT_MONO, UI, makeButton, makeText } from './ui';
@@ -11,7 +12,7 @@ import { LeaderboardOverlay } from './LeaderboardOverlay';
 import { PatchNotesOverlay } from './PatchNotesOverlay';
 import { CURRENT_VERSION } from '../meta/patchNotes';
 import { leaderboardConfigured } from '../meta/leaderboard';
-import { isCompactTouchDevice, isPortraitLayout } from './device';
+import { isCompactTouchDevice, isPortraitLayout, setActiveLayoutMode } from './device';
 import { preloadUnitSprites, unitSpriteKey } from './unitAssets';
 import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
@@ -19,13 +20,19 @@ import { preloadEnemySprites } from './enemyAssets';
 import { preloadRelicSprites } from './relicAssets';
 import { preloadFieldTextures } from './fieldAssets';
 import { isLifeLabLocation } from './experiment';
-import { portraitScale, portraitSceneHeight, portraitY } from './layout';
+import { portraitScale, portraitSceneHeight, portraitY, setActivePortraitHeight } from './layout';
+import { MenuViewportRefresh, viewportCanvasLayout } from './viewportLayout';
 import {
   CROWN_MAX_LEVEL, CrownLevel, crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier,
 } from '../core/balance';
 import { getLocale, setLocale, tr } from '../i18n';
 
 export class MenuScene extends Phaser.Scene {
+  private dailyMenuLabel = '';
+  private selectedMenuCrown: CrownLevel | null = null;
+  private viewportRefresh?: MenuViewportRefresh;
+  private viewportModals = new Set<string>();
+  private viewportRebuild = false;
   constructor() {
     super('menu');
   }
@@ -38,7 +45,32 @@ export class MenuScene extends Phaser.Scene {
     preloadFieldTextures(this);
   }
 
-  create(): void {
+  create(data: { viewportRebuild?: boolean; crown?: CrownLevel } = {}): void {
+    this.viewportRebuild = data.viewportRebuild === true;
+    this.selectedMenuCrown = this.viewportRebuild ? data.crown ?? null : null;
+    this.viewportModals.clear();
+    const initialLayout = viewportCanvasLayout(window.innerWidth, window.innerHeight, window.visualViewport?.height);
+    setActiveLayoutMode(initialLayout.mode);
+    if (initialLayout.mode === 'portrait') setActivePortraitHeight(initialLayout.height);
+    if (this.scale.width !== initialLayout.width || this.scale.height !== initialLayout.height) {
+      this.scale.setGameSize(initialLayout.width, initialLayout.height);
+    }
+    this.cameras.main.setViewport(0, 0, initialLayout.width, initialLayout.height);
+    this.viewportRefresh = new MenuViewportRefresh(() => this.viewportModals.size > 0, () => {
+      const next = viewportCanvasLayout(window.innerWidth, window.innerHeight, window.visualViewport?.height);
+      if (next.width === this.scale.width && next.height === this.scale.height) return;
+      this.scene.restart({ viewportRebuild: true, crown: this.selectedMenuCrown });
+    });
+    const onViewportChange = () => this.viewportRefresh?.request();
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('orientationchange', onViewportChange);
+    window.visualViewport?.addEventListener('resize', onViewportChange);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.viewportRefresh?.dispose();
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('orientationchange', onViewportChange);
+      window.visualViewport?.removeEventListener('resize', onViewportChange);
+    });
     const bootSplash = document.getElementById('boot-splash');
     bootSplash?.classList.add('ready');
     window.setTimeout(() => bootSplash?.remove(), 320);
@@ -50,12 +82,18 @@ export class MenuScene extends Phaser.Scene {
     const date = dailyDate();
     const challengeDate = dailyDateFromSearch(window.location.search, date);
     const hasChallenge = new URLSearchParams(window.location.search).get('daily') === challengeDate;
+    // QA record is label-only: never assigned to the saved profile or passed to a run.
+    const dailyBestFixture = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+      && new URLSearchParams(window.location.search).get('visualTest') === 'daily-best-menu';
+    const dailyForLabel = dailyBestFixture ? { date: challengeDate, bestScore: Number.MAX_SAFE_INTEGER } : profile.daily;
+    this.dailyMenuLabel = dailyChallengeLabel(dailyForLabel, challengeDate, hasChallenge);
     const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
       ? new URLSearchParams(window.location.search).get('visualTest')
       : null;
     if (localVisualTest === 'crown-menu') {
       profile = { ...profile, wins: Math.max(1, profile.wins), standardWins: Math.max(1, profile.standardWins) };
-    } else if (localVisualTest) {
+    } else if (localVisualTest && !dailyBestFixture) {
+      this.viewportRefresh?.dispose();
       this.scene.start('play', {
         seed: 20260901,
         mode: 'standard',
@@ -106,7 +144,7 @@ export class MenuScene extends Phaser.Scene {
       17, '#a8a5b2',
     ).setWordWrapWidth(470, true).setLineSpacing(10);
 
-    let selectedCrown = maxCrown;
+    let selectedCrown = Math.min(this.selectedMenuCrown ?? maxCrown, maxCrown) as CrownLevel;
     makeText(this, 92, 458, tr('원정 난이도', 'EXPEDITION DIFFICULTY'), 11, UI.textDim, true).setLetterSpacing(1.2);
     const crownLabel = makeText(this, 292, 458, '', 15, UI.gold, true).setOrigin(0.5, 0);
     const crownDescription = makeText(this, 92, 558, '', 12, '#74727e');
@@ -119,6 +157,7 @@ export class MenuScene extends Phaser.Scene {
       refreshCrownSelector();
     }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 24, radius: 18, stroke: UI.goldNum, strokeAlpha: 0.25 });
     const refreshCrownSelector = () => {
+      this.selectedMenuCrown = selectedCrown;
       crownLabel.setText(selectedCrown === 0 ? tr('♛ 왕관 0개 · 기본', '♛ CROWN 0 · BASE') : tr(`♛ 왕관 ${selectedCrown}개`, `♛ CROWN ${selectedCrown}`));
       crownDescription.setText(crownDifficultyDescription(selectedCrown, maxCrown));
       crownPrev.setEnabled(selectedCrown > 0);
@@ -126,11 +165,13 @@ export class MenuScene extends Phaser.Scene {
     };
     refreshCrownSelector();
     makeButton(this, 230, 518, 276, 64, tr('원정 시작', 'START EXPEDITION'), () => {
+      this.viewportRefresh?.dispose();
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard', crownLevel: selectedCrown });
     }, { fill: UI.goldNum, fontSize: 19, radius: 32, stroke: UI.goldNum, strokeAlpha: 0.5 });
-    makeButton(this, 516, 518, 236, 64, hasChallenge ? tr('도전 수락', 'ACCEPT CHALLENGE') : tr('오늘의 도전', 'DAILY CHALLENGE'), () => {
+    makeButton(this, 516, 518, 236, 64, this.dailyMenuLabel, () => {
+      this.viewportRefresh?.dispose();
       this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
-    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 16, radius: 33, stroke: 0xf2ede3, strokeAlpha: 0.22 });
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: this.dailyMenuLabel.includes('\n') ? 12 : 16, radius: 33, stroke: 0xf2ede3, strokeAlpha: 0.22 });
 
     const recordX = 948;
     this.add.text(recordX, 110, 'COMMANDER RECORD', {
@@ -169,6 +210,7 @@ export class MenuScene extends Phaser.Scene {
     const closeLeaderboard = () => {
       leaderboardOverlay?.destroy();
       leaderboardOverlay = null;
+      this.closeViewportModal('leaderboard');
     };
     const onlineRankingEnabled = leaderboardConfigured();
     const rankingLink = makeText(
@@ -179,6 +221,7 @@ export class MenuScene extends Phaser.Scene {
     rankingLink.on('pointerdown', () => {
       if (!onlineRankingEnabled) return;
       if (leaderboardOverlay) return;
+      this.viewportModals.add('leaderboard');
       leaderboardOverlay = new LeaderboardOverlay(
         this,
         challengeDate,
@@ -189,16 +232,22 @@ export class MenuScene extends Phaser.Scene {
       analytics.track('leaderboard_viewed', { date: challengeDate });
     });
     this.input.keyboard?.on('keydown-ESC', closeLeaderboard);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown-ESC', closeLeaderboard));
 
     const sound = makeButton(this, 163, 642, 38, 38, profile.soundEnabled ? '♪' : '×', () => {
       profile = { ...profile, soundEnabled: !profile.soundEnabled };
       saveProfile(localStorage, profile);
       sound.setLabel(profile.soundEnabled ? '♪' : '×');
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 15, radius: 19, strokeAlpha: 0.16 });
-    const openData = () => new AnalyticsConsentOverlay(this, (allowed) => {
-      analytics.setConsent(allowed ? 'granted' : 'denied');
-      if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge });
-    });
+    const openData = () => {
+      if (this.viewportModals.has('consent')) return;
+      this.viewportModals.add('consent');
+      return new AnalyticsConsentOverlay(this, (allowed) => {
+        analytics.setConsent(allowed ? 'granted' : 'denied');
+        if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge });
+        this.closeViewportModal('consent');
+      });
+    };
     makeButton(this, 215, 642, 38, 38, 'i', openData, {
       fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 19, strokeAlpha: 0.16,
     });
@@ -221,15 +270,18 @@ export class MenuScene extends Phaser.Scene {
     const closePatchNotes = () => {
       patchNotesOverlay?.destroy();
       patchNotesOverlay = null;
+      this.closeViewportModal('patch');
     };
     const patchLink = makeText(this, 548, 637, tr('패치 노트  NEW', 'PATCH NOTES  NEW'), 11, UI.gold, true)
       .setInteractive({ useHandCursor: true });
     patchLink.on('pointerdown', () => {
       if (patchNotesOverlay) return;
+      this.viewportModals.add('patch');
       patchNotesOverlay = new PatchNotesOverlay(this, closePatchNotes);
       analytics.track('patch_notes_viewed', { version: CURRENT_VERSION });
     });
     this.input.keyboard?.on('keydown-ESC', closePatchNotes);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown-ESC', closePatchNotes));
     graphics.lineStyle(1, 0xf2ede3, 0.09).lineBetween(636, 625, 636, 659);
     makeText(
       this, 664, 637,
@@ -238,7 +290,7 @@ export class MenuScene extends Phaser.Scene {
         : tr('E 교환 · ENTER 확정 · SPACE 전투 · D 덱 · H 도감', 'E EXCHANGE · ENTER CONFIRM · SPACE COMBAT · D DECK · H GUIDE'),
       11, UI.textFaint,
     );
-    analytics.track('menu_view', { challenge: hasChallenge, maxCrown, locale: getLocale(), layout: 'landscape' });
+    if (!this.viewportRebuild) analytics.track('menu_view', { challenge: hasChallenge, maxCrown, locale: getLocale(), layout: 'landscape' });
     if (analytics.consent === 'unknown') {
       openData();
     }
@@ -310,7 +362,7 @@ export class MenuScene extends Phaser.Scene {
     makeText(this, right, py(614), leaderboardConfigured() ? tr('내 순위 보기 →', 'VIEW MY RANK →') : tr('랭킹 연결 대기', 'RANKING OFFLINE'), 12, UI.textDim)
       .setOrigin(1, 0);
 
-    let selectedCrown = maxCrown;
+    let selectedCrown = Math.min(this.selectedMenuCrown ?? maxCrown, maxCrown) as CrownLevel;
     const crownLabel = makeText(this, 195, py(632), '', 15, UI.gold, true).setOrigin(0.5, 0);
     const crownPrev = makeButton(this, 66, py(645), 44, 40, '‹', () => {
       if (selectedCrown > 0) selectedCrown = (selectedCrown - 1) as CrownLevel;
@@ -322,6 +374,7 @@ export class MenuScene extends Phaser.Scene {
     }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 24, radius: 20, stroke: UI.goldNum, strokeAlpha: 0.25 });
     const crownDescription = makeText(this, 195, py(663), '', 10, UI.textFaint).setOrigin(0.5, 0);
     const refreshCrownSelector = () => {
+      this.selectedMenuCrown = selectedCrown;
       crownLabel.setText(selectedCrown === 0 ? tr('♛ 왕관 0개 · 기본', '♛ CROWN 0 · BASE') : tr(`♛ 왕관 ${selectedCrown}개`, `♛ CROWN ${selectedCrown}`));
       crownDescription.setText(crownDifficultyDescription(selectedCrown, maxCrown, true));
       crownPrev.setEnabled(selectedCrown > 0);
@@ -329,11 +382,13 @@ export class MenuScene extends Phaser.Scene {
     };
     refreshCrownSelector();
     makeButton(this, 195, py(716), 326, 58, tr('원정 시작', 'START EXPEDITION'), () => {
+      this.viewportRefresh?.dispose();
       this.scene.start('play', { seed: Date.now() >>> 0, mode: 'standard', crownLevel: selectedCrown });
     }, { fill: UI.goldNum, textColor: UI.goldInk, fontSize: 17, radius: 29, stroke: UI.goldNum, strokeAlpha: 0.5 });
-    makeButton(this, 195, py(770), 326, 42, hasChallenge ? tr('도전 수락', 'ACCEPT CHALLENGE') : tr('오늘의 도전', 'DAILY CHALLENGE'), () => {
+    makeButton(this, 195, py(770), 326, 42, this.dailyMenuLabel, () => {
+      this.viewportRefresh?.dispose();
       this.scene.start('play', { seed: dailySeed(challengeDate), mode: 'daily', date: challengeDate });
-    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: 14, radius: 21, stroke: 0xf2ede3, strokeAlpha: 0.22 });
+    }, { fill: UI.panelDeep, textColor: UI.text, fontSize: this.dailyMenuLabel.includes('\n') ? 12 : 14, radius: 21, stroke: 0xf2ede3, strokeAlpha: 0.22 });
 
     const sound = makeButton(this, 54, py(808), 34, 34, profile.soundEnabled ? '♪' : '×', () => {
       profile = { ...profile, soundEnabled: !profile.soundEnabled };
@@ -341,7 +396,12 @@ export class MenuScene extends Phaser.Scene {
       sound.setLabel(profile.soundEnabled ? '♪' : '×');
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 14, radius: 17, strokeAlpha: 0.16 });
     makeButton(this, 96, py(808), 34, 34, 'i', () => {
-      new AnalyticsConsentOverlay(this, (allowed) => analytics.setConsent(allowed ? 'granted' : 'denied'));
+      if (this.viewportModals.has('consent')) return;
+      this.viewportModals.add('consent');
+      new AnalyticsConsentOverlay(this, (allowed) => {
+        analytics.setConsent(allowed ? 'granted' : 'denied');
+        this.closeViewportModal('consent');
+      });
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 17, strokeAlpha: 0.16 });
     makeButton(this, 138, py(808), 44, 34, getLocale().toUpperCase(), () => switchLocale(), {
       fill: UI.panelDeep, textColor: UI.gold, fontSize: 10, radius: 17, strokeAlpha: 0.16,
@@ -351,14 +411,21 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(1, 0);
     makeText(this, 358, py(802), tr('패치 NEW', 'PATCH NEW'), 11, UI.gold, true).setOrigin(1, 0);
 
-    analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait', maxCrown, locale: getLocale() });
+    if (!this.viewportRebuild) analytics.track('menu_view', { challenge: hasChallenge, layout: 'portrait', maxCrown, locale: getLocale() });
     if (analytics.consent === 'unknown') {
+      this.viewportModals.add('consent');
       new AnalyticsConsentOverlay(this, (allowed) => {
         analytics.setConsent(allowed ? 'granted' : 'denied');
         if (allowed) analytics.track('menu_view', { source: 'consent_overlay', challenge: hasChallenge, layout: 'portrait' });
+        this.closeViewportModal('consent');
       });
     }
     (window as unknown as { __menuReady?: boolean }).__menuReady = true;
+  }
+
+  private closeViewportModal(name: string): void {
+    this.viewportModals.delete(name);
+    this.viewportRefresh?.flush();
   }
 }
 

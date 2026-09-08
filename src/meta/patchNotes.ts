@@ -9,14 +9,31 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.9.4';
+export const CURRENT_VERSION = 'v2.9.5';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.5',
+    title: 'FIRST STEPS, STEADY SCREENS',
+    date: '2026-09-08',
+    current: true,
+    sections: [{
+      heading: '다음 행동은 명확하게, 화면은 안정적으로',
+      items: [
+        '첫 3라운드 안내가 실제 문양 선택·교환·확정·배치·전투 상태를 따라가며 팝업과 겹치지 않도록 정리',
+        '일반 재도전은 새 원정 시작, 일일 재도전은 같은 일일 도전으로 표시하고 왕실 내기가 선택 보너스임을 안내',
+        '오늘의 도전 버튼에 해당 날짜의 내 로컬 최고 점수를 표시하며 공유 도전 수락을 우선 유지',
+        '화면 크기나 방향을 바꿔도 진행 중인 원정과 팝업의 좌표를 유지하고 메뉴에서는 안전한 시점에 화면을 재배치',
+        '메뉴 재배치 시 선택한 왕관과 열린 입력창을 보호하고 캔버스의 중복 중앙 정렬로 인한 치우침 수정',
+        'LIFE 시작·초반 진행·다음 날 재방문을 구분하는 읽기 전용 코호트 측정 도구 추가',
+        '적 체력·공격력·교환·경로·난이도·승패 규칙은 변경하지 않음',
+      ],
+    }],
+  },
   {
     version: 'v2.9.4',
     title: 'CLEARER BATTLEFIELDS',
     date: '2026-09-08',
-    current: true,
     sections: [{
       heading: '전투를 가리지 않는 정보와 가벼운 정원',
       items: [

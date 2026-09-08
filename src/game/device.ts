@@ -4,6 +4,13 @@ export function compactTouchLayout(width: number, height: number, coarsePointer:
 
 export type LayoutMode = 'desktop' | 'portrait' | 'landscape' | 'gate';
 
+let activeLayoutMode: LayoutMode | null = null;
+
+/** Pin UI coordinates to the logical canvas until a safe menu rebuild. */
+export function setActiveLayoutMode(mode: LayoutMode | null): void {
+  activeLayoutMode = mode;
+}
+
 /** 브라우저 CSS viewport를 게임의 논리 캔버스 모드로 변환한다. */
 export function layoutMode(width: number, height: number): LayoutMode {
   if (width >= 1100) return 'desktop';
@@ -18,7 +25,7 @@ export function currentLayoutMode(): LayoutMode {
 }
 
 export function isPortraitLayout(): boolean {
-  return currentLayoutMode() === 'portrait';
+  return (activeLayoutMode ?? currentLayoutMode()) === 'portrait';
 }
 
 export function isCompactTouchDevice(): boolean {

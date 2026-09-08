@@ -4,6 +4,14 @@ import { describe, expect, test } from 'vitest';
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 describe('mobile shell', () => {
+  test('CSS flex is the sole canvas-centering owner while Phaser retains proportional FIT', () => {
+    const main = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8');
+    expect(main).toContain('mode: Phaser.Scale.FIT');
+    expect(main).toContain('autoCenter: Phaser.Scale.NO_CENTER');
+    expect(main).not.toContain('autoCenter: Phaser.Scale.CENTER_BOTH');
+    expect(html).toContain('justify-content: center; align-items: center');
+    expect(html).toContain('env(safe-area-inset-left)');
+  });
   test('일반 가로 휴대폰은 실행하고 극단적으로 작은 화면만 차단한다', () => {
     expect(html).toContain('(max-width: 599px)');
     expect(html).toContain('(max-height: 279px)');

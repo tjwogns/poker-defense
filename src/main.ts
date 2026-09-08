@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { PlayScene } from './game/PlayScene';
 import { MenuScene } from './game/MenuScene';
-import { currentLayoutMode } from './game/device';
+import { setActiveLayoutMode } from './game/device';
 import { installRendererRecovery } from './game/rendererRecovery';
 import { readStoredRendererMode, shouldUseCanvasRenderer } from './game/rendererPolicy';
-import { PORTRAIT_BASE_WIDTH, portraitLogicalHeight, setActivePortraitHeight } from './game/layout';
+import { setActivePortraitHeight } from './game/layout';
+import { viewportCanvasLayout } from './game/viewportLayout';
 import { isPixelArtEnabled } from './game/unitAssets';
 import { applyDocumentLocale, tr } from './i18n';
 
@@ -16,6 +17,7 @@ function installViewportSizing(): void {
   const sync = () => document.documentElement.style.setProperty('--game-viewport-height', `${viewportHeight()}px`);
   sync();
   window.visualViewport?.addEventListener('resize', sync);
+  window.addEventListener('resize', sync);
   window.addEventListener('orientationchange', sync);
 }
 
@@ -23,9 +25,9 @@ async function boot(): Promise<void> {
   applyDocumentLocale();
   installViewportSizing();
   await document.fonts.ready;
-  const portrait = currentLayoutMode() === 'portrait';
-  const portraitHeight = portraitLogicalHeight(window.innerWidth, viewportHeight());
-  if (portrait) setActivePortraitHeight(portraitHeight);
+  const canvasLayout = viewportCanvasLayout(window.innerWidth, window.innerHeight, viewportHeight());
+  setActiveLayoutMode(canvasLayout.mode);
+  if (canvasLayout.mode === 'portrait') setActivePortraitHeight(canvasLayout.height);
   const useCanvas = shouldUseCanvasRenderer(
     window.location.search,
     readStoredRendererMode(window.sessionStorage),
@@ -33,15 +35,16 @@ async function boot(): Promise<void> {
   const pixelArtPreview = isPixelArtEnabled(window.location.search);
   const game = new Phaser.Game({
     type: useCanvas ? Phaser.CANVAS : Phaser.AUTO,
-    width: portrait ? PORTRAIT_BASE_WIDTH : 1280,
-    height: portrait ? portraitHeight : 720,
+    width: canvasLayout.width,
+    height: canvasLayout.height,
     parent: 'app',
     backgroundColor: '#0a0a0f',
     roundPixels: pixelArtPreview,
     scene: [MenuScene, PlayScene],
     scale: {
       mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      // #app owns centering (including safe-area padding). Phaser margins would center twice.
+      autoCenter: Phaser.Scale.NO_CENTER,
     },
   });
 

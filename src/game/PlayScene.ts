@@ -31,6 +31,7 @@ import { DeckOverlay } from './DeckOverlay';
 import { WagerOverlay } from './WagerOverlay';
 import { MaintenanceOverlay } from './MaintenanceOverlay';
 import { FirstRunCoach } from './FirstRunCoach';
+import { retryRunLabel } from './coach';
 import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { attackFxBudget, canCreateTacticFeedback, tacticFeedbackBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
@@ -216,6 +217,15 @@ export class PlayScene extends Phaser.Scene {
       this.core.handTactic = createHandTactic(HandRank.RoyalFlush, 3, null);
       this.wagerState = { ...createRoyalWagerState('suit_four'), progress: 3, lockedSuit: 'D' };
       this.wagerChoiceMade = true;
+    } else if (localVisualTest === 'coach-r2' || localVisualTest === 'coach-r3' || localVisualTest === 'coach-suit') {
+      this.profile.tutorialDone = false;
+      this.core.round = localVisualTest === 'coach-r3' ? 3 : 2;
+      this.core.selectedDominantSuit = null;
+      this.core.hand = [
+        { rank: 10, suit: 'S' }, { rank: 13, suit: 'S' },
+        { rank: 11, suit: localVisualTest === 'coach-suit' ? 'H' : 'S' },
+        { rank: 12, suit: 'H' }, { rank: 14, suit: 'D' },
+      ];
     } else if (localVisualTest === 'mobile-coach') {
       this.profile.tutorialDone = false;
     } else if (localVisualTest === 'suits') {
@@ -774,9 +784,11 @@ export class PlayScene extends Phaser.Scene {
     const tacticText = this.tacticHudText();
     this.panel.setTacticStatus(tacticText, tacticText.length > 0);
     this.bossHud.refresh(this.core);
-    this.firstRunCoach.refresh(this.core, this.firstRunCoachActive);
     this.syncRelicPicker();
     this.syncMaintenance();
+    this.firstRunCoach.refresh(this.core, this.firstRunCoachActive && !this.ended && !this.tutorialActive
+      && !this.wagerOverlay && !this.guideOverlay && !this.deckOverlay && !this.oddsOverlay
+      && !this.relicOverlay && !this.maintenanceOverlay && !this.exitOverlay);
   }
 
   private onHandAction(action: 'hold' | 'exchange' | 'confirm'): void {
@@ -970,6 +982,7 @@ export class PlayScene extends Phaser.Scene {
   private openOdds(odds: RerollOdds): void {
     if (this.maintenanceOverlay || this.oddsOverlay || this.deckOverlay || this.core.phase !== 'prep' || this.core.handConfirmed) return;
     this.oddsOverlay = new OddsOverlay(this, odds, () => this.closeOdds());
+    this.refreshUI();
     this.analytics.track('odds_opened', {
       drawCount: odds.drawCount,
       currentRank: odds.currentRank,
@@ -980,6 +993,7 @@ export class PlayScene extends Phaser.Scene {
   private closeOdds(): void {
     this.oddsOverlay?.destroy();
     this.oddsOverlay = null;
+    this.refreshUI();
   }
 
   private openDeck(): void {
@@ -1783,6 +1797,7 @@ export class PlayScene extends Phaser.Scene {
 
   private showEnd(): void {
     this.ended = true;
+    this.firstRunCoach.refresh(this.core, false);
     this.abandonedTracked = true;
     const won = this.core.phase === 'victory';
     const endMessage = won
@@ -1900,14 +1915,14 @@ export class PlayScene extends Phaser.Scene {
     }, this.runId);
     this.renderEndFeedback(centerX, portrait, py, won ? 'victory' : 'defeat', summary.round);
     const date = this.runDate;
-    const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, portrait ? tr('같은 조건으로 다시 도전', 'RETRY SAME RUN') : tr('다시 시작', 'PLAY AGAIN'), () => {
+    const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, retryRunLabel(this.mode === 'daily'), () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
       const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
       this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true, crownLevel: this.core.crownLevel });
     }, {
       fill: portrait ? UI.goldNum : UI.accent,
       textColor: portrait ? UI.goldInk : UI.goldInk,
-      fontSize: portrait ? 17 : 18,
+      fontSize: this.mode === 'daily' ? 13 : portrait ? 17 : 18,
       stroke: portrait ? UI.goldNum : UI.accent,
       strokeAlpha: 0.5,
     });

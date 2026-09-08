@@ -1,7 +1,7 @@
 {
   "name": "poker-defense",
   "private": true,
-  "version": "2.9.4",
+  "version": "2.9.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "tsx src/sim/run.ts",
+    "analytics:life": "node scripts/analytics-life-cohorts.mjs",
     "smoke:hidden": "node scripts/hidden-smoke.mjs",
     "smoke:focus": "node scripts/focus-smoke.mjs",
     "smoke:recovery": "node scripts/context-loss-smoke.mjs",
