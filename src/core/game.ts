@@ -65,6 +65,7 @@ import {
 } from './formationMastery';
 
 export type Phase = 'prep' | 'combat' | 'victory' | 'defeat';
+// final-boss-timeout은 CLASSIC 보존 규칙과 과거 기록 해석에만 사용한다.
 export type DefeatReason = 'field-cap' | 'life-depleted' | 'boss-escaped' | 'final-boss-timeout';
 export type GameRuleset = 'classic' | 'life-economy';
 export type DeckSealId = 'banish' | 'duplicate';
@@ -684,10 +685,9 @@ export class Game {
     );
   }
 
-  /** 모든 적 스폰이 끝난 뒤부터 흐르는 현재 라운드 제한시간. */
+  /** CLASSIC에서 모든 적 스폰 완료 후 흐르는 제한시간. LIFE에는 시간 제한이 없다. */
   get combatTimeRemaining(): number | null {
-    if (this.phase !== 'combat' || this.spawnQueue.length > 0) return null;
-    if (this.lifeMode && this.round < ROUNDS) return null;
+    if (this.lifeMode || this.phase !== 'combat' || this.spawnQueue.length > 0) return null;
     const limit = this.round >= ROUNDS ? FINAL_BOSS_MAX_TIME : COMBAT_MAX_TIME;
     return Math.max(0, limit - this.combatTimer);
   }
@@ -965,10 +965,10 @@ export class Game {
       );
 
       // 최종전은 보스 처치가 승리 조건이다. 보스를 잡으면 수행원이 남아 있어도
-      // 승리하며, 제한 시간까지 보스가 생존하면 승리 대신 패배한다.
+      // 승리한다. 시간초과 패배는 CLASSIC 보존 규칙에만 적용한다.
       if (this.round >= ROUNDS) {
         if (!currentBossAlive) this.endRound();
-        else if (this.combatTimer >= FINAL_BOSS_MAX_TIME) {
+        else if (!this.lifeMode && this.combatTimer >= FINAL_BOSS_MAX_TIME) {
           this.defeatReason = 'final-boss-timeout';
           this.phase = 'defeat';
         }
@@ -988,6 +988,16 @@ export class Game {
       && completedBoss !== undefined
       && !completedBoss.alive
       && !completedBoss.escaped;
+
+    // 최종 보스 미처치 시 정산/보상을 시작하지 않는다. LIFE는 전투를 계속하고,
+    // CLASSIC만 기존 시간초과 패배 의미를 보존한다.
+    if (completedRound >= ROUNDS && !bossDefeated) {
+      if (!this.lifeMode) {
+        this.defeatReason = 'final-boss-timeout';
+        this.phase = 'defeat';
+      }
+      return;
+    }
 
     // 보스는 제한시간 후 다음 라운드로 이월될 수 있다. 처치한 시점의 현재
     // 라운드가 아니라 보스가 등장한 라운드를 기준으로 미수령 보상을 적립한다.
@@ -1016,12 +1026,6 @@ export class Game {
     }
 
     if (completedRound >= ROUNDS) {
-      // tickCombat의 최종전 판정을 우회해도 생존 보스로 승리할 수 없게 방어한다.
-      if (!bossDefeated) {
-        this.defeatReason = 'final-boss-timeout';
-        this.phase = 'defeat';
-        return;
-      }
       this.captureRoundSettlement(completedRound);
       this.score += VICTORY_SCORE;
       this.phase = 'victory';

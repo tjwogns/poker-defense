@@ -9,14 +9,29 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.9.0';
+export const CURRENT_VERSION = 'v2.9.1';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.1',
+    title: 'NO FINAL COUNTDOWN',
+    date: '2026-09-08',
+    current: true,
+    sections: [{
+      heading: '최종 보스 시간 제한 제거',
+      items: [
+        '정식 일반·왕관·일일 도전의 최종 보스 50초 제한과 시간초과 패배 제거',
+        '시간과 관계없이 최종 보스 처치 시 승리, 보스 탈출 시 즉시 패배',
+        '최종전 안내를 처치·탈출 기준으로 수정하고 미처치 보스의 잘못된 승리·보상 지급 방지',
+        '클래식 보존판은 기존 규칙 유지',
+        '무료 교환 활용에 따른 초반 생존을 비교하는 검증 도구 추가',
+      ],
+    }],
+  },
   {
     version: 'v2.9.0',
     title: 'LIFE ON THE LINE',
     date: '2026-09-07',
-    current: true,
     sections: [
       {
         heading: '즉시 이해되는 라이프 피해',

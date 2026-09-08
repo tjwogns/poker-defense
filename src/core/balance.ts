@@ -10,7 +10,7 @@ export const WAVE_SIZE = 30;          // 라운드당 일반 적 수
 export const BOSS_MINIONS = 10;       // 보스 라운드 수행원 수
 export const SPAWN_INTERVAL = 0.45;   // 초 — 초반 대기감을 줄인 기본 템포
 export const COMBAT_MAX_TIME = 32;    // 스폰 완료 후 최대 전투 시간(초)
-export const FINAL_BOSS_MAX_TIME = 50; // 최종 보스전: 스폰 완료 후 처치 제한 시간(초)
+export const FINAL_BOSS_MAX_TIME = 50; // CLASSIC 보존판 전용. 정식 LIFE 최종전에는 제한시간 없음.
 export const FIELD_CAP = 80;          // 필드 적 누적 상한 (초과 = 패배)
 export const BOSS_EVERY = 10;
 export const DECK_SEAL_COSTS = { banish: 25, duplicate: 40 } as const;

@@ -4,7 +4,7 @@ import { HandRank } from '../src/core/cards/types';
 import { spawnEnemy } from '../src/core/combat';
 import { ENEMY_KINDS } from '../src/core/enemies';
 import {
-  START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
+  START_GOLD, SELL_REFUND, FIELD_CAP, COMBAT_MAX_TIME, FINAL_BOSS_MAX_TIME, LIFE_MODE_STARTING_LIVES, upgradeCost,
   CROWN_I_BOSS_HP_MULTIPLIER, CROWN_I_ENEMY_HP_MULTIPLIER, CROWN_I_SPEED_MULTIPLIER, BOSS_HP_MULT, enemyHp,
   crownBossHpMultiplier, crownEnemyHpMultiplier, crownSpeedMultiplier, killGold,
 } from '../src/core/balance';
@@ -452,8 +452,8 @@ describe('Game state machine', () => {
     expect(g.field.enemies.some((enemy) => enemy.alive)).toBe(true);
   });
 
-  test('60라운드 최종 보스를 처치하지 못하면 제한시간 후 패배', () => {
-    const g = new Game(9);
+  test('CLASSIC은 60라운드 최종 보스 제한시간 후 패배를 유지한다', () => {
+    const g = new Game(9, 'classic');
     g.round = 60;
     g.confirmHand();
     g.pendingUnits = [];
@@ -466,6 +466,52 @@ describe('Game state machine', () => {
     expect(g.phase).toBe('defeat');
     expect(g.defeatReason).toBe('final-boss-timeout');
     expect(g.field.enemies.some((enemy) => enemy.kind === 'boss' && enemy.alive)).toBe(true);
+  });
+
+  test.each(['kill', 'escape'] as const)('LIFE 최종전은 50초 후에도 계속되며 이후 %s로 종료된다', (ending) => {
+    const g = new Game(91, 'life-economy');
+    g.round = 60;
+    expect(g.combatTimeRemaining).toBeNull();
+    g.handConfirmed = true;
+    expect(g.startCombat()).toBe(true);
+    // 시간초과와 탈출 판정을 분리하기 위해 경로 시작에 적들을 고정한다.
+    for (let i = 0; i < 30 * (FINAL_BOSS_MAX_TIME + 20); i++) {
+      for (const enemy of g.field.enemies) enemy.dist = 0;
+      g.tickCombat(1 / 30);
+    }
+    expect(g.phase).toBe('combat');
+    expect(g.defeatReason).toBeNull();
+    expect(g.combatTimeRemaining).toBeNull();
+    expect(g.lives).toBe(LIFE_MODE_STARTING_LIVES);
+    const boss = g.field.enemies.find((enemy) => enemy.kind === 'boss' && enemy.round === 60)!;
+    expect(boss.alive).toBe(true);
+    if (ending === 'kill') boss.alive = false;
+    else boss.dist = pathLength(g.mapId) + 1;
+    g.tickCombat(1 / 30);
+    expect(g.phase).toBe(ending === 'kill' ? 'victory' : 'defeat');
+    expect(g.defeatReason).toBe(ending === 'kill' ? null : 'boss-escaped');
+  });
+
+  test.each(['alive', 'missing', 'escaped'] as const)('LIFE 최종 보스 %s 상태는 정산을 우회해도 승리·보상을 받지 못한다', (state) => {
+    const g = new Game(92, 'life-economy');
+    g.round = 60;
+    g.handConfirmed = true;
+    g.startCombat();
+    for (let i = 0; i < 300; i++) {
+      for (const enemy of g.field.enemies) enemy.dist = 0;
+      g.tickCombat(1 / 30);
+    }
+    const boss = g.field.enemies.find((enemy) => enemy.kind === 'boss')!;
+    if (state === 'missing') g.field.enemies = [];
+    if (state === 'escaped') {
+      boss.alive = false;
+      boss.escaped = true;
+    }
+    const before = { gold: g.gold, score: g.score, clear: g.goldIncome.clear, settlement: g.lastRoundSettlement };
+    (g as unknown as { endRound(): void }).endRound();
+    expect(g.phase).toBe('combat');
+    expect(g.defeatReason).toBeNull();
+    expect({ gold: g.gold, score: g.score, clear: g.goldIncome.clear, settlement: g.lastRoundSettlement }).toEqual(before);
   });
 
   test('60라운드 최종 보스를 처치해야 승리하고 수행원 생존 여부는 무관하다', () => {

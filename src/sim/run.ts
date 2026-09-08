@@ -18,6 +18,18 @@ const RELIC_STRATEGIES = ['skip', 'always', 'targeted'] as const;
 type RelicStrategy = typeof RELIC_STRATEGIES[number];
 const MASTERY_STRATEGIES = ['skip', 'always', 'low', 'high'] as const;
 type MasteryStrategy = typeof MASTERY_STRATEGIES[number];
+type ExchangePolicy = 'baseline' | 'free-until-trips';
+
+interface PrepExchangeRecord {
+  round: number;
+  initialRank: HandRank;
+  initialHand?: Card[];
+  available: number | null;
+  exchangesUsed: number;
+  extraFreeExchanges: number;
+  stoppedAtTrips: boolean;
+  confirmedRank: HandRank | null;
+}
 
 const RELIC_PRIORITY: RelicId[] = [
   'pair_broker', 'underdog_banner', 'pristine_oath', 'compression_enthusiast',
@@ -101,6 +113,7 @@ function playPrep(
   masteryStrategy: MasteryStrategy,
   upgradeFromRound: number,
   forcedHands: ReadonlyMap<number, readonly Card[]>,
+  exchangePolicy: ExchangePolicy,
 ): void {
   if (g.relicChoices.length > 0) {
     const chosen = RELIC_PRIORITY.find((id) => g.relicChoices.includes(id)) ?? g.relicChoices[0];
@@ -110,11 +123,27 @@ function playPrep(
   if (g.maintenancePending) playMaintenance(g, stats, strategy, relicStrategy, masteryStrategy);
   const forcedHand = forcedHands.get(g.round);
   if (forcedHand) g.hand = forcedHand.map((card) => ({ ...card }));
+  const available = g.exchangesRemaining;
+  const initialRank = evaluateHand(g.hand);
+  const initialHand = g.round === 1 ? g.hand.map((card) => ({ ...card })) : undefined;
   // 이미 트리플 이상이면 그대로 확정, 아니면 무료 교환 1회
   if (evaluateHand(g.hand) < HandRank.Trips) {
     chooseHolds(g, strategy);
     g.doExchange();
   }
+  let extraFreeExchanges = 0;
+  if (exchangePolicy === 'free-until-trips' && g.lifeMode) {
+    while (g.exchangeCostNow === 0 && (g.exchangesRemaining ?? 0) > 0
+      && evaluateHand(g.hand) < HandRank.Trips) {
+      clearHolds(g);
+      chooseHolds(g, strategy);
+      if (!g.doExchange()) break;
+      extraFreeExchanges++;
+    }
+  }
+  // 추가 무료 교환 단계의 중단 상태. 뒤의 기존 부유 시 교환 단계는 별도로 유지한다.
+  const stoppedAtTrips = exchangePolicy === 'free-until-trips' && g.lifeMode
+    && (g.exchangesRemaining ?? 0) > 0 && evaluateHand(g.hand) >= HandRank.Trips;
   // 부유하면 유료 교환으로 고족보 도박 (설계 의도: 도박 vs 확정 강화)
   while (
     g.gold > 400 &&
@@ -127,6 +156,10 @@ function playPrep(
   }
   const rank = g.confirmHand();
   if (rank !== null) stats.handCounts[rank]++;
+  stats.prepExchanges.push({
+    round: g.round, initialRank, initialHand, available, exchangesUsed: g.exchangesUsed,
+    extraFreeExchanges, stoppedAtTrips, confirmedRank: rank,
+  });
 
   // 배치 (숫자 상한은 없으며 실제 배치 칸이 찼을 때만 약한 유닛을 교체)
   while (g.pendingUnits.length > 0) {
@@ -298,6 +331,7 @@ interface GameStats {
   escapedBossHpPct: number | null;
   lifeRoundHistory: LifeRoundRecord[];
   guardTerminated: boolean;
+  prepExchanges: PrepExchangeRecord[];
 }
 
 function playGame(
@@ -309,6 +343,7 @@ function playGame(
   forcedHands: ReadonlyMap<number, readonly Card[]> = new Map(),
   ruleset: GameRuleset = 'classic',
   crownLevel: CrownLevel = 0,
+  exchangePolicy: ExchangePolicy = 'baseline',
 ): GameStats {
   const g = new Game(seed, ruleset, crownLevel);
   const stats: GameStats = {
@@ -322,12 +357,13 @@ function playGame(
     incomeBounty: 0, incomeDiamond: 0, incomeClear: 0, incomeInterest: 0, incomeRelic: 0, incomeWager: 0, incomeSales: 0,
     defeatReason: null, escapedBossRound: null, escapedBossHpPct: null,
     lifeRoundHistory: [], guardTerminated: false,
+    prepExchanges: [],
   };
   const dt = 1 / 30;
   let guard = 0;
   while (g.phase !== 'victory' && g.phase !== 'defeat' && guard++ < 1_000_000) {
     if (g.phase === 'prep') {
-      playPrep(g, stats, strategy, relicStrategy, masteryStrategy, upgradeFromRound, forcedHands);
+      playPrep(g, stats, strategy, relicStrategy, masteryStrategy, upgradeFromRound, forcedHands, exchangePolicy);
     }
     else {
       g.tickCombat(dt);
@@ -371,6 +407,7 @@ else if (strategyArg === 'relic-compare') printRelicComparison(games);
 else if (strategyArg === 'hidden-compare') printHiddenComparison(games);
 else if (strategyArg === 'mastery-compare') printMasteryComparison(games);
 else if (strategyArg === 'life-compare') printLifeComparison(games);
+else if (strategyArg === 'free-exchange-compare') printFreeExchangeComparison(games);
 else if (strategyArg === 'boss-gate') printBossGateComparison(games);
 else if (strategyArg === 'clear') printClearAttempt(runClearGames(games, 1), 1);
 else if (strategyArg === 'clear-delay30') printClearAttempt(runClearGames(games, 31), 31);
@@ -383,6 +420,71 @@ else if (MAINTENANCE_STRATEGIES.includes(strategyArg as MaintenanceStrategy)) {
 
 function runGames(count: number, strategy: MaintenanceStrategy): GameStats[] {
   return Array.from({ length: count }, (_, index) => playGame(index + 1, strategy));
+}
+
+/** 자연패 LIFE만 비교한다. JSON은 시드별 결과와 실제 교환 행동을 함께 보존한다. */
+function printFreeExchangeComparison(count: number): void {
+  if (!Number.isSafeInteger(count) || count < 1) throw new Error('game count must be a positive integer');
+  const summarize = (all: GameStats[]) => {
+    const rounds = all.map((game) => game.roundReached).sort((a, b) => a - b);
+    const preps = all.flatMap((game) => game.prepExchanges);
+    const reasons: Record<string, number> = {};
+    for (const game of all) {
+      const reason = game.guardTerminated ? 'guard' : game.result === 'victory' ? 'victory' : game.defeatReason ?? 'unknown';
+      reasons[reason] = (reasons[reason] ?? 0) + 1;
+    }
+    return {
+      games: all.length,
+      victories: all.filter((game) => game.result === 'victory').length,
+      guardTerminated: all.filter((game) => game.guardTerminated).length,
+      averageRound: rounds.reduce((sum, round) => sum + round, 0) / all.length,
+      medianRound: (rounds[Math.floor((rounds.length - 1) / 2)] + rounds[Math.floor(rounds.length / 2)]) / 2,
+      round1Defeats: all.filter((game) => game.result === 'defeat' && !game.guardTerminated && game.roundReached === 1).length,
+      reasons,
+      prepCount: preps.length,
+      availableExchanges: preps.reduce((sum, prep) => sum + (prep.available ?? 0), 0),
+      actualExchanges: preps.reduce((sum, prep) => sum + prep.exchangesUsed, 0),
+      extraFreeExchanges: preps.reduce((sum, prep) => sum + prep.extraFreeExchanges, 0),
+      stoppedAtTrips: preps.filter((prep) => prep.stoppedAtTrips).length,
+      round1Exchanges: all.reduce((sum, game) => sum + game.prepExchanges[0].exchangesUsed, 0),
+      round1Damage: all.reduce((sum, game) => sum + (game.lifeRoundHistory.find((r) => r.round === 1)?.lifeDamage ?? 0), 0),
+    };
+  };
+  const difficulties = ([0, 1] as const).map((crownLevel) => {
+    const run = (policy: ExchangePolicy) => Array.from({ length: count }, (_, index) =>
+      playGame(index + 1, 'both', 'targeted', 'low', 1, new Map(), 'life-economy', crownLevel, policy));
+    const baseline = run('baseline');
+    const freeUntilTrips = run('free-until-trips');
+    const paired = { improved: 0, equal: 0, worse: 0, excludedGuards: 0 };
+    const seeds = baseline.map((before, index) => {
+      const after = freeUntilTrips[index];
+      if (before.guardTerminated || after.guardTerminated) paired.excludedGuards++;
+      else {
+        const progress = (game: GameStats) => game.result === 'victory' ? 61 : game.roundReached;
+        const delta = progress(after) - progress(before);
+        paired[delta > 0 ? 'improved' : delta < 0 ? 'worse' : 'equal']++;
+      }
+      const details = (game: GameStats) => ({
+        result: game.result, round: game.roundReached, reason: game.defeatReason,
+        guardTerminated: game.guardTerminated,
+        round1Damage: game.lifeRoundHistory.find((r) => r.round === 1)?.lifeDamage ?? 0,
+        round1ConfirmedRank: game.prepExchanges[0].confirmedRank,
+        round1ConfirmedHand: game.prepExchanges[0].confirmedRank === null ? null : HAND_NAMES_KO[game.prepExchanges[0].confirmedRank],
+        round1Exchanges: game.prepExchanges[0].exchangesUsed,
+        prepExchanges: game.prepExchanges,
+      });
+      return { seed: before.seed, baseline: details(before), freeUntilTrips: details(after) };
+    });
+    return { crownLevel, baseline: summarize(baseline), freeUntilTrips: summarize(freeUntilTrips), paired, seeds };
+  });
+  console.log(JSON.stringify({
+    schemaVersion: 1, ruleset: 'life-economy', seeds: { first: 1, last: count },
+    hands: 'natural', maintenance: 'both', relics: 'targeted', mastery: 'low',
+    policies: ['baseline', 'free-until-trips'],
+    pairedMetric: 'terminal round; victory=61; guards excluded; same-round defeats equal',
+    stoppedAtTripsMeaning: 'free-policy stage ended with Trips or better and unused exchanges, before unchanged rich-gold loop',
+    difficulties,
+  }, null, 2));
 }
 
 function runRelicGames(count: number, strategy: RelicStrategy): GameStats[] {

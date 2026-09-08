@@ -609,7 +609,8 @@ export class SidePanel {
       g.phase !== 'combat' ? ''
         : g.escapeWarningCount > 0 ? tr(`⚠ 탈출 임박 ${g.escapeWarningCount}기 · 출구 화력 집중`, `⚠ ${g.escapeWarningCount} NEAR EXIT · FOCUS FIRE`)
         : g.round >= ROUNDS
-          ? remaining === null ? tr(`최종 보스 등장 중 · 제한시간 ${FINAL_BOSS_MAX_TIME}초`, `FINAL BOSS INCOMING · ${FINAL_BOSS_MAX_TIME}s LIMIT`) : tr(`최종 보스 제한시간 ${Math.ceil(remaining)}초`, `FINAL BOSS · ${Math.ceil(remaining)}s LEFT`)
+          ? g.lifeMode ? tr('최종 보스 처치 시 승리 · 탈출 시 패배', 'FINAL BOSS: KILL TO WIN · ESCAPE = DEFEAT')
+            : remaining === null ? tr(`최종 보스 등장 중 · 제한시간 ${FINAL_BOSS_MAX_TIME}초`, `FINAL BOSS INCOMING · ${FINAL_BOSS_MAX_TIME}s LIMIT`) : tr(`최종 보스 제한시간 ${Math.ceil(remaining)}초`, `FINAL BOSS · ${Math.ceil(remaining)}s LEFT`)
           : g.lifeMode && remaining === null
             ? tr('전원 처치 또는 탈출까지 진행', 'DEFEAT ALL ENEMIES OR WAIT FOR ESCAPES')
             : remaining === null ? tr(`적 등장 중 · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}`, `ENEMIES INCOMING · ${soundEnabled ? 'SOUND ON' : 'SOUND OFF'}`) : tr(`라운드 종료까지 ${Math.ceil(remaining)}초`, `${Math.ceil(remaining)}s UNTIL ROUND END`),
