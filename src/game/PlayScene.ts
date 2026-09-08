@@ -21,7 +21,7 @@ import { downloadShareCard, shareRun } from './ShareCard';
 import { GuideOverlay } from './GuideOverlay';
 import { ExitConfirmOverlay } from './ExitConfirmOverlay';
 import { Analytics, getAnalytics } from '../meta/analytics';
-import { tileCanReachPath } from '../core/map';
+import { isPlaceable, pathLength, tileCanReachPath } from '../core/map';
 import { leaderboardConfigured, submitDailyScore } from '../meta/leaderboard';
 import { pauseStateAfterFocus, safeFrameDelta, speedAfterFocus } from './timing';
 import { OddsOverlay } from './OddsOverlay';
@@ -237,6 +237,37 @@ export class PlayScene extends Phaser.Scene {
       this.fusionSelectedIds = [anchor.id, second.id];
       this.core.handConfirmed = true;
       this.core.lastHandRank = HandRank.Pair;
+    } else if (localVisualTest === 'combat-readability') {
+      this.profile.tutorialDone = true;
+      this.wagerChoiceMade = true;
+      this.core.round = 40;
+      this.core.gold = 100;
+      this.core.handConfirmed = true;
+      this.core.startCombat();
+      // Spawn the real R40 boss once before installing the paused stress scene.
+      this.core.tickCombat(1 / TICK_RATE);
+      const routeLength = pathLength(this.core.mapId);
+      const boss = this.core.field.enemies.find((enemy) => enemy.kind === 'boss');
+      if (boss) boss.dist = routeLength * 0.52;
+      const readabilityPositions = [
+        [3, 2], [5, 2], [7, 2], [9, 2], [11, 2], [13, 2],
+        [3, 3], [7, 3], [9, 3], [13, 3],
+        [3, 4], [5, 4], [7, 4], [9, 4], [11, 4], [13, 4],
+        [3, 6], [5, 6], [7, 6], [9, 6], [11, 6], [13, 6],
+        [3, 8], [7, 8], [9, 8], [13, 8],
+      ];
+      const readabilitySuits = ['S', 'H', 'D', 'C'] as const;
+      readabilityPositions.forEach(([x, y], index) => {
+        if (!isPlaceable(x, y, this.core.mapId)) return;
+        addUnit(this.core.field, index % 13 as HandRank, x, y, false, readabilitySuits[index % 4]);
+      });
+      const readabilityKinds = ['normal', 'fast', 'tank', 'regen', 'splitter'] as const;
+      for (let index = 0; index < 25; index++) {
+        spawnEnemy(this.core.field, readabilityKinds[index % 5], 40, {
+          dist: routeLength * (index + 1) / 28,
+        });
+      }
+      this.paused = true;
     } else if (localVisualTest === 'enemy-roster') {
       this.profile.tutorialDone = true;
       this.core.round = 35;
@@ -394,6 +425,10 @@ export class PlayScene extends Phaser.Scene {
             goldAfter: this.core.gold,
           }, this.runId);
         }
+        this.refreshUI();
+      },
+      onCloseInspector: () => {
+        this.selectedUnitId = null;
         this.refreshUI();
       },
       onSell: () => {

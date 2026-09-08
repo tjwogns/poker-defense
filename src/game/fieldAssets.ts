@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 import { GRID_H, GRID_W, isPathTile, type MapId } from '../core/map';
 
 export const FIELD_TEXTURES = {
-  ground: { key: 'royal-garden-ground', path: './assets/field/royal-garden-ground.png' },
+  ground: { key: 'royal-garden-ground', path: './assets/field/royal-garden-ground.jpg' },
   path: { key: 'royal-garden-path', path: './assets/field/royal-garden-path.png' },
 } as const;
 

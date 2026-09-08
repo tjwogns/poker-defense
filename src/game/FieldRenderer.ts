@@ -22,6 +22,7 @@ import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY 
 import { tr } from '../i18n';
 import { tacticApplies, unitZone } from '../core/handTactics';
 import { drawRoyalGardenField } from './fieldAssets';
+import { SpawnPortalPulse } from './spawnPortal';
 
 export const FIELD_X = 24;
 export const FIELD_Y = 68;
@@ -287,6 +288,10 @@ export class FieldRenderer {
   private mapId: MapId;
   private escapeWarningText?: Phaser.GameObjects.Text;
   private intersectionMarkText?: Phaser.GameObjects.Text;
+  private portalG?: Phaser.GameObjects.Graphics;
+  private portalPulse = new SpawnPortalPulse();
+  private reducedPortalMotion = typeof window !== 'undefined'
+    && (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 
   constructor(scene: Phaser.Scene, mapId: MapId = 'classic-ring') {
     this.scene = scene;
@@ -412,43 +417,25 @@ export class FieldRenderer {
     const start = corners[0];
     const s = { x: tile * (start.x + 0.5), y: tile * (start.y + 0.5) };
     const spawnRadius = portrait ? 7 : 12;
-    if (garden) {
-      g.fillStyle(0x07100b, 0.88);
-      g.fillRoundedRect(
-        fieldX + s.x - spawnRadius - 4, fieldY + s.y - spawnRadius - 9,
-        portrait ? 80 : 106, spawnRadius * 2 + 16, 3,
-      );
-    }
-    g.fillStyle(UI.danger, 0.18);
-    g.fillCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
-    g.lineStyle(portrait ? 1 : 1.5, UI.danger, 0.95).strokeCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
-    g.fillStyle(UI.danger, 0.95);
-    g.fillTriangle(
-      fieldX + s.x - spawnRadius * 0.4, fieldY + s.y - spawnRadius * 0.55,
-      fieldX + s.x - spawnRadius * 0.4, fieldY + s.y + spawnRadius * 0.55,
-      fieldX + s.x + spawnRadius * 0.6, fieldY + s.y,
-    );
     if (this.mapId === 'cross-road') {
-      const end = corners[corners.length - 1];
-      const exitX = fieldX + (end.x + 0.5) * tile;
-      const exitY = fieldY + (end.y + 0.5) * tile;
-      g.lineStyle(portrait ? 1.5 : 2, 0x66d9a8, 0.9);
-      g.strokeCircle(exitX, exitY, spawnRadius);
-      g.lineBetween(exitX, exitY + 3, exitX, exitY - spawnRadius - 7);
-      g.lineBetween(exitX, exitY - spawnRadius - 7, exitX - 4, exitY - spawnRadius - 2);
-      g.lineBetween(exitX, exitY - spawnRadius - 7, exitX + 4, exitY - spawnRadius - 2);
-      this.scene.add.text(exitX + spawnRadius + 5, exitY - (portrait ? 7 : 9), tr('S  입구', 'S  START'), {
-        fontFamily: FONT,
-        fontSize: portrait ? '8px' : '10px',
-        fontStyle: 'bold',
-        color: '#9fe8c7',
-      }).setOrigin(0, 0.5).setDepth(1);
-      this.scene.add.text(exitX + spawnRadius + 5, exitY + (portrait ? 7 : 9), tr('E  출구', 'E  EXIT'), {
-        fontFamily: FONT,
-        fontSize: portrait ? '8px' : '10px',
-        fontStyle: 'bold',
-        color: '#ff9b96',
-      }).setOrigin(0, 0.5).setDepth(1);
+      // A single non-text entrance on the actual shared start/end tile.
+      g.fillStyle(0x07100b, 0.96);
+      g.fillEllipse(fieldX + s.x, fieldY + s.y, tile * 0.58, tile * 0.7);
+      g.lineStyle(portrait ? 1.2 : 1.8, 0x79d5bd, 0.9);
+      g.strokeEllipse(fieldX + s.x, fieldY + s.y, tile * 0.58, tile * 0.7);
+      g.lineStyle(1, 0x273c36, 0.95);
+      g.strokeEllipse(fieldX + s.x, fieldY + s.y, tile * 0.4, tile * 0.52);
+      this.portalG = this.scene.add.graphics().setDepth(0.2);
+    } else {
+      g.fillStyle(UI.danger, 0.18);
+      g.fillCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
+      g.lineStyle(portrait ? 1 : 1.5, UI.danger, 0.95).strokeCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
+      g.fillStyle(UI.danger, 0.95);
+      g.fillTriangle(
+        fieldX + s.x - spawnRadius * 0.4, fieldY + s.y - spawnRadius * 0.55,
+        fieldX + s.x - spawnRadius * 0.4, fieldY + s.y + spawnRadius * 0.55,
+        fieldX + s.x + spawnRadius * 0.6, fieldY + s.y,
+      );
     }
     this.scene.add.text(fieldX + (GRID_W * tile) / 2, fieldY + (GRID_H * tile) / 2, 'ROYAL TABLE', {
       fontFamily: FONT_DISPLAY, fontSize: '42px', fontStyle: 'bold', color: UI.gold,
@@ -465,6 +452,7 @@ export class FieldRenderer {
     fusionTier: HandRank | null = null,
     fusionSelectedIds: readonly number[] = [],
   ): void {
+    this.updatePortal(game);
     this.updateUnits(game, selectedUnitId, fx, fusionTier, fusionSelectedIds);
     this.updateEnemies(game);
     this.updateTactics(game);
@@ -473,6 +461,17 @@ export class FieldRenderer {
     this.updateHighlight(game, placingTier);
     this.updateRange(game, selectedUnitId, placingTier);
     this.updateFx(fx, dt);
+  }
+
+  private updatePortal(game: Game): void {
+    if (!this.portalG) return;
+    const alpha = this.portalPulse.update(game.field.enemies, game.field.time, this.reducedPortalMotion);
+    this.portalG.clear();
+    if (alpha <= 0) return;
+    const start = pathCorners(this.mapId)[0];
+    const { x, y, tile } = this.metrics;
+    this.portalG.lineStyle(this.metrics.portrait ? 1.5 : 2, 0xb7ffe7, alpha * 0.9);
+    this.portalG.strokeEllipse(x + (start.x + 0.5) * tile, y + (start.y + 0.5) * tile, tile * 0.74, tile * 0.84);
   }
 
   private updateUnits(

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { GRID_H, GRID_W, isPathTile } from '../src/core/map';
 import { drawRoyalGardenField, FIELD_TEXTURES, preloadFieldTextures } from '../src/game/fieldAssets';
 
@@ -17,11 +17,41 @@ function scene(available = Object.values(FIELD_TEXTURES).map(({ key }) => key)) 
 }
 
 describe('royal garden static field assets', () => {
-  test('preloads two shared relative PNG textures with no runtime texture generation', () => {
+  test('preloads shared JPEG ground and PNG path without changing texture keys', () => {
     const fake = scene();
     preloadFieldTextures(fake as never);
     expect(fake.load.image.mock.calls).toEqual(Object.values(FIELD_TEXTURES).map(({ key, path }) => [key, path]));
-    for (const asset of Object.values(FIELD_TEXTURES)) expect(asset.path).toMatch(/^\.\/assets\/field\/.+\.png$/);
+    expect(FIELD_TEXTURES.ground.path).toBe('./assets/field/royal-garden-ground.jpg');
+    expect(FIELD_TEXTURES.path.path).toBe('./assets/field/royal-garden-path.png');
+  });
+
+  test('runtime garden textures stay within 500 KB at the approved render resolutions', () => {
+    const ground = readFileSync(new URL('../public/assets/field/royal-garden-ground.jpg', import.meta.url));
+    const path = readFileSync(new URL('../public/assets/field/royal-garden-path.png', import.meta.url));
+    expect(ground.length + path.length).toBeLessThan(500_000);
+    expect(ground.readUInt16BE(0)).toBe(0xffd8);
+    let dimensions: number[] = [];
+    for (let offset = 2; offset + 8 < ground.length;) {
+      expect(ground[offset]).toBe(0xff);
+      const marker = ground[offset + 1];
+      if ([0xc0, 0xc1, 0xc2].includes(marker)) {
+        dimensions = [ground.readUInt16BE(offset + 7), ground.readUInt16BE(offset + 5)];
+        break;
+      }
+      offset += 2 + ground.readUInt16BE(offset + 2);
+    }
+    expect(dimensions).toEqual([1428, 1008]);
+    expect(path.subarray(1, 4).toString()).toBe('PNG');
+    expect([path.readUInt32BE(16), path.readUInt32BE(20)]).toEqual([84, 84]);
+  });
+
+  test('original PNGs are archived outside the public bundle', () => {
+    expect(existsSync(new URL('../public/assets/field/royal-garden-ground.png', import.meta.url))).toBe(false);
+    for (const name of ['ground', 'path']) {
+      const original = readFileSync(new URL(`../docs/design/royal-garden/source-${name}.png`, import.meta.url));
+      expect(original.subarray(1, 4).toString()).toBe('PNG');
+      expect(original.length).toBeGreaterThan(2_000_000);
+    }
   });
 
   test.each([22, 42])('ground and actual path cells align with the unchanged board at tile=%s', (tile) => {
@@ -57,8 +87,9 @@ describe('royal garden static field assets', () => {
     const source = readFileSync(new URL('../src/game/FieldRenderer.ts', import.meta.url), 'utf8');
     expect(source.match(/drawRoyalGardenField\(this.scene/g)).toHaveLength(1);
     expect(source.slice(source.indexOf('  update('))).not.toContain('drawRoyalGardenField');
-    expect(source).toContain("tr('S  입구', 'S  START')");
-    expect(source).toContain("tr('E  출구', 'E  EXIT')");
+    expect(source).not.toContain('S  START');
+    expect(source).not.toContain('E  EXIT');
+    expect(source).toContain('this.updatePortal(game)');
     expect(source).toContain('const corners = pathCorners(this.mapId)');
   });
 });

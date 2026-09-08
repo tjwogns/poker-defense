@@ -9,14 +9,30 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.9.3';
+export const CURRENT_VERSION = 'v2.9.4';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.4',
+    title: 'CLEARER BATTLEFIELDS',
+    date: '2026-09-08',
+    current: true,
+    sections: [{
+      heading: '전투를 가리지 않는 정보와 가벼운 정원',
+      items: [
+        '모바일 전투 중 유닛 상세를 빈 손패 영역의 작은 읽기 전용 패널로 변경',
+        '유닛을 선택해도 전투·강화·배속 버튼을 사용할 수 있으며 강화 후 선택 유지',
+        '전투 상세에 닫기 버튼을 추가하고 준비 단계의 판매·재배치·합성 상세는 유지',
+        '왕실 정원 이미지 합계를 5,102,458바이트에서 376,664바이트로 92.6% 경량화',
+        '전장 S/E 글자와 검은 안내판을 작은 포털로 교체하고 적 등장 시 짧은 빛 표시',
+        '포털 빛은 일시정지 시 멈추고 동작 줄이기 설정에서는 억제하며 경로·크기·게임 규칙은 유지',
+      ],
+    }],
+  },
   {
     version: 'v2.9.3',
     title: 'ROYAL GARDEN',
     date: '2026-09-08',
-    current: true,
     sections: [{
       heading: '왕실 정원 전장',
       items: [

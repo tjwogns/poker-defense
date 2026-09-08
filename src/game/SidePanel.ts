@@ -10,7 +10,7 @@ import {
 import { RELIC_DEFS, RELIC_SLOT_CAP, RelicId } from '../core/relics';
 import { RunMode } from '../meta/profile';
 import { Button, FONT, FONT_DISPLAY, FONT_MONO, UI, makeButton, makeText } from './ui';
-import { PANEL_SECTIONS, UiRect, portraitSceneHeight, portraitY } from './layout';
+import { PANEL_SECTIONS, UiRect, portraitCombatInspectorBounds, portraitSceneHeight, portraitY } from './layout';
 import { threatBand, threatLabel, threatTitle } from './threat';
 import { createRelicIcon } from './relicAssets';
 import { MASTERABLE_HANDS } from '../core/mastery';
@@ -35,6 +35,7 @@ export interface PanelCallbacks {
   onHome(): void;
   onGuide(): void;
   onDeck(): void;
+  onCloseInspector(): void;
 }
 
 function traitLabel(def: UnitDef): string {
@@ -113,6 +114,10 @@ export class SidePanel {
   private inspectorName!: Phaser.GameObjects.Text;
   private inspectorMeta!: Phaser.GameObjects.Text;
   private inspectorStats!: Phaser.GameObjects.Text;
+  private combatInspectorObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
+  private combatInspectorName?: Phaser.GameObjects.Text;
+  private combatInspectorMeta?: Phaser.GameObjects.Text;
+  private combatInspectorStats?: Phaser.GameObjects.Text;
   private sellBtn!: Button;
   private moveBtn!: Button;
   private fuseBtn!: Button;
@@ -240,6 +245,7 @@ export class SidePanel {
   }
 
   private createPortrait(scene: Phaser.Scene, cb: PanelCallbacks): void {
+    this.createCombatInspector(scene, cb);
     const portraitHeight = portraitSceneHeight(scene);
     const py = (value: number) => portraitY(portraitHeight, value);
     const top = scene.add.graphics();
@@ -330,6 +336,25 @@ export class SidePanel {
       this.moveBtn.container, this.sellBtn.container, this.fuseBtn.container,
     ] as Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible>;
     this.inspectorObjects.forEach((object) => object.setVisible(false));
+  }
+
+  private createCombatInspector(scene: Phaser.Scene, cb: PanelCallbacks): void {
+    const bounds = portraitCombatInspectorBounds(portraitSceneHeight(scene));
+    const bg = scene.add.rectangle(bounds.x, bounds.y, bounds.width, bounds.height, UI.panelDeep, 0.99)
+      .setOrigin(0).setStrokeStyle(1, UI.goldNum, 0.28).setDepth(12).setInteractive();
+    bg.on('pointerdown', (_p: unknown, _x: number, _y: number, event: { stopPropagation(): void }) => event.stopPropagation());
+    this.combatInspectorName = makeText(scene, 22, bounds.y + 12, '', 14, UI.text, true)
+      .setWordWrapWidth(274, true).setDepth(13);
+    this.combatInspectorMeta = makeText(scene, 22, bounds.y + 53, '', 11, UI.textDim)
+      .setWordWrapWidth(344, true).setDepth(13);
+    this.combatInspectorStats = makeText(scene, 22, bounds.y + 96, '', 12, UI.text)
+      .setWordWrapWidth(344, true).setDepth(13);
+    const close = makeButton(scene, 347, bounds.y + 25, 54, 36, tr('닫기', 'CLOSE'), cb.onCloseInspector, {
+      fill: UI.panelRaised, fontSize: 10, textColor: UI.textDim,
+    });
+    close.container.setDepth(13);
+    this.combatInspectorObjects = [bg, this.combatInspectorName, this.combatInspectorMeta, this.combatInspectorStats, close.container];
+    this.combatInspectorObjects.forEach((object) => object.setVisible(false));
   }
 
   pulseRelics(ids: readonly RelicId[]): void {
@@ -557,13 +582,21 @@ export class SidePanel {
     fusionSelectedCount: number,
   ): void {
     const visible = selectedUnit !== null;
-    this.inspectorObjects.forEach((object) => object.setVisible(visible));
+    const compactCombat = this.portrait && this.game.phase === 'combat';
+    this.inspectorObjects.forEach((object) => object.setVisible(visible && !compactCombat));
+    this.combatInspectorObjects?.forEach((object) => object.setVisible(visible && compactCombat));
     if (!selectedUnit) return;
     const def = UNIT_DEFS[selectedUnit.tier];
     const variant = selectedUnit.variant && getLocale() === 'ko' ? ` · ${HAND_VARIANT_LABELS[selectedUnit.variant]}` : '';
     const suit = selectedUnit.suit
       ? `${SUIT_GLYPHS[selectedUnit.suit]} ${getLocale() === 'ko' ? suitIdentityLabel(selectedUnit.suit) : englishSuitName(selectedUnit.suit)}`
       : tr('무문양', 'No suit');
+    if (compactCombat) {
+      this.combatInspectorName?.setText(unitName(def.tier, variantUnitName(def.name, selectedUnit.variant)));
+      this.combatInspectorMeta?.setText(`${handName(def.tier, HAND_NAMES_KO[def.tier])}${variant} · ${suit}`);
+      this.combatInspectorStats?.setText(`DPS ${(def.dps * this.game.unitDpsMult(selectedUnit)).toFixed(1)} · ${tr('사거리', 'RANGE')} ${def.range.toFixed(1)}`);
+      return;
+    }
     this.inspectorName.setText(`${unitName(def.tier, variantUnitName(def.name, selectedUnit.variant))}   ${selectedUnit.suit ? SUIT_GLYPHS[selectedUnit.suit] : ''}`);
     this.inspectorMeta.setText(
       `${handName(def.tier, HAND_NAMES_KO[def.tier])}${variant} · ${suit}${selectedUnit.allIn ? tr(' · ● 최후의 승부', ' · ● LAST STAND') : ''}`,

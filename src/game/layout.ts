@@ -50,6 +50,11 @@ export function portraitToastFontSize(text: string): number {
   return text.length > 54 ? 9 : text.length > 36 ? 10 : 12;
 }
 
+/** Read-only combat selection occupies the unused hand area, never the action/utility rows. */
+export function portraitCombatInspectorBounds(height: number): UiRect {
+  return { x: 8, y: portraitY(height, 474), width: 374, height: portraitY(height, 650) - portraitY(height, 474) };
+}
+
 export function portraitCoachLayout(height: number): {
   panel: UiRect;
   step: { x: number; y: number };

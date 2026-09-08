@@ -2,6 +2,9 @@ import { describe, expect, test, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { Game } from '../src/core/game';
 import { HandRank } from '../src/core/cards/types';
+import { addUnit } from '../src/core/combat';
+import { portraitCombatInspectorBounds, portraitY, rectsOverlap } from '../src/game/layout';
+import { setLocale } from '../src/i18n';
 
 vi.mock('phaser', () => ({ default: {} }));
 import { SidePanel } from '../src/game/SidePanel';
@@ -42,6 +45,43 @@ function panel(game: Game, portrait: boolean): any {
 }
 
 describe('quiet play UI', () => {
+  test.each([720, 802, 844, 866, 920])('compact inspector avoids boss HUD and combat/utility buttons at height %s', (height) => {
+    const inspector = portraitCombatInspectorBounds(height);
+    expect(inspector.y).toBeGreaterThan(portraitY(height, 382) + 58);
+    for (const bounds of [
+      { x: 8, y: portraitY(height, 702) - 28, width: 374, height: 56 },
+      { x: 8, y: portraitY(height, 769) - 25, width: 374, height: 50 },
+    ]) expect(rectsOverlap(inspector, bounds)).toBe(false);
+    expect(inspector.height).toBeGreaterThanOrEqual(140);
+  });
+
+  test.each(['ko', 'en'] as const)('combat inspection keeps selection through upgrades and hides prep actions in %s', (locale) => {
+    setLocale(locale);
+    try {
+      const game = new Game(250, 'life-economy');
+      game.phase = 'combat';
+      game.gold = 100;
+      const unit = addUnit(game.field, HandRank.Pair, 3, 2, false, 'S');
+      const ui = panel(game, true);
+      ui.inspectorObjects = [sink(), sink(), sink()];
+      ui.combatInspectorObjects = [sink(), sink()];
+      ui.combatInspectorName = sink();
+      ui.combatInspectorMeta = sink();
+      ui.combatInspectorStats = sink();
+      ui.refreshInspector(unit, false, false, 0);
+      expect(ui.inspectorObjects.every((object: any) => !object.visible)).toBe(true);
+      expect(ui.combatInspectorObjects.every((object: any) => object.visible)).toBe(true);
+      expect(ui.combatInspectorMeta.text).toContain('♠');
+      const before = ui.combatInspectorStats.text;
+      expect(game.buyUpgrade()).toBe(true);
+      ui.refreshInspector(unit, false, false, 0);
+      expect(ui.combatInspectorStats.text).not.toBe(before);
+      expect(ui.combatInspectorObjects[0].visible).toBe(true);
+      ui.refreshInspector(null, false, false, 0);
+      expect(ui.combatInspectorObjects.every((object: any) => !object.visible)).toBe(true);
+    } finally { setLocale('ko'); }
+  });
+
   test('both layouts remove wave forecasts and permanent reroll advice from rendering', () => {
     const panelSource = readFileSync(new URL('../src/game/SidePanel.ts', import.meta.url), 'utf8');
     for (const removed of ['NEXT WAVE', '보스까지', 'nextEnemyPreview', 'formationPreview', 'waveCount', 'waveHint']) {
