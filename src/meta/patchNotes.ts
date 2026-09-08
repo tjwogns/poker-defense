@@ -9,14 +9,29 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.9.2';
+export const CURRENT_VERSION = 'v2.9.3';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.3',
+    title: 'ROYAL GARDEN',
+    date: '2026-09-08',
+    current: true,
+    sections: [{
+      heading: '왕실 정원 전장',
+      items: [
+        '정식 cross-road 전장 배경을 어두운 녹지와 이끼 낀 성벽의 왕실 정원으로 교체',
+        '실제 적 이동 경로에만 회색 석재 타일을 표시하고 방향 화살표·입구·출구 안내 유지',
+        '17×12 그리드·경로·배치 좌표·전장 크기는 바꾸지 않고 준비와 전투에서 같은 배경 사용',
+        '클래식 전장은 기존 모습 유지, 정원 이미지 로딩 실패 시 기존 배경으로 표시',
+        '유닛·적·공격 효과·강화 비용·게임 난이도·승패 규칙은 변경하지 않음',
+      ],
+    }],
+  },
   {
     version: 'v2.9.2',
     title: 'QUIET UI, LIVE UPGRADES',
     date: '2026-09-08',
-    current: true,
     sections: [{
       heading: '현재 플레이에 집중하는 화면',
       items: [

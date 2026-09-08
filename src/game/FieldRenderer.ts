@@ -21,6 +21,7 @@ import { isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
 import { tr } from '../i18n';
 import { tacticApplies, unitZone } from '../core/handTactics';
+import { drawRoyalGardenField } from './fieldAssets';
 
 export const FIELD_X = 24;
 export const FIELD_Y = 68;
@@ -330,16 +331,29 @@ export class FieldRenderer {
   private drawStatic(): void {
     const { x: fieldX, y: fieldY, tile, portrait } = this.metrics;
     const g = this.scene.add.graphics().setDepth(0);
-    g.fillStyle(0x000000, 0.48);
-    g.fillRect(fieldX - 2, fieldY - 2, GRID_W * tile + 4, GRID_H * tile + 4);
-    g.fillStyle(UI.gridLine, 1);
-    g.fillRect(fieldX - 1, fieldY - 1, GRID_W * tile + 2, GRID_H * tile + 2);
+    const garden = drawRoyalGardenField(this.scene, this.mapId, this.metrics);
+    if (garden) {
+      // Only a subtle grid and the existing navigation markers sit above the raster art.
+      g.setDepth(0.1);
+    } else {
+      g.fillStyle(0x000000, 0.48);
+      g.fillRect(fieldX - 2, fieldY - 2, GRID_W * tile + 4, GRID_H * tile + 4);
+      g.fillStyle(UI.gridLine, 1);
+      g.fillRect(fieldX - 1, fieldY - 1, GRID_W * tile + 2, GRID_H * tile + 2);
+    }
     for (let x = 0; x < GRID_W; x++) {
       for (let y = 0; y < GRID_H; y++) {
         const sx = fieldX + x * tile;
         const sy = fieldY + y * tile;
         const path = isPathTile(x, y, this.mapId);
         const placeable = isPlaceable(x, y, this.mapId);
+        if (garden) {
+          if (path || placeable) {
+            g.lineStyle(1, 0x07100b, path ? 0.35 : 0.22);
+            g.strokeRect(sx + 0.5, sy + 0.5, tile - 1, tile - 1);
+          }
+          continue;
+        }
         const color = path ? UI.pathTile : placeable ? UI.fieldTile : UI.bgDeep;
         g.fillStyle(color, 1);
         g.fillRect(sx + 1, sy + 1, tile - (portrait ? 2 : 3), tile - (portrait ? 2 : 3));
@@ -355,7 +369,7 @@ export class FieldRenderer {
         g.fillTriangle(cx - 3, cy - 4, cx + 4, cy, cx - 3, cy + 4);
       }
     } else {
-      g.fillStyle(UI.goldNum, 0.34);
+      g.fillStyle(UI.goldNum, garden ? 0.95 : 0.34);
       const segmentKeys = corners.slice(0, -1).map((from, index) => {
         const to = corners[index + 1];
         const ends = [`${from.x},${from.y}`, `${to.x},${to.y}`].sort();
@@ -385,6 +399,10 @@ export class FieldRenderer {
           const px = -dy * 4;
           const py = dx * 4;
           g.fillTriangle(cx + dx * 5, cy + dy * 5, bx + px, by + py, bx - px, by - py);
+          if (garden) {
+            g.lineStyle(1.5, 0x302817, 0.95);
+            g.strokeTriangle(cx + dx * 5, cy + dy * 5, bx + px, by + py, bx - px, by - py);
+          }
         }
       }
     }
@@ -394,6 +412,13 @@ export class FieldRenderer {
     const start = corners[0];
     const s = { x: tile * (start.x + 0.5), y: tile * (start.y + 0.5) };
     const spawnRadius = portrait ? 7 : 12;
+    if (garden) {
+      g.fillStyle(0x07100b, 0.88);
+      g.fillRoundedRect(
+        fieldX + s.x - spawnRadius - 4, fieldY + s.y - spawnRadius - 9,
+        portrait ? 80 : 106, spawnRadius * 2 + 16, 3,
+      );
+    }
     g.fillStyle(UI.danger, 0.18);
     g.fillCircle(fieldX + s.x, fieldY + s.y, spawnRadius);
     g.lineStyle(portrait ? 1 : 1.5, UI.danger, 0.95).strokeCircle(fieldX + s.x, fieldY + s.y, spawnRadius);

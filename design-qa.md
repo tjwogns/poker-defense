@@ -1,47 +1,36 @@
-# Cross-road LIFE LAB Design QA
+# Royal Garden background QA — 2026-09-08
 
-- Source visual truth: `/tmp/codex-remote-attachments/01a03d67-9ca8-7011-81aa-63769ae5d0a5/0ce4c839-6ace-4470-a0e9-17c8868dd26a/1-Photo-1.jpg`
-- Implementation screenshot: `/Users/jaehooon/project/poker-defense/docs/cross-road-implementation.png`
-- Source pixels: 960 × 1280
-- Implementation pixels: 1280 × 720
-- CSS viewport: 1280 × 720, device scale factor 1
-- State: LIFE LAB, desktop, round 1 preparation phase
-- Density normalization: conceptual route comparison only; the hand sketch is portrait paper and the game is a landscape canvas, so crops were not forced to identical aspect ratio.
+final result: passed
 
-## Full-view comparison evidence
+## Evidence and normalization
 
-The two images were opened together in one comparison input after the route order was clarified. The implementation now forms four rectangular placement regions separated by a full outer road and central cross. Enemies start and exit at the same upper-left S/E portal, traverse all four sides, and reuse the center vertical and horizontal roads in opposite directions. The existing Royal Siege palette, grid, HUD, typography, and unit art are intentionally preserved instead of copying the paper styling.
+- Source: `docs/design/royal-garden/reference.png`, 1672×941 generated desktop mock.
+- Normalized source: `/tmp/garden-reference-1280.png`, downsampled to 1280×720 for comparison.
+- Rendered desktop: `docs/design/royal-garden/desktop.png`, 1280×720 CSS/pixels (1×).
+- Rendered mobile: `docs/design/royal-garden/mobile.png`, 390×844 CSS/pixels (1×).
+- Combat: `docs/design/royal-garden/combat.png`, 390×844, paused R24 fixture.
+- Local routes: `?visualTest=ui-clean-prep&lang=ko` (R1, same hand as source), `?visualTest=formation-mastery-combat&lang=ko`.
+- Source and final desktop were opened together in one comparison input at equal dimensions. Mobile and desktop were also viewed with the source together.
+- Focused inspection: entrance panel, path arrows, central crossing and deployment grid were readable in the full-resolution 1280px comparison, so no separate crop was required.
 
-## Focused region comparison evidence
+## Comparison history and findings
 
-A separate crop was unnecessary because the full 17 × 12 field, four placement regions, outer road, center cross, paired direction arrows, and S/E portal are clearly visible at 1280 × 720. Automated waypoint checks cover all 13 ordered turns; live combat confirmed the lower-left traversal and center-road reuse.
+1. Mac lock initially blocked browser capture; resolved after manual unlock.
+2. First desktop capture `docs/design/royal-garden/before-contrast.png`: P2 path arrows and entrance/exit labels lost contrast against pale stone. Reference had dark marker backing and outlined arrows.
+3. Fix: garden-only dark marker backing plus opaque gold arrows with dark outlines, preserving path/marker geometry and CLASSIC.
+4. Final desktop/mobile captures show legible direction indicators and entrance/exit labels. No remaining actionable P0/P1/P2 visual differences in the scoped background change.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: existing game typography is unchanged; the sketch contains no UI type target.
-- Spacing and layout rhythm: route fits inside the existing field without moving the HUD, hand bar, or side panel.
-- Colors and visual tokens: road, direction markers, spawn, and exit reuse current semantic game colors.
-- Image quality and asset fidelity: no new raster asset was implied by the schematic; the route is native game geometry and remains sharp at desktop and portrait scale.
-- Copy and content: LIFE LAB labels and existing gameplay copy remain unchanged.
+- Typography: existing heading/card/action fonts and hierarchy retained; no new wrapping or clipped controls in the captured viewports.
+- Layout: existing 17×12 geometry and field/card/action regions retained. Portrait has the existing larger gap below the battlefield; no combat-only resize was introduced.
+- Colors: dark moss, stone boundary and pale paving match the selected garden direction; arrow/marker contrast corrected.
+- Image quality: generated raster ground and stone assets, not code-drawn substitutes. Compared with the concept, paving is quieter and boundary foliage less dense; accepted for small-screen clarity, not claimed pixel-identical. Paths remain the actual logical cells.
+- Copy: unchanged product copy; fixture hand matches source. No prompt/instruction text introduced.
 
-## Findings
+## Runtime and residual risks
 
-- No actionable P0/P1/P2 mismatch was found for the requested movement pattern.
-- P3 follow-up: route order may still need numbered checkpoints if paired arrows alone are insufficient for first-time players.
-- Balance note, not a visual mismatch: the corrected route is 92 tiles versus the 46-tile classic ring and creates much longer repeated attack exposure.
-
-## Comparison history
-
-- Initial pass: [P1] the sketch was misread as an 18-tile lower-center-to-upper-left route.
-- Clarified pass: replaced it with the exact 13-waypoint, 92-tile S/E route; added four placement regions, shared S/E portal, and offset arrows for opposite-direction road reuse.
-- Post-fix evidence: source and corrected implementation were opened together; no remaining P0/P1/P2 mismatch was found.
-
-## Primary interactions tested
-
-- Started LIFE LAB.
-- Confirmed a hand and placed a unit beside the new route.
-- Started combat and observed the outer route and center-road reuse.
-- Confirmed LIFE LAB does not end at the old 32-second limit and instead waits for all enemies to die or escape.
-- Checked the in-app browser console at `/?experiment=life`; no errors or warnings were recorded.
-
-final result: passed
+- Browser navigation/load and R1 preparation/R24 combat fixture rendering checked. Console error query returned no errors.
+- This pass did not manually replay a full run or retest every interaction; core placement and combat rules were not changed and remain covered by automated tests.
+- 50 test files / 434 tests and production build passed independently; contrast patch has targeted tests/build and final full regression check.
+- P3: PNG downloads total approximately 4.9MB. Consider lossless/runtime-size asset optimization later; no new paid infrastructure was provisioned.

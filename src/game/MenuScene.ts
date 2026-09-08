@@ -17,6 +17,7 @@ import { HandRank } from '../core/cards/types';
 import { preloadBossSprites } from './bossAssets';
 import { preloadEnemySprites } from './enemyAssets';
 import { preloadRelicSprites } from './relicAssets';
+import { preloadFieldTextures } from './fieldAssets';
 import { isLifeLabLocation } from './experiment';
 import { portraitScale, portraitSceneHeight, portraitY } from './layout';
 import {
@@ -34,6 +35,7 @@ export class MenuScene extends Phaser.Scene {
     preloadBossSprites(this);
     preloadEnemySprites(this);
     preloadRelicSprites(this);
+    preloadFieldTextures(this);
   }
 
   create(): void {
