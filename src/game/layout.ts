@@ -5,21 +5,22 @@ export interface UiRect {
   height: number;
 }
 
-export const PANEL_BOUNDS: UiRect = { x: 798, y: 68, width: 458, height: 640 };
+export const LANDSCAPE_FIELD = { x: 16, y: 84, tile: 50 } as const;
+export const PANEL_BOUNDS: UiRect = { x: 888, y: 76, width: 376, height: 616 };
 
 /** 8px 거터를 가진 고정 패널 구획. 텍스트 길이는 각 영역 안에서 줄바꿈한다. */
 export const PANEL_SECTIONS = {
-  status: { x: 798, y: 68, width: 458, height: 112 },
-  directive: { x: 798, y: 192, width: 458, height: 72 },
-  economy: { x: 798, y: 276, width: 458, height: 120 },
-  build: { x: 798, y: 408, width: 458, height: 150 },
-  utility: { x: 798, y: 570, width: 458, height: 50 },
+  status: { x: 888, y: 76, width: 376, height: 112 },
+  directive: { x: 888, y: 408, width: 376, height: 56 },
+  economy: { x: 888, y: 480, width: 376, height: 52 },
+  build: { x: 888, y: 548, width: 376, height: 76 },
+  utility: { x: 888, y: 644, width: 376, height: 48 },
 } as const satisfies Record<string, UiRect>;
 
-export const BOSS_HUD_BOUNDS: UiRect = { x: 812, y: 136, width: 430, height: 36 };
-export const HAND_PREVIEW_BOUNDS: UiRect = { x: 472, y: 594, width: 250, height: 30 };
-export const HAND_ODDS_BUTTON_BOUNDS: UiRect = { x: 650, y: 616, width: 80, height: 42 };
-export const HAND_ACTION_BOUNDS: UiRect = { x: 472, y: 658, width: 247, height: 48 };
+export const BOSS_HUD_BOUNDS: UiRect = { x: 900, y: 136, width: 352, height: 48 };
+export const HAND_PREVIEW_BOUNDS: UiRect = { x: 900, y: 310, width: 352, height: 34 };
+export const HAND_ODDS_BUTTON_BOUNDS: UiRect = { x: 1176, y: 352, width: 76, height: 40 };
+export const HAND_ACTION_BOUNDS: UiRect = { x: 888, y: 408, width: 376, height: 56 };
 
 export const PORTRAIT_LAYOUT = {
   width: 390,

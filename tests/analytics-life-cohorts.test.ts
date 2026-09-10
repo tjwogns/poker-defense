@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildCohortSql, parseAggregateResponse, parseArgs } from '../scripts/analytics-life-cohorts.mjs';
+import { buildCohortSql, parseAggregateResponse, parseArgs, runCli } from '../scripts/analytics-life-cohorts.mjs';
 
 const directories: string[] = [];
 afterEach(() => { for (const path of directories.splice(0)) rmSync(path, { recursive: true, force: true }); });
@@ -34,6 +34,31 @@ function database() {
 }
 
 describe('read-only LIFE cohort analytics', () => {
+  test.each(['--local', '--remote'])('rejects not-yet-closed UTC windows before %s database invocation', (target) => {
+    const execute = vi.fn();
+    const args = [target, '--from', '2026-09-07', '--as-of', '2026-09-09'];
+    for (const instant of ['2026-09-08T23:59:59.999Z', '2026-09-09T00:13:00+09:00']) {
+      expect(() => runCli(args, { now: () => new Date(instant), execute })).toThrow('closed UTC dates only');
+    }
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test.each(['--local', '--remote'])('allows a closed window at UTC midnight using a fake %s executor', (target) => {
+    const execute = vi.fn(() => ({ status: 0, stdout: '[{"results":[]}]' }));
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      runCli([target, '--from', '2026-09-07', '--as-of', '2026-09-09'], {
+        now: () => new Date('2026-09-09T09:00:00+09:00'), execute,
+      });
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute.mock.calls[0][1]).toContain(target);
+    } finally { output.mockRestore(); }
+  });
+
+  test('SQL generation remains date-independent for future fixture windows', () => {
+    expect(buildCohortSql({ ...options, from: '2099-09-07', asOf: '2099-09-09' })).toContain("julianday('2099-09-09')");
+  });
+
   test('no target prints usage; remote must be explicit and dates are strict', () => {
     expect(parseArgs([])).toBeNull();
     expect(parseArgs(['--from', options.from, '--as-of', options.asOf])).toBeNull();

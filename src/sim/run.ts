@@ -63,6 +63,9 @@ function placementOrder(mapId: MapId): Array<[number, number]> {
 const PLACEMENTS: Record<MapId, Array<[number, number]>> = {
   'classic-ring': placementOrder('classic-ring'),
   'cross-road': placementOrder('cross-road'),
+  'parallel-corridors': placementOrder('parallel-corridors'),
+  'twin-gardens': placementOrder('twin-gardens'),
+  'inward-spiral': placementOrder('inward-spiral'),
 };
 
 /** 홀드 전략: 페어 이상 랭크 그룹 유지, 없으면 4장 플러시 드로우 유지 */

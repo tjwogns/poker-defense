@@ -11,15 +11,15 @@ import {
 } from './layout';
 import { Button, FONT, UI, makeButton, makeText } from './ui';
 import { rerollOdds, RerollOdds } from '../core/cards/odds';
-import { isCompactTouchDevice, isPortraitLayout } from './device';
+import { isPortraitLayout } from './device';
 import { PORTRAIT_BASE_WIDTH, portraitScale, portraitSceneHeight, portraitY } from './layout';
 import { getLocale, handName, tr, unitName } from '../i18n';
 
-const CARD_W = 76;
-const CARD_H = 102;
-const CARD_GAP = 85;
-const BASE_X = 62;
-const BASE_Y = 646;
+const CARD_W = 66;
+const CARD_H = 92;
+const CARD_GAP = 72;
+const BASE_X = 930;
+const BASE_Y = 250;
 
 interface CardView {
   root: Phaser.GameObjects.Container;
@@ -53,7 +53,6 @@ export class HandBar {
     onOdds: (odds: RerollOdds) => void,
   ) {
     this.game = game;
-    const compactTouch = isCompactTouchDevice();
     this.portrait = isPortraitLayout();
     const portraitHeight = portraitSceneHeight(scene);
     const py = (value: number) => portraitY(portraitHeight, value);
@@ -77,7 +76,7 @@ export class HandBar {
         fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: UI.textDim,
       }).setOrigin(0.5).setVisible(false);
     } else {
-      scene.add.rectangle(381, 645, 714, 126, UI.panelDeep, 0.99)
+      scene.add.rectangle(1076, 296, 376, 204, UI.panelDeep, 0.99)
         .setStrokeStyle(1, UI.goldNum, 0.18).setDepth(0.5);
     }
 
@@ -139,7 +138,7 @@ export class HandBar {
     this.oddsBtn.container.setDepth(3);
 
     this.suitBtns = Object.fromEntries((['S', 'H', 'D', 'C'] as Suit[]).map((suit, index) => {
-      const button = makeButton(scene, (this.portrait ? 94 : 488) + index * (this.portrait ? 68 : 58), this.portrait ? py(626) : 638, this.portrait ? 60 : 52, this.portrait ? 36 : compactTouch ? 34 : 30, `${SUIT_GLYPHS[suit]}`, () => {
+      const button = makeButton(scene, (this.portrait ? 94 : 927) + index * (this.portrait ? 68 : 66), this.portrait ? py(626) : 372, this.portrait ? 60 : 54, this.portrait ? 36 : 40, `${SUIT_GLYPHS[suit]}`, () => {
         if (this.game.selectDominantSuit(suit)) onAction('hold');
       }, {
         fill: suit === 'S' ? 0x55708f : suit === 'H' ? 0xa84e62 : suit === 'D' ? 0x9b7a32 : 0x477757,
@@ -149,11 +148,11 @@ export class HandBar {
       return [suit, button];
     })) as Record<Suit, Button>;
 
-    this.exchangeBtn = makeButton(scene, this.portrait ? 64 : 520, this.portrait ? py(702) : 682, this.portrait ? 112 : 96, this.portrait ? 56 : compactTouch ? 52 : 48, tr('교환', 'EXCHANGE'), () => {
+    this.exchangeBtn = makeButton(scene, this.portrait ? 64 : 944, this.portrait ? py(702) : 436, 112, 56, tr('교환', 'EXCHANGE'), () => {
       this.game.doExchange();
       onAction('exchange');
     }, { fill: UI.panelRaised, textColor: UI.text, strokeAlpha: 0.22, radius: 8, fontSize: 14 });
-    this.confirmBtn = makeButton(scene, this.portrait ? 257 : 646, this.portrait ? py(702) : 682, this.portrait ? 254 : 146, this.portrait ? 56 : compactTouch ? 52 : 48, tr('이 패로 확정', 'CONFIRM HAND'), () => {
+    this.confirmBtn = makeButton(scene, this.portrait ? 257 : 1138, this.portrait ? py(702) : 436, this.portrait ? 254 : 252, 56, tr('이 패로 확정', 'CONFIRM HAND'), () => {
       if (this.game.confirmHand(true) !== null) onAction('confirm');
       else this.refresh();
     }, { fill: UI.goldNum, textColor: UI.goldInk, stroke: UI.goldNum, strokeAlpha: 0.5, radius: 8, fontSize: 15 });
@@ -238,10 +237,8 @@ export class HandBar {
     );
     this.confirmBtn.setLabel(needsSuitChoice ? tr('문양 선택 필요', 'CHOOSE A SUIT') : this.portrait ? tr('이 패로 확정', 'CONFIRM HAND') : tr('이 패로 확정\nENTER', 'CONFIRM HAND\nENTER'));
     this.confirmBtn.setEnabled(inPrep && !g.handConfirmed && !needsSuitChoice);
-    if (this.portrait) {
-      this.exchangeBtn.container.setVisible(inPrep && !g.handConfirmed);
-      this.confirmBtn.container.setVisible(inPrep && !g.handConfirmed);
-    }
+    this.exchangeBtn.container.setVisible(inPrep && !g.handConfirmed);
+    this.confirmBtn.container.setVisible(inPrep && !g.handConfirmed);
   }
 
   private refreshOdds(visible: boolean): void {

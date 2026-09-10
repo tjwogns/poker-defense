@@ -18,14 +18,14 @@ import { bossSpriteKey } from './bossAssets';
 import { bossIntroDuration, bossSpriteExtent } from './bossVisualPolicy';
 import { enemySpriteExtent, enemySpriteKey } from './enemyAssets';
 import { isPortraitLayout } from './device';
-import { PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
+import { LANDSCAPE_FIELD, PORTRAIT_BASE_WIDTH, getActivePortraitHeight, portraitScale, portraitY } from './layout';
 import { tr } from '../i18n';
 import { tacticApplies, unitZone } from '../core/handTactics';
 import { drawRoyalGardenField } from './fieldAssets';
 import { SpawnPortalPulse } from './spawnPortal';
 
-export const FIELD_X = 24;
-export const FIELD_Y = 68;
+export const FIELD_X = LANDSCAPE_FIELD.x;
+export const FIELD_Y = LANDSCAPE_FIELD.y;
 
 export interface FieldMetrics {
   x: number;
@@ -37,7 +37,7 @@ export interface FieldMetrics {
 
 export function currentFieldMetrics(): FieldMetrics {
   const portrait = isPortraitLayout();
-  if (!portrait) return { x: FIELD_X, y: FIELD_Y, tile: TILE, scale: 1, portrait };
+  if (!portrait) return { x: FIELD_X, y: FIELD_Y, tile: LANDSCAPE_FIELD.tile, scale: LANDSCAPE_FIELD.tile / TILE, portrait };
   const height = getActivePortraitHeight();
   const tile = 22 * Math.min(1, portraitScale(height));
   const x = (PORTRAIT_BASE_WIDTH - GRID_W * tile) / 2;
@@ -311,7 +311,7 @@ export class FieldRenderer {
       backgroundColor: '#0d0d13e8',
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setDepth(6).setVisible(false);
-    if (this.mapId === 'cross-road') {
+    if (this.mapId !== 'classic-ring') {
       this.escapeWarningText = scene.add.text(0, 0, '', {
         fontFamily: FONT, fontSize: this.metrics.portrait ? '9px' : '12px', fontStyle: 'bold',
         color: '#ff9b96', backgroundColor: '#351316dd', padding: { x: 7, y: 4 },
@@ -417,7 +417,7 @@ export class FieldRenderer {
     const start = corners[0];
     const s = { x: tile * (start.x + 0.5), y: tile * (start.y + 0.5) };
     const spawnRadius = portrait ? 7 : 12;
-    if (this.mapId === 'cross-road') {
+    if (this.mapId !== 'classic-ring') {
       // A single non-text entrance on the actual shared start/end tile.
       g.fillStyle(0x07100b, 0.96);
       g.fillEllipse(fieldX + s.x, fieldY + s.y, tile * 0.58, tile * 0.7);
@@ -425,6 +425,16 @@ export class FieldRenderer {
       g.strokeEllipse(fieldX + s.x, fieldY + s.y, tile * 0.58, tile * 0.7);
       g.lineStyle(1, 0x273c36, 0.95);
       g.strokeEllipse(fieldX + s.x, fieldY + s.y, tile * 0.4, tile * 0.52);
+      const end = corners[corners.length - 1];
+      if (end.x !== start.x || end.y !== start.y) {
+        const ex = fieldX + tile * (end.x + 0.5);
+        const ey = fieldY + tile * (end.y + 0.5);
+        g.fillStyle(0x210d13, 0.96);
+        g.fillEllipse(ex, ey, tile * 0.58, tile * 0.7);
+        g.lineStyle(portrait ? 1.2 : 1.8, 0xffa08f, 0.95);
+        g.strokeEllipse(ex, ey, tile * 0.58, tile * 0.7);
+        g.strokeEllipse(ex, ey, tile * 0.36, tile * 0.46);
+      }
       this.portalG = this.scene.add.graphics().setDepth(0.2);
     } else {
       g.fillStyle(UI.danger, 0.18);
@@ -838,7 +848,7 @@ export class FieldRenderer {
 
   private updateHighlight(game: Game, placingTier: HandRank | null): void {
     this.highlightG.clear();
-    const showIntersection = game.mapId === 'cross-road' && game.relics.includes('crossroad_mark');
+    const showIntersection = game.mapId !== 'classic-ring' && game.relics.includes('crossroad_mark');
     this.intersectionMarkText?.setVisible(showIntersection);
     if (showIntersection) {
       const center = tileCenter(CROSSROAD_INTERSECTION_TILE.x, CROSSROAD_INTERSECTION_TILE.y);
@@ -900,9 +910,9 @@ export class FieldRenderer {
         const canReach = tileCanReachPath(tile.tx, tile.ty, def.range, game.mapId);
         const color = canReach ? UI.goldNum : UI.danger;
         this.rangeG.fillStyle(color, 0.05);
-        this.rangeG.fillCircle(FIELD_X + p.x, FIELD_Y + p.y, 5);
+        this.rangeG.fillCircle(this.metrics.x + p.x * this.metrics.scale, this.metrics.y + p.y * this.metrics.scale, 5 * this.metrics.scale);
         this.rangeG.lineStyle(1, color, 0.3);
-        this.rangeG.strokeCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
+        this.rangeG.strokeCircle(this.metrics.x + p.x * this.metrics.scale, this.metrics.y + p.y * this.metrics.scale, def.range * this.metrics.tile);
       }
       return;
     }
@@ -912,9 +922,9 @@ export class FieldRenderer {
     const p = unitPos(unit);
     const def = UNIT_DEFS[unit.tier];
     this.rangeG.fillStyle(UI.goldNum, 0.03);
-    this.rangeG.fillCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
+    this.rangeG.fillCircle(this.metrics.x + p.x * this.metrics.scale, this.metrics.y + p.y * this.metrics.scale, def.range * this.metrics.tile);
     this.rangeG.lineStyle(1, UI.goldNum, 0.18);
-    this.rangeG.strokeCircle(FIELD_X + p.x, FIELD_Y + p.y, def.range * TILE);
+    this.rangeG.strokeCircle(this.metrics.x + p.x * this.metrics.scale, this.metrics.y + p.y * this.metrics.scale, def.range * this.metrics.tile);
   }
 
   private updateFx(fx: Fx[], dt: number): void {

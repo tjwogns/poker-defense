@@ -19,7 +19,7 @@ import { preloadBossSprites } from './bossAssets';
 import { preloadEnemySprites } from './enemyAssets';
 import { preloadRelicSprites } from './relicAssets';
 import { preloadFieldTextures } from './fieldAssets';
-import { isLifeLabLocation } from './experiment';
+import { battlefieldExperiment, isLifeLabLocation } from './experiment';
 import { portraitScale, portraitSceneHeight, portraitY, setActivePortraitHeight } from './layout';
 import { MenuViewportRefresh, viewportCanvasLayout } from './viewportLayout';
 import {
@@ -75,6 +75,12 @@ export class MenuScene extends Phaser.Scene {
     bootSplash?.classList.add('ready');
     window.setTimeout(() => bootSplash?.remove(), 320);
 
+    const experiment = battlefieldExperiment(window.location.search, window.location.pathname);
+    if (experiment) {
+      this.viewportRefresh.dispose();
+      this.scene.start('battlefields', experiment);
+      return;
+    }
     let profile = ensureLeaderboardIdentity(loadProfile(localStorage), undefined, getLocale());
     saveProfile(localStorage, profile);
     const lifeLab = isLifeLabLocation();

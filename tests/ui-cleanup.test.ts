@@ -45,6 +45,27 @@ function panel(game: Game, portrait: boolean): any {
 }
 
 describe('quiet play UI', () => {
+  test('desktop action lane belongs exclusively to hand picking, placement or combat', () => {
+    const game = new Game(250, 'life-economy');
+    const hand: any = Object.create(HandBar.prototype);
+    hand.game = game; hand.portrait = false;
+    hand.cards = game.hand.map(() => ({ root: sink(), corner: sink(), suit: sink(), holdTag: sink(), bg: sink(), shadow: sink() }));
+    hand.preview = sink(); hand.suitBtns = {}; hand.refreshOdds = () => {};
+    hand.exchangeBtn = { container: sink(), setLabel: vi.fn(), setEnabled: vi.fn() };
+    hand.confirmBtn = { container: sink(), setLabel: vi.fn(), setEnabled: vi.fn() };
+    const ui = panel(game, false);
+    const check = (picking: boolean, directive: boolean, start: boolean) => {
+      hand.refresh(); ui.refresh(null, 1, false, true, 'standard');
+      expect(hand.exchangeBtn.container.visible).toBe(picking);
+      expect(hand.confirmBtn.container.visible).toBe(picking);
+      expect(ui.directiveTitle.visible).toBe(directive);
+      expect(ui.startBtn.container.visible).toBe(start);
+    };
+    check(true, false, false);
+    game.confirmHand(); check(false, true, false);
+    game.pendingUnits = []; check(false, false, true);
+    game.startCombat(); check(false, false, true);
+  });
   test.each([720, 802, 844, 866, 920])('compact inspector avoids boss HUD and combat/utility buttons at height %s', (height) => {
     const inspector = portraitCombatInspectorBounds(height);
     expect(inspector.y).toBeGreaterThan(portraitY(height, 382) + 58);

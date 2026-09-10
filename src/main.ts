@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PlayScene } from './game/PlayScene';
 import { MenuScene } from './game/MenuScene';
+import { BattlefieldScene } from './game/BattlefieldScene';
 import { setActiveLayoutMode } from './game/device';
 import { installRendererRecovery } from './game/rendererRecovery';
 import { readStoredRendererMode, shouldUseCanvasRenderer } from './game/rendererPolicy';
@@ -40,7 +41,7 @@ async function boot(): Promise<void> {
     parent: 'app',
     backgroundColor: '#0a0a0f',
     roundPixels: pixelArtPreview,
-    scene: [MenuScene, PlayScene],
+    scene: [MenuScene, PlayScene, BattlefieldScene],
     scale: {
       mode: Phaser.Scale.FIT,
       // #app owns centering (including safe-area padding). Phaser margins would center twice.

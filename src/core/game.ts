@@ -19,7 +19,7 @@ import {
 import {
   Field, TickResult, Unit, addUnit, aliveEnemies, createField, spawnEnemy, tick,
 } from './combat';
-import { MapId, isPlaceable, pathLength, tileCanReachPath } from './map';
+import { MapId, isBattlefieldMapId, isPlaceable, pathLength, tileCanReachPath } from './map';
 import { UNIT_DEFS } from './units';
 import {
   RelicId,
@@ -210,11 +210,13 @@ export class Game {
   private roundLifeDamageStart = 0;
   private formationRoundEscaped = 0;
 
-  constructor(seed: number, ruleset: GameRuleset = 'classic', crownLevel: CrownLevel = 0) {
+  constructor(seed: number, ruleset: GameRuleset = 'classic', crownLevel: CrownLevel = 0, experimentalMap?: MapId) {
     this.seed = seed;
     this.ruleset = ruleset;
     this.crownLevel = crownLevel;
-    this.mapId = ruleset === 'life-economy' ? 'cross-road' : 'classic-ring';
+    this.mapId = ruleset === 'life-economy'
+      ? isBattlefieldMapId(experimentalMap) ? experimentalMap : 'cross-road'
+      : 'classic-ring';
     this.field = createField(this.mapId);
     this.lives = ruleset === 'life-economy' ? LIFE_MODE_STARTING_LIVES : 0;
     this.rng = mulberry32(seed);

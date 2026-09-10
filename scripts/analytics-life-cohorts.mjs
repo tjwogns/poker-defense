@@ -148,10 +148,19 @@ export function parseAggregateResponse(stdout) {
   }
 }
 
-export function runCli(args) {
+export function assertClosedUtcAsOf(asOf, now = new Date()) {
+  if (!Number.isFinite(now.getTime()) || asOf > now.toISOString().slice(0, 10)) {
+    throw new Error('closed UTC dates only');
+  }
+}
+
+export function runCli(args, { now = () => new Date(), execute = spawnSync } = {}) {
   const options = parseArgs(args);
   if (!options) { console.log(USAGE); return; }
-  const result = spawnSync(process.platform === 'win32' ? 'node_modules/.bin/wrangler.cmd' : './node_modules/.bin/wrangler',
+  // Reject incomplete/future calendar windows before touching either database target.
+  // The pure SQL builder deliberately has no wall-clock dependency for fixtures.
+  assertClosedUtcAsOf(options.asOf, now());
+  const result = execute(process.platform === 'win32' ? 'node_modules/.bin/wrangler.cmd' : './node_modules/.bin/wrangler',
     ['d1', 'execute', 'royal-siege-leaderboard', options.target, '--json', '--command', buildCohortSql(options)],
     { cwd: new URL('../leaderboard-worker/', import.meta.url), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
   if (result.error || result.status !== 0) throw new Error('Read-only cohort query failed. Check the selected database and migrations; no raw response was printed.');

@@ -118,15 +118,17 @@ describe('play UI layout', () => {
     expect(BOSS_HUD_BOUNDS.y + BOSS_HUD_BOUNDS.height).toBeLessThanOrEqual(status.y + status.height);
   });
 
-  test('카드 결과 안내는 우측 패널 경계를 침범하지 않는다', () => {
-    expect(HAND_PREVIEW_BOUNDS.x + HAND_PREVIEW_BOUNDS.width).toBeLessThanOrEqual(PANEL_BOUNDS.x - 12);
-    expect(HAND_PREVIEW_BOUNDS.y).toBeGreaterThanOrEqual(582);
-    expect(HAND_PREVIEW_BOUNDS.y + HAND_PREVIEW_BOUNDS.height).toBeLessThanOrEqual(708);
+  test('가로 카드 결과 안내는 우측 패널 내부에 머문다', () => {
+    expect(HAND_PREVIEW_BOUNDS.x).toBeGreaterThanOrEqual(PANEL_BOUNDS.x);
+    expect(HAND_PREVIEW_BOUNDS.x + HAND_PREVIEW_BOUNDS.width).toBeLessThanOrEqual(PANEL_BOUNDS.x + PANEL_BOUNDS.width);
+    expect(HAND_PREVIEW_BOUNDS.y).toBeGreaterThanOrEqual(310);
+    expect(HAND_PREVIEW_BOUNDS.y + HAND_PREVIEW_BOUNDS.height).toBeLessThanOrEqual(344);
   });
 
   test('전체 확률 버튼·행동 버튼은 서로 겹치지 않는다', () => {
     expect(rectsOverlap(HAND_ODDS_BUTTON_BOUNDS, HAND_ACTION_BOUNDS)).toBe(false);
-    expect(HAND_ODDS_BUTTON_BOUNDS.x + HAND_ODDS_BUTTON_BOUNDS.width).toBeLessThan(PANEL_BOUNDS.x);
+    expect(HAND_ODDS_BUTTON_BOUNDS.x).toBeGreaterThanOrEqual(PANEL_BOUNDS.x);
+    expect(HAND_ODDS_BUTTON_BOUNDS.x + HAND_ODDS_BUTTON_BOUNDS.width).toBeLessThanOrEqual(PANEL_BOUNDS.x + PANEL_BOUNDS.width);
   });
 });
 

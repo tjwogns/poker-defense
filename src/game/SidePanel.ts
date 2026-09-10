@@ -174,49 +174,47 @@ export class SidePanel {
     this.buildCard = railCard(scene, PANEL_SECTIONS.build).setVisible(false);
     railCard(scene, PANEL_SECTIONS.utility);
 
-    this.settlementText = makeText(scene, 816, 90, '', 12, UI.gold, true).setWordWrapWidth(420, true);
-    this.formationMasteryText = makeText(scene, 816, 90, '', 12, '#8fd8ff', true);
+    this.settlementText = makeText(scene, 900, 84, '', 11, UI.gold, true).setWordWrapWidth(352, true);
+    this.formationMasteryText = makeText(scene, 900, 84, '', 11, '#8fd8ff', true).setWordWrapWidth(352, true);
 
 
-    scene.add.circle(832, 228, 18, UI.goldNum, 0.15).setStrokeStyle(1, UI.goldNum, 0.35);
-    makeText(scene, 832, 228, '◆', 12, UI.gold, true).setOrigin(0.5);
-    this.directiveTitle = makeText(scene, 862, 207, '', 15, UI.text, true);
-    this.directiveBody = makeText(scene, 862, 230, '', 11, UI.textDim);
-    this.startBtn = makeButton(scene, 1027, 228, 438, 60, '', cb.onStart, {
+    this.directiveTitle = makeText(scene, 900, 417, '', 14, UI.text, true).setWordWrapWidth(352, true);
+    this.directiveBody = makeText(scene, 900, 440, '', 10, UI.textDim).setWordWrapWidth(352, true);
+    this.startBtn = makeButton(scene, 1076, 436, 376, 56, '', () => {
+      if (this.game.phase === 'combat') cb.onPause(); else cb.onStart();
+    }, {
       fill: UI.panelRaised, textColor: UI.text, fontSize: 15, radius: 8, stroke: UI.goldNum, strokeAlpha: 0.2,
     });
     this.startBtn.container.setVisible(false);
 
-    makeText(scene, 816, 292, 'GOLD SPEND', 10, UI.textDim, true).setLetterSpacing(2);
-    this.interestText = makeText(scene, 1238, 292, '', 11, UI.textFaint).setOrigin(1, 0);
-    scene.add.rectangle(1027, 320, 422, 1, 0xf2ede3, 0.07);
-    makeText(scene, 816, 338, tr('전역 공격 강화', 'GLOBAL DAMAGE UPGRADE'), 14, UI.text, true);
-    this.upgradeSub = makeText(scene, 816, 361, '', 11, UI.textDim);
-    this.upgradeBtn = makeButton(scene, 1208, 354, 68, 40, '', cb.onUpgrade, {
+    this.interestText = makeText(scene, 1148, 488, '', 9, UI.textFaint).setOrigin(1, 0);
+    makeText(scene, 900, 488, tr('전역 공격 강화', 'GLOBAL DAMAGE'), 12, UI.text, true);
+    this.upgradeSub = makeText(scene, 900, 508, '', 10, UI.textDim);
+    this.upgradeBtn = makeButton(scene, 1212, 506, 80, 40, '', cb.onUpgrade, {
       fill: UI.panelRaised, textColor: UI.gold, fontSize: 13, radius: 6, stroke: UI.goldNum, strokeAlpha: 0.5,
     });
 
-    this.buildTitle = makeText(scene, 816, 424, 'BUILD', 10, UI.textDim, true).setLetterSpacing(2).setVisible(false);
-    this.buildCount = scene.add.text(1238, 424, '', {
+    this.buildTitle = makeText(scene, 900, 554, 'BUILD', 9, UI.textDim, true).setLetterSpacing(2).setVisible(false);
+    this.buildCount = scene.add.text(1252, 554, '', {
       fontFamily: FONT_MONO, fontSize: '11px', color: UI.textFaint,
     }).setOrigin(1, 0);
-    this.buildText = makeText(scene, 816, 508, '', 11, UI.textDim, true)
-      .setWordWrapWidth(410, true).setLineSpacing(4);
-    this.relicTriggerText = makeText(scene, 816, 540, '', 10, UI.gold, true).setAlpha(0).setDepth(7);
+    this.buildText = makeText(scene, 900, 609, '', 10, UI.textDim, true)
+      .setWordWrapWidth(352, true).setLineSpacing(0);
+    this.relicTriggerText = makeText(scene, 900, 629, '', 10, UI.gold, true).setAlpha(0).setDepth(7);
 
-    this.deckBtn = makeButton(scene, 872, 595, 140, 48, tr('덱 · D', 'DECK · D'), cb.onDeck, {
+    this.deckBtn = makeButton(scene, 948, 668, 116, 48, tr('덱 · D', 'DECK · D'), cb.onDeck, {
       fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 0, strokeAlpha: 0.14,
     });
-    this.guideBtn = makeButton(scene, 1027, 595, 140, 48, tr('도감 · H', 'GUIDE · H'), cb.onGuide, {
+    this.guideBtn = makeButton(scene, 1076, 668, 116, 48, tr('도감 · H', 'GUIDE · H'), cb.onGuide, {
       fill: UI.panelDeep, textColor: UI.textDim, fontSize: 13, radius: 0, strokeAlpha: 0.14,
     });
-    this.speedBtn = makeButton(scene, 1182, 595, 140, 48, '×1  ×2  ×4', () => {
+    this.speedBtn = makeButton(scene, 1204, 668, 116, 48, '×1  ×2  ×4', () => {
       const current = SPEEDS.indexOf((this.speedBtn.container.getData('speed') ?? 1) as 1 | 2 | 4);
       cb.onSpeed(SPEEDS[(current + 1) % SPEEDS.length]);
     }, { fill: UI.panelDeep, textColor: UI.textDim, fontSize: 12, radius: 0, strokeAlpha: 0.14 });
-    this.combatText = makeText(scene, 816, 638, '', 11, UI.textDim).setWordWrapWidth(420, true);
-    this.tacticText = makeText(scene, 816, 654, '', 10, '#b7e5ff', true).setWordWrapWidth(420, true);
-    this.wagerText = makeText(scene, 816, 670, '', 10, UI.gold, true).setWordWrapWidth(420, true);
+    this.combatText = makeText(scene, 24, 697, '', 10, UI.textDim).setWordWrapWidth(842, true);
+    this.tacticText = makeText(scene, 16, 64, '', 10, '#b7e5ff', true).setWordWrapWidth(510, true);
+    this.wagerText = makeText(scene, 536, 64, '', 10, UI.gold, true).setWordWrapWidth(330, true);
 
     const inspectorBg = scene.add.rectangle(646, 382, 240, 172, UI.panelDeep, 0.98)
       .setStrokeStyle(1, UI.goldNum, 0.28).setDepth(10);
@@ -456,9 +454,9 @@ export class SidePanel {
     this.refreshCurrentStatus();
 
     const readyToStart = inPrep && g.handConfirmed && g.pendingUnits.length === 0;
-    this.startBtn.container.setVisible(readyToStart);
-    this.directiveTitle.setVisible(!readyToStart);
-    this.directiveBody.setVisible(!readyToStart);
+    this.startBtn.container.setVisible(readyToStart || g.phase === 'combat');
+    this.directiveTitle.setVisible(inPrep && g.handConfirmed && !readyToStart);
+    this.directiveBody.setVisible(inPrep && g.handConfirmed && !readyToStart);
     if (!inPrep) {
       this.directiveTitle.setText(paused ? tr('전투가 일시정지되었습니다', 'COMBAT PAUSED') : tr('전투 진행 중', 'COMBAT IN PROGRESS'));
       this.directiveBody.setText(paused ? tr('SPACE로 계속합니다', 'Press SPACE to resume') : tr(`×${speed} 배속 · SPACE 일시정지`, `×${speed} speed · SPACE to pause`));
@@ -474,7 +472,7 @@ export class SidePanel {
       this.directiveBody.setText(tr('다음 웨이브를 시작할 수 있습니다', 'Start the next wave when ready'));
     }
     this.startBtn.setFill(UI.goldNum, UI.goldInk);
-    this.startBtn.setLabel(tr('전투 시작  ▶', 'START COMBAT  ▶'));
+    this.startBtn.setLabel(g.phase === 'combat' ? paused ? tr('전투 계속 ▶', 'RESUME ▶') : tr('전투 일시정지 Ⅱ', 'PAUSE Ⅱ') : tr('전투 시작  ▶', 'START COMBAT  ▶'));
 
     this.interestText.setText(tr(`다음 이자 +${g.interestNow}G`, `NEXT INTEREST +${g.interestNow}G`));
     this.upgradeSub.setText(`Lv${g.upgradeLevel} · ×${g.dmgMult.toFixed(2)} → ×${upgradeMultiplier(g.upgradeLevel + 1).toFixed(2)}`);
@@ -485,7 +483,7 @@ export class SidePanel {
     const relicIconIds = g.relics.join(',');
     if (relicIconIds !== this.relicIconIds) {
       this.relicIcons.forEach((icon) => icon.destroy(true));
-      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 834 + index * 46, 468, 36).setDepth(3));
+      this.relicIcons = g.relics.map((id, index) => createRelicIcon(this.scene, id, 920 + index * 46, 586, 30).setDepth(3));
       this.relicIconIds = relicIconIds;
     }
     const masteries = MASTERABLE_HANDS.filter((rank) => g.handMastery[rank] > 0).slice(0, 2)

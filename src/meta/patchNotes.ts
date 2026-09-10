@@ -9,14 +9,33 @@ export interface PatchNote {
   }[];
 }
 
-export const CURRENT_VERSION = 'v2.9.5';
+export const CURRENT_VERSION = 'v2.9.6';
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: 'v2.9.6',
+    title: 'MORE ROOM TO DEFEND',
+    date: '2026-09-10',
+    current: true,
+    sections: [{
+      heading: '넓어진 가로 전장과 별도 전장 실험실',
+      items: [
+        '가로 화면의 전장을 850×600으로 확대하고 패 선택·교환·확정·강화·배속을 오른쪽에 모음',
+        '준비와 전투에서 같은 전장 크기를 유지하며 클릭·사거리·공격 효과 좌표를 확대 비율에 맞춤',
+        '초반 안내를 전장 밖으로 옮기고 패 선택·배치·전투 버튼이 서로 겹치지 않도록 정리',
+        '별도 전장 실험실에서 교차로 기준 맵과 68타일 평행 회랑·안쪽 나선을 같은 패 묶음으로 비교 가능',
+        '실험 전장의 간격과 외곽을 정렬하고 실제 경로 길이·배치 칸 수·경로별 체감 난도 차이를 안내',
+        '실험 기록·학습·사운드 설정은 메모리에서만 처리하며 정식 분석·랭킹·결과 공유와 분리',
+        '실험 재도전은 같은 맵·패 묶음을 유지하고 전장 선택 또는 정식 메뉴로 돌아갈 수 있음',
+        '세로 화면·정식 경로·적과 유닛 수치·경제·승패 규칙은 유지',
+        'LIFE 측정 도구는 아직 닫히지 않은 UTC 날짜를 마감일로 사용하지 못하도록 조회 전에 검사',
+      ],
+    }],
+  },
   {
     version: 'v2.9.5',
     title: 'FIRST STEPS, STEADY SCREENS',
     date: '2026-09-08',
-    current: true,
     sections: [{
       heading: '다음 행동은 명확하게, 화면은 안정적으로',
       items: [

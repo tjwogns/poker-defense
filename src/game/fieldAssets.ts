@@ -18,7 +18,7 @@ export function drawRoyalGardenField(
   mapId: MapId,
   metrics: { x: number; y: number; tile: number },
 ): boolean {
-  if (mapId !== 'cross-road'
+  if (mapId === 'classic-ring'
     || !Object.values(FIELD_TEXTURES).every(({ key }) => scene.textures.exists(key))) return false;
   const { x, y, tile } = metrics;
   scene.add.image(x, y, FIELD_TEXTURES.ground.key)

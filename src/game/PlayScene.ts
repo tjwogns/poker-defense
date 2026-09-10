@@ -13,7 +13,7 @@ import {
   RELIC_DEFS, RELIC_RARITY_COLORS, RELIC_RARITY_LABELS, RELIC_SLOT_CAP, RelicId, relicSellPrice,
 } from '../core/relics';
 import {
-  dailyDate, discoverHiddenHand, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile,
+  dailyDate, discoverHiddenHand, ensureLeaderboardIdentity, loadProfile, Profile, recordRun, RunMode, saveProfile, StorageLike,
 } from '../meta/profile';
 import { AudioManager } from './AudioManager';
 import { BossHud } from './BossHud';
@@ -36,7 +36,7 @@ import { isCompactTouchDevice, isPortraitLayout } from './device';
 import { attackFxBudget, canCreateTacticFeedback, tacticFeedbackBudget, totalFxBudget } from './fxBudget';
 import { createRelicIcon } from './relicAssets';
 import { HAND_VARIANT_LABELS, suitIdentityLabel, SUIT_COLORS } from '../core/cards/handIdentity';
-import { isLifeLabLocation } from './experiment';
+import { BattlefieldExperiment, battlefieldExperiment, battlefieldRunLabel, createBattlefieldSandbox, isLifeLabLocation } from './experiment';
 import { PORTRAIT_HEADER_TOAST_LANE, portraitSceneHeight, portraitToastFontSize, portraitY } from './layout';
 import {
   getLocale, handName, handVariantName, relicDescription, relicName, relicRarityName,
@@ -52,6 +52,9 @@ import { createHandTactic, HAND_TACTIC_COMPACT_COPY, HAND_TACTIC_COPY } from '..
 const DT = 1 / TICK_RATE;
 
 export class PlayScene extends Phaser.Scene {
+  private experiment: BattlefieldExperiment | null = null;
+  private profileStorage!: StorageLike;
+  private experimentBadge?: Phaser.GameObjects.Text;
   private core!: Game;
   private fieldView!: FieldRenderer;
   private handBar!: HandBar;
@@ -119,19 +122,24 @@ export class PlayScene extends Phaser.Scene {
     super('play');
   }
 
-  init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean; crownLevel?: CrownLevel }): void {
+  init(data: { seed?: number; mode?: RunMode; date?: string; retry?: boolean; crownLevel?: CrownLevel; experiment?: BattlefieldExperiment }): void {
+    const optedIn = battlefieldExperiment(window.location.search, window.location.pathname);
+    this.experiment = optedIn && data.experiment
+      ? battlefieldExperiment(`?experiment=battlefields&map=${encodeURIComponent(data.experiment.mapId)}&seed=${data.experiment.seed}`) : null;
+    const sandbox = this.experiment ? createBattlefieldSandbox(localStorage) : null;
+    this.profileStorage = sandbox?.storage ?? localStorage;
     this.portraitToastActive = false;
     this.portraitToastQueue = [];
-    this.seedValue = data.seed ?? Date.now() >>> 0;
-    this.mode = data.mode ?? 'standard';
+    this.seedValue = this.experiment?.seed ?? data.seed ?? Date.now() >>> 0;
+    this.mode = this.experiment ? 'standard' : data.mode ?? 'standard';
     // 오늘의 도전은 모두가 같은 기본 난이도로 경쟁한다. 일반 원정은
     // LIFE 규칙에서도 해금한 왕관 단계를 그대로 사용한다.
-    this.crownLevel = data.mode === 'daily' ? 0 : data.crownLevel ?? 0;
+    this.crownLevel = this.experiment || data.mode === 'daily' ? 0 : data.crownLevel ?? 0;
     this.runDate = data.date ?? dailyDate();
     const lifeLab = isLifeLabLocation();
-    const startingProfile = loadProfile(localStorage);
+    const startingProfile = loadProfile(this.profileStorage);
     this.firstRun = !startingProfile.tutorialDone;
-    this.analytics = getAnalytics();
+    this.analytics = sandbox?.analytics ?? getAnalytics();
     this.runId = this.analytics.beginRun({
       mode: this.mode,
       retry: data.retry ?? false,
@@ -149,7 +157,7 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     if (isPortraitLayout()) this.cameras.main.setBackgroundColor('#0a0a0f');
     const localLifeExperiment = isLifeLabLocation();
-    this.core = new Game(this.seedValue, localLifeExperiment ? 'life-economy' : 'classic', this.crownLevel);
+    this.core = new Game(this.seedValue, localLifeExperiment ? 'life-economy' : 'classic', this.crownLevel, this.experiment?.mapId);
     this.speed = 1;
     this.acc = 0;
     this.fx = [];
@@ -185,8 +193,8 @@ export class PlayScene extends Phaser.Scene {
     this.wagerState = createRoyalWagerState(null);
     this.wagerChoiceMade = false;
     this.wagerOfferedIds = royalWagerOffers(this.seedValue).map(({ id }) => id);
-    this.profile = ensureLeaderboardIdentity(loadProfile(localStorage), undefined, getLocale());
-    const localVisualTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+    this.profile = ensureLeaderboardIdentity(loadProfile(this.profileStorage), undefined, getLocale());
+    const localVisualTest = !this.experiment && ['127.0.0.1', 'localhost'].includes(window.location.hostname)
       ? new URLSearchParams(window.location.search).get('visualTest')
       : null;
     if (localVisualTest === 'ui-clean-prep' || localVisualTest === 'ui-clean-boss') {
@@ -397,7 +405,7 @@ export class PlayScene extends Phaser.Scene {
       this.core.defeatReason = 'life-depleted';
       this.core.phase = 'defeat';
     }
-    saveProfile(localStorage, this.profile);
+    saveProfile(this.profileStorage, this.profile);
     this.audio = new AudioManager(this.profile.soundEnabled);
 
     this.fieldView = new FieldRenderer(this, this.core.mapId);
@@ -468,6 +476,13 @@ export class PlayScene extends Phaser.Scene {
     });
     this.bossHud = new BossHud(this);
     this.firstRunCoach = new FirstRunCoach(this);
+    this.experimentBadge = undefined;
+    if (this.experiment) {
+      const portrait = isPortraitLayout();
+      this.experimentBadge = makeText(this, portrait ? 195 : 24, portrait ? 24 : 47,
+        battlefieldRunLabel(this.experiment.mapId, getLocale() === 'en'), portrait ? 12 : 10, UI.gold, true)
+        .setOrigin(portrait ? .5 : 0, portrait ? .5 : 0).setDepth(5);
+    }
 
     this.input.on(
       'pointerdown',
@@ -591,6 +606,8 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number): void {
+    // Reuse the idle toast lane; announcements and modal/result overlays retain priority.
+    this.experimentBadge?.setVisible(!this.portraitToastActive && !this.ended);
     // 일부 Windows Chrome 환경은 탭 복귀 시 focus 이벤트를 누락한다.
     // 실제로 보이는 활성 문서라면 게임 루프에서 한 번 더 자동 정지를 복구한다.
     if (this.backgroundPaused && !document.hidden && document.hasFocus()) {
@@ -803,7 +820,7 @@ export class PlayScene extends Phaser.Scene {
       newlyDiscovered = discovery.discovered;
       if (newlyDiscovered) {
         this.profile = discovery.profile;
-        saveProfile(localStorage, this.profile);
+        saveProfile(this.profileStorage, this.profile);
       }
     }
     if (this.core.handConfirmed && rank !== null && rank >= HandRank.FullHouse) {
@@ -924,7 +941,7 @@ export class PlayScene extends Phaser.Scene {
   private toggleSound(): void {
     this.audio.setEnabled(!this.audio.enabled);
     this.profile.soundEnabled = this.audio.enabled;
-    saveProfile(localStorage, this.profile);
+    saveProfile(this.profileStorage, this.profile);
     if (this.audio.enabled) this.audio.play('click');
     this.refreshUI();
   }
@@ -1051,7 +1068,7 @@ export class PlayScene extends Phaser.Scene {
       || this.core.field.units.length > 0
       || this.core.pendingUnits.length > 0;
     if (!hasProgress) {
-      this.scene.start('menu');
+      this.returnToSelection();
       return;
     }
     this.exitWasPaused = this.paused;
@@ -1060,10 +1077,15 @@ export class PlayScene extends Phaser.Scene {
     this.exitOverlay = new ExitConfirmOverlay(
       this,
       () => this.closeExitConfirm(),
-      () => this.scene.start('menu'),
+      () => this.returnToSelection(),
     );
     this.audio.play('click');
     this.refreshUI();
+  }
+
+  private returnToSelection(): void {
+    if (this.experiment) this.scene.start('battlefields', this.experiment);
+    else this.scene.start('menu');
   }
 
   private closeExitConfirm(): void {
@@ -1800,7 +1822,7 @@ export class PlayScene extends Phaser.Scene {
     this.firstRunCoach.refresh(this.core, false);
     this.abandonedTracked = true;
     const won = this.core.phase === 'victory';
-    const endMessage = won
+    const endMessage = this.experiment ? tr('전장 실험 종료 · 정식 기록에 반영되지 않습니다', 'EXPERIMENT ENDED · RECORDS ARE NOT SAVED') : won
       ? this.core.crownLevel > 0
         ? this.core.crownLevel < CROWN_MAX_LEVEL
           ? tr(`왕관 ${this.core.crownLevel}개의 최종 보스를 격파하고 다음 왕관을 해금했습니다`, `CROWN ${this.core.crownLevel} CLEARED · NEXT CROWN UNLOCKED`)
@@ -1815,7 +1837,7 @@ export class PlayScene extends Phaser.Scene {
         : tr(`라운드 ${this.core.round}에서 필드가 뚫렸습니다`, `THE FIELD FELL IN ROUND ${this.core.round}`);
     this.audio.play(won ? 'win' : 'lose');
     this.profile = recordRun(this.profile, this.core.summary(), this.mode, this.runDate);
-    saveProfile(localStorage, this.profile);
+    saveProfile(this.profileStorage, this.profile);
     const analysis = won ? null : analyzeDefeat({
       reason: this.core.defeatReason,
       round: this.core.round,
@@ -1913,12 +1935,12 @@ export class PlayScene extends Phaser.Scene {
         bossHpPercent: analysis.bossHpPercent,
       } : {}),
     }, this.runId);
-    this.renderEndFeedback(centerX, portrait, py, won ? 'victory' : 'defeat', summary.round);
+    if (!this.experiment) this.renderEndFeedback(centerX, portrait, py, won ? 'victory' : 'defeat', summary.round);
     const date = this.runDate;
     const btn = makeButton(this, centerX, portrait ? py(700) : won ? 474 : 510, portrait ? 330 : 220, portrait ? 60 : 52, retryRunLabel(this.mode === 'daily'), () => {
       this.analytics.track('retry_clicked', { mode: this.mode, round: summary.round }, this.runId);
-      const nextSeed = this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
-      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true, crownLevel: this.core.crownLevel });
+      const nextSeed = this.experiment || this.mode === 'daily' ? this.seedValue : (this.seedValue * 31 + 17) >>> 0;
+      this.scene.restart({ seed: nextSeed, mode: this.mode, date: this.runDate, retry: true, crownLevel: this.core.crownLevel, experiment: this.experiment ?? undefined });
     }, {
       fill: portrait ? UI.goldNum : UI.accent,
       textColor: portrait ? UI.goldInk : UI.goldInk,
@@ -1930,7 +1952,7 @@ export class PlayScene extends Phaser.Scene {
     const actionY = portrait ? py(770) : won ? 536 : 568;
     // 정식 LIFE 규칙과 클래식 보존판의 점수가 한 랭킹에 섞이지 않도록
     // 온라인 일일 랭킹 등록은 현재 정식 규칙에서만 허용한다.
-    if (this.mode === 'daily' && this.core.lifeMode) {
+    if (!this.experiment && this.mode === 'daily' && this.core.lifeMode) {
       const ranking = makeButton(this, portrait ? centerX : 384, portrait ? py(632) : actionY, portrait ? 330 : 220, portrait ? 44 : 42, tr('일일 랭킹 등록', 'SUBMIT DAILY SCORE'), async () => {
         ranking.setEnabled(false);
         ranking.setLabel(tr('등록 중…', 'SUBMITTING…'));
@@ -1960,6 +1982,7 @@ export class PlayScene extends Phaser.Scene {
         ranking.setEnabled(false);
       }
     }
+    if (!this.experiment) {
     const shareX = portrait ? 75 : this.mode === 'daily' ? 640 : 512;
     const cardX = portrait ? 195 : this.mode === 'daily' ? 896 : 768;
     const share = makeButton(this, shareX, actionY, portrait ? 102 : 220, portrait ? 50 : 42, portrait ? tr('공유', 'SHARE') : tr('결과 공유', 'SHARE RESULT'), async () => {
@@ -1977,7 +2000,9 @@ export class PlayScene extends Phaser.Scene {
       this.flashCenter(tr('PNG 카드를 저장했습니다', 'PNG CARD SAVED'), 0x6ca4d9, 24);
     }, { fill: 0x6ca4d9, fontSize: 14 });
     card.container.setDepth(22);
-    const home = makeButton(this, portrait ? 315 : 640, portrait ? actionY : won ? 594 : 626, portrait ? 102 : 180, portrait ? 50 : 40, portrait ? tr('메인', 'MENU') : tr('메인으로', 'MAIN MENU'), () => this.scene.start('menu'), { fill: 0x42544a });
+    }
+    if (this.experiment) btn.setLabel(tr('같은 패로 재도전', 'RETRY SAME DEAL'));
+    const home = makeButton(this, this.experiment ? centerX : portrait ? 315 : 640, portrait ? actionY : won ? 594 : 626, this.experiment ? 220 : portrait ? 102 : 180, portrait ? 50 : 40, this.experiment ? tr('전장 선택', 'BATTLEFIELDS') : portrait ? tr('메인', 'MENU') : tr('메인으로', 'MAIN MENU'), () => this.returnToSelection(), { fill: 0x42544a });
     home.container.setDepth(22);
   }
 
@@ -2151,7 +2176,7 @@ export class PlayScene extends Phaser.Scene {
     this.lastTrackedRound = this.core.round;
     if (this.firstRun && !this.profile.tutorialDone && this.core.round >= 2) {
       this.profile.tutorialDone = true;
-      saveProfile(localStorage, this.profile);
+      saveProfile(this.profileStorage, this.profile);
       this.trackOnboardingStep('first_combat_cleared');
       this.analytics.track('tutorial_finished', {
         result: 'completed', round: this.core.round, firstRun: true, tutorialDone: true,

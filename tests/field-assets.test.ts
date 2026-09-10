@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { GRID_H, GRID_W, isPathTile } from '../src/core/map';
+import { BATTLEFIELD_MAP_IDS, GRID_H, GRID_W, isPathTile } from '../src/core/map';
 import { drawRoyalGardenField, FIELD_TEXTURES, preloadFieldTextures } from '../src/game/fieldAssets';
 
 function scene(available = Object.values(FIELD_TEXTURES).map(({ key }) => key)) {
@@ -17,6 +17,15 @@ function scene(available = Object.values(FIELD_TEXTURES).map(({ key }) => key)) 
 }
 
 describe('royal garden static field assets', () => {
+  test.each(BATTLEFIELD_MAP_IDS)('%s draws only its actual path cells with the shared garden', (mapId) => {
+    const fake = scene();
+    expect(drawRoyalGardenField(fake as never, mapId, { x: 0, y: 0, tile: 22 })).toBe(true);
+    const expected = [];
+    for (let x = 0; x < GRID_W; x++) for (let y = 0; y < GRID_H; y++) {
+      if (isPathTile(x, y, mapId)) expected.push([x * 22, y * 22, FIELD_TEXTURES.path.key]);
+    }
+    expect(fake.add.image.mock.calls.slice(1)).toEqual(expected);
+  });
   test('preloads shared JPEG ground and PNG path without changing texture keys', () => {
     const fake = scene();
     preloadFieldTextures(fake as never);

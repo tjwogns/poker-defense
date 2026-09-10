@@ -24,9 +24,9 @@ export class BossHud {
       .setStrokeStyle(1, 0xe24b77, 0.72);
     const accent = scene.add.rectangle(x + 2, y + height / 2, 3, height - 4, 0xe24b77, 0.95);
     this.name = makeText(scene, x + 12, y + (portrait ? 8 : 6), '', portrait ? 14 : 12, UI.gold, true);
-    this.mechanic = makeText(scene, x + 12, y + (portrait ? 32 : 22), '', portrait ? 11 : 9, UI.textDim);
-    const hpX = portrait ? x + 222 : x + 268;
-    const hpWidth = portrait ? 136 : 152;
+    this.mechanic = makeText(scene, x + 12, y + (portrait ? 32 : 33), '', portrait ? 11 : 9, UI.textDim);
+    const hpX = x + 222;
+    const hpWidth = portrait ? 136 : 118;
     const hpBg = scene.add.rectangle(hpX, y + (portrait ? 18 : 12), hpWidth, 8, 0x000000, 0.8).setOrigin(0, 0.5);
     this.hpFg = scene.add.rectangle(hpX, y + (portrait ? 18 : 12), hpWidth, 8, 0xe24b77, 1).setOrigin(0, 0.5);
     this.hp = makeText(scene, hpX + hpWidth / 2, y + (portrait ? 31 : 22), '', portrait ? 10 : 9, UI.text).setOrigin(0.5);

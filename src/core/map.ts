@@ -10,7 +10,12 @@ export const CROSSROAD_INTERSECTION_TILE: Pt = { x: 8, y: 5 };
 export const CROSSROAD_INTERSECTION_RADIUS_TILES = 1.25;
 
 export interface Pt { x: number; y: number }
-export type MapId = 'classic-ring' | 'cross-road';
+export const BATTLEFIELD_MAP_IDS = ['cross-road', 'parallel-corridors', 'twin-gardens', 'inward-spiral'] as const;
+export type BattlefieldMapId = typeof BATTLEFIELD_MAP_IDS[number];
+export type MapId = 'classic-ring' | BattlefieldMapId;
+export function isBattlefieldMapId(value: unknown): value is BattlefieldMapId {
+  return BATTLEFIELD_MAP_IDS.some((id) => id === value);
+}
 
 interface MapDefinition {
   corners: readonly Pt[];
@@ -18,6 +23,18 @@ interface MapDefinition {
 }
 
 const MAPS: Record<MapId, MapDefinition> = {
+  'parallel-corridors': {
+    corners: [[2,1],[14,1],[14,3],[2,3],[2,5],[14,5],[14,7],[2,7],[2,9],[14,9]].map(([x,y]) => ({x,y})),
+    loop: false,
+  },
+  'twin-gardens': {
+    corners: [[6,5],[6,1],[2,1],[2,9],[6,9],[6,5],[10,5],[10,1],[14,1],[14,9],[10,9],[10,5]].map(([x,y]) => ({x,y})),
+    loop: false,
+  },
+  'inward-spiral': {
+    corners: [[2,1],[14,1],[14,9],[2,9],[2,3],[12,3],[12,7],[4,7],[4,5],[10,5]].map(([x,y]) => ({x,y})),
+    loop: false,
+  },
   'classic-ring': {
     corners: [
       { x: 1, y: 1 },
@@ -68,6 +85,9 @@ function mapSegments(mapId: MapId): Array<{ a: Pt; b: Pt; len: number }> {
 const MAP_SEGMENTS: Record<MapId, ReturnType<typeof mapSegments>> = {
   'classic-ring': mapSegments('classic-ring'),
   'cross-road': mapSegments('cross-road'),
+  'parallel-corridors': mapSegments('parallel-corridors'),
+  'twin-gardens': mapSegments('twin-gardens'),
+  'inward-spiral': mapSegments('inward-spiral'),
 };
 
 export function pathCorners(mapId: MapId = 'classic-ring'): readonly Pt[] {
@@ -102,7 +122,7 @@ export function pointAt(dist: number, mapId: MapId = 'classic-ring'): Pt {
 
 /** LIFE 교차로의 중앙 표식 범위 안에 있는 경로 거리인지 판정한다. */
 export function isInCrossroadIntersection(dist: number, mapId: MapId): boolean {
-  if (mapId !== 'cross-road') return false;
+  if (mapId === 'classic-ring') return false;
   const point = pointAt(dist, mapId);
   const center = tileCenter(CROSSROAD_INTERSECTION_TILE.x, CROSSROAD_INTERSECTION_TILE.y);
   return Math.hypot(point.x - center.x, point.y - center.y)
@@ -118,6 +138,9 @@ export function isPathTile(x: number, y: number, mapId: MapId = 'classic-ring'):
 /** 그리드 안이면서 경로가 아닌 타일 = 배치 가능 */
 export function isPlaceable(x: number, y: number, mapId: MapId = 'classic-ring'): boolean {
   if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return false;
+  if (mapId !== 'classic-ring' && mapId !== 'cross-road') {
+    return Number.isInteger(x) && Number.isInteger(y) && x >= 2 && x <= 14 && y >= 2 && y <= 9 && !isPathTile(x, y, mapId);
+  }
   if (mapId === 'cross-road') {
     const inLeftBlock = x >= 3 && x <= 7;
     const inRightBlock = x >= 9 && x <= 13;
@@ -157,7 +180,8 @@ export function recommendedPlacementTiles(
   const blocked = new Set(occupied.map((point) => `${point.x},${point.y}`));
   const centerX = (GRID_W - 1) / 2;
   const centerY = (GRID_H - 1) / 2;
-  const candidates: Array<Pt & { pathDistance: number; centerDistance: number }> = [];
+  const experimental = mapId !== 'classic-ring' && mapId !== 'cross-road';
+  const candidates: Array<Pt & { pathDistance: number; centerDistance: number; firstContact: number; exposure: number }> = [];
   for (let x = 0; x < GRID_W; x++) {
     for (let y = 0; y < GRID_H; y++) {
       if (
@@ -170,16 +194,52 @@ export function recommendedPlacementTiles(
         y,
         pathDistance: distanceToPathTiles(x, y, mapId),
         centerDistance: Math.hypot(x - centerX, y - centerY),
+        ...(experimental ? pathContact(x, y, rangeTiles, mapId) : { firstContact: 0, exposure: 0 }),
       });
     }
   }
   return candidates
-    .sort((a, b) => a.pathDistance - b.pathDistance
+    .sort((a, b) => a.firstContact - b.firstContact || b.exposure - a.exposure || a.pathDistance - b.pathDistance
       || a.centerDistance - b.centerDistance
       || a.y - b.y
       || a.x - b.x)
     .slice(0, Math.max(0, limit))
     .map(({ x, y }) => ({ x, y }));
+}
+
+const contactCache = new Map<string, { firstContact: number; exposure: number }>();
+/** Exact segment/circle intersection in tile units. Cached per static map/tile/range. */
+export function pathContact(x: number, y: number, range: number, mapId: MapId): { firstContact: number; exposure: number } {
+  const key = `${mapId}:${x}:${y}:${range}`;
+  const cached = contactCache.get(key);
+  if (cached) return cached;
+  let offset = 0;
+  let firstContact = Infinity;
+  let exposure = 0;
+  for (const { a, b, len } of MAP_SEGMENTS[mapId]) {
+    const length = len / TILE;
+    const ax = a.x / TILE - .5;
+    const ay = a.y / TILE - .5;
+    const dx = (b.x - a.x) / len;
+    const dy = (b.y - a.y) / len;
+    const projection = (x - ax) * dx + (y - ay) * dy;
+    const perpendicularSquared = (x - ax) ** 2 + (y - ay) ** 2 - projection ** 2;
+    if (perpendicularSquared <= range ** 2) {
+      const half = Math.sqrt(Math.max(0, range ** 2 - perpendicularSquared));
+      const start = Math.max(0, projection - half);
+      const end = Math.min(length, projection + half);
+      if (start <= end) {
+        firstContact = Math.min(firstContact, offset + start);
+        exposure += end - start;
+      }
+    }
+    offset += length;
+  }
+  const result = { firstContact, exposure };
+  // Public helper accepts arbitrary ranges; keep the optional cache bounded.
+  if (contactCache.size >= 4096) contactCache.clear();
+  contactCache.set(key, result);
+  return result;
 }
 
 function distanceToSegment(point: Pt, a: Pt, b: Pt): number {
